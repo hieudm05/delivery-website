@@ -2,13 +2,19 @@
 
 use App\Http\Controllers\Admin\AdminController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\Customer\CustomerController;
 use App\Http\Controllers\Drivers\DriverController;
 use Illuminate\Support\Facades\Route;
+
+// Trang chủ
+Route::get('/', function () {
+    return view('customer.index');
+})->name('home');
 
 // Auth
 Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
 Route::post('/login', [AuthController::class, 'login']);
-Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+Route::any('/logout', [AuthController::class, 'logout'])->name('logout');
 
 // Admin
 Route::prefix('admin')
@@ -24,8 +30,10 @@ Route::prefix('driver')
         Route::get('/', [DriverController::class, 'index'])->name('driver.index');
     });
 
-// Customer (hoặc trang chủ)
-Route::get('/', function () {
-    return view('welcome');
-})->name('home');
+// Customer
+Route::prefix('customer')
+    ->middleware(['auth', 'role:customer'])
+    ->group(function () {
+        
+    });
 
