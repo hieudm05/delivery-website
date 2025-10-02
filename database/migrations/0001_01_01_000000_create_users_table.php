@@ -12,28 +12,23 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('users', function (Blueprint $table) {
-            $table->id();
-            $table->string('name');
-            $table->string('email')->unique();
-            $table->timestamp('email_verified_at')->nullable();
-            $table->string('password');
-            $table->rememberToken();
-            $table->timestamps();
-        });
+            $table->bigIncrements('id'); // ID người dùng
+            $table->string('email', 255)->unique(); // Email đăng nhập
+            $table->string('phone', 20)->unique(); // Số điện thoại
+            $table->string('password_hash', 255); // Mật khẩu mã hóa
+            $table->string('full_name', 255); // Họ tên
 
-        Schema::create('password_reset_tokens', function (Blueprint $table) {
-            $table->string('email')->primary();
-            $table->string('token');
-            $table->timestamp('created_at')->nullable();
-        });
+            // ENUM role
+            $table->enum('role', ['customer', 'driver', 'admin'])->default('customer');
 
-        Schema::create('sessions', function (Blueprint $table) {
-            $table->string('id')->primary();
-            $table->foreignId('user_id')->nullable()->index();
-            $table->string('ip_address', 45)->nullable();
-            $table->text('user_agent')->nullable();
-            $table->longText('payload');
-            $table->integer('last_activity')->index();
+            // ENUM status
+            $table->enum('status', ['active', 'inactive', 'pending', 'rejected'])->default('pending');
+
+            $table->string('avatar_url', 500)->nullable(); // Link ảnh đại diện
+
+            $table->timestamp('created_at')->useCurrent(); // Thời gian tạo
+            $table->timestamp('updated_at')->useCurrent()->useCurrentOnUpdate(); // Thời gian cập nhật
+            $table->timestamp('last_login_at')->nullable(); // Lần đăng nhập cuối
         });
     }
 
@@ -43,7 +38,5 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('users');
-        Schema::dropIfExists('password_reset_tokens');
-        Schema::dropIfExists('sessions');
     }
 };
