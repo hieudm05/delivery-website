@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\AdminController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Customer\CustomerController;
+use App\Http\Controllers\Customer\Dashboard\DashboardCustomerController;
 use App\Http\Controllers\Drivers\DriverController;
 use Illuminate\Support\Facades\Route;
 
@@ -34,6 +35,8 @@ Route::prefix('driver')
 Route::prefix('customer')
     ->middleware(['auth', 'role:customer'])
     ->group(function () {
-        
+
+    // Dashboard
+    Route::get('/dashboard', [DashboardCustomerController::class, 'index'])->name('dashboard.index');
     });
 

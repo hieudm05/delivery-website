@@ -65,7 +65,7 @@
             </a>
             <ul>
               <li><a href="#">Trang cá nhân</a></li>
-              <li><a href="#">Cài đặt</a></li>
+              <li><a href="{{url('customer/dashboard')}}">Trang quản trị</a></li>
               <li><a href="{{ route('logout') }}"   
                 onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
                 Đăng xuất</a>
