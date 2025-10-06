@@ -7,4 +7,9 @@ class OrderController extends Controller
     {
         return view('customer.dashboard.orders.index');
     }
+    public function create()
+    {
+        // dd("Đã vào");
+        return view('customer.dashboard.orders.create');
+    }
 }
