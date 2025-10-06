@@ -17,6 +17,8 @@ class UserInfo extends Model
         'date_of_birth',
         'full_address',
         'address_detail',
+        'latitude',
+        'longitude',
         'province_code',
         'district_code',
         'ward_code',

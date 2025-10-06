@@ -18,8 +18,6 @@ class AccountController extends Controller
       public function update(Request $request)
     {
         try {
-            // Validate dữ liệu đầu vào
-            // dd($request->all());
             $provinceCode = $request->input('province_code');
             $districtCode = $request->input('district_code');
             $wardCode = $request->input('ward_code');
@@ -63,6 +61,8 @@ class AccountController extends Controller
                         : null,
                     'full_address'  => $fullAddress,
                     'address_detail' => $address,
+                    'latitude'      => $request->input('latitude'),
+                    'longitude'     => $request->input('longitude'),
                     'province_code' => $provinceCode,
                     'district_code' => $districtCode,
                     'ward_code'     => $wardCode,
