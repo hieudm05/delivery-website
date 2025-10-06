@@ -1,9 +1,9 @@
   <!--   Core JS Files   -->
-  <script src="../assets2/js/core/popper.min.js"></script>
-  <script src="../assets2/js/core/bootstrap.min.js"></script>
-  <script src="../assets2/js/plugins/perfect-scrollbar.min.js"></script>
-  <script src="../assets2/js/plugins/smooth-scrollbar.min.js"></script>
-  <script src="../assets2/js/plugins/chartjs.min.js"></script>
+  <script src="{{asset('assets2/js/core/popper.min.js')}}"></script>
+  <script src="{{asset('assets2/js/core/bootstrap.min.js')}}"></script>
+  <script src="{{asset('assets2/js/plugins/perfect-scrollbar.min.js')}}"></script>
+  <script src="{{asset('assets2/js/plugins/smooth-scrollbar.min.js')}}"></script>
+  <script src="{{asset('assets2/js/plugins/chartjs.min.js')}}"></script>
   <script>
     var ctx = document.getElementById("chart-bars").getContext("2d");
 
@@ -249,4 +249,4 @@
   <!-- Github buttons -->
   <script async defer src="https://buttons.github.io/buttons.js"></script>
   <!-- Control Center for Material Dashboard: parallax effects, scripts for the example pages etc -->
-  <script src="../assets2/js/material-dashboard.min.js?v=3.2.0"></script>
+  <script src="{{asset('assets2/js/material-dashboard.min.js?v=3.2.0')}}"></script>

@@ -48,9 +48,6 @@
           $parts = explode(' ', trim($user->full_name));
           $firstName = end($parts);
       }
-      $avatar = $user && $user->avatar_url
-                  ? $user->avatar_url
-                  : asset('images/default-avatar.png');
     @endphp
 
     @if($user)
@@ -60,7 +57,7 @@
           <li class="dropdown">
             <a href="#">
               <span class="fw-bold text-white">{{ $firstName }}</span>
-              <img src="{{ $avatar }}" alt="Avatar" width="35" height="35" class="rounded-circle ms-1">
+              <img src="{{ asset($user->avatar_url ? 'storage/' . $user->avatar_url : 'images/default-avatar.png') }}" alt="Avatar" width="35" height="35" class="rounded-circle ms-1">
               <i class="bi bi-chevron-down toggle-dropdown"></i>
             </a>
             <ul>

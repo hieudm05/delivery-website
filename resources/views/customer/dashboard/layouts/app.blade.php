@@ -92,5 +92,6 @@
     </div>
   </div>
   @include('customer.dashboard.blocks.js')
+  @include('customer.dashboard.blocks.alert')
 </body>
 </html>

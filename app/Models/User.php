@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Customer\Dashboard\Accounts\UserInfo;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -53,5 +54,9 @@ class User extends Authenticatable
     public function getAuthPassword()
     {
         return $this->password_hash;
+    }
+    // Quan hệ với UserInfo
+    public function userInfo() {
+        return $this->hasOne(UserInfo::class);
     }
 }
