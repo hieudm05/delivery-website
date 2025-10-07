@@ -9,6 +9,8 @@
             <form method="POST" action="{{ route('customer.account.update') }}" enctype="multipart/form-data">
                 @csrf
                 <input type="hidden" name="id" value="{{ $account->id }}">
+                <input type="hidden" id="latitude" name="latitude">
+                <input type="hidden" id="longitude" name="longitude">
               <div class="row">
               <div class="mb-3 col-md-4 text-center">
                 <div class="mt-2 d-flex flex-column align-items-center">
@@ -91,7 +93,7 @@
                             </div>
                         </div>
                         <div class="form-text text-muted" id="full-address"></div>
-                    </div>
+                </div>
              
                 <button type="submit" class="btn btn-success">Lưu thay đổi</button>
             </form>
@@ -105,150 +107,203 @@
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
-let vietnamData = [];
+    let vietnamData = [];
+    let geocodeTimeout = null;
+
+const GEOAPIFY_API_KEY = '{{ config("services.geoapify.api_key") }}';
 
 $(document).ready(function() {
+    // Load dữ liệu tỉnh thành
     $.get("https://provinces.open-api.vn/api/?depth=3", function(data) {
         vietnamData = data;
-        console.log('✅ Đã load xong:', data.length, 'tỉnh/thành');
         
+        // Populate tỉnh/thành
         let html = '<option value="">Tỉnh/Thành phố</option>';
         data.forEach(function(province) {
             html += `<option value="${province.code}">${province.name}</option>`;
         });
         $('#province-select').html(html);
-        // Nếu có tỉnh lưu trong DB, chọn nó
-        let savedProvinceCode = "{{ old('province_code', $account->userInfo->province_code ?? '') }}";
-        let savedDistrictCode = "{{ old('district_code', $account->userInfo->district_code ?? '') }}";
-        let savedWardCode = "{{ old('ward_code', $account->userInfo->ward_code ?? '') }}";
-        let addressDetail = "{{ old('address_detail', $account->userInfo->address_detail ?? '') }}";
-        if (savedProvinceCode) {
-            $('#province-select').val(savedProvinceCode).trigger('change');
-        }
-        if (addressDetail) {
-            $('#address-detail').val(addressDetail);
-        }
-        // Nếu có huyện lưu trong DB, chọn nó sau khi tỉnh đã được chọn
-        if (savedDistrictCode) {
-            setTimeout(function() {
-                $('#district-select').val(savedDistrictCode).trigger('change');
-            }, 500); // Chờ 500ms để đảm bảo tỉnh đã được chọn và quận/huyện đã được load
-        }
-        // Nếu có xã lưu trong DB, chọn nó sau khi huyện đã được chọn
-        if (savedWardCode) {
-            setTimeout(function() {
-                $('#ward-select').val(savedWardCode).trigger('change');
-            }, 1000); // Chờ 1s để đảm bảo huyện đã được chọn và phường/xã đã được load
-        }
-        updateFullAddress();
-
         
+        // Khôi phục dữ liệu cũ nếu có
+        restoreSavedAddress();
     });
     
-    // ========== EVENT: CHỌN TỈNH ==========
-    $('#province-select').on('change', function() {
-        console.log('🏙️ Chọn tỉnh...');
-        
-        let provinceCode = parseInt($(this).val());
-        
-        // Reset cả 2 dropdown
-        $('#district-select').html('<option value="">Quận/Huyện</option>').prop('disabled', true);
-        $('#ward-select').html('<option value="">Phường/Xã</option>').prop('disabled', true);
-        
-        if (!provinceCode || isNaN(provinceCode)) return;
-        
-        let province = vietnamData.find(p => p.code === provinceCode);
-        
-        if (province && province.districts && province.districts.length > 0) {
-            let html = '<option value="">Quận/Huyện</option>';
-            province.districts.forEach(function(district) {
-                html += `<option value="${district.code}">${district.name}</option>`;
-            });
-            
-            $('#district-select').html(html).prop('disabled', false);
-            console.log('✅ Đã enable Quận/Huyện, có', province.districts.length, 'quận/huyện');
-        }
-        updateFullAddress();
-    });
-    
-    // ========== EVENT: CHỌN HUYỆN ==========
-    $('#district-select').on('change', function() {
-        let districtCode = parseInt($(this).val());
-        let provinceCode = parseInt($('#province-select').val());
-        
-        // Reset ward
-        $('#ward-select').html('<option value="">Phường/Xã</option>').prop('disabled', true);
-        
-        if (!districtCode || isNaN(districtCode)) {
-            console.log('❌ District code không hợp lệ');
-            return;
-        }
-        
-        // Tìm tỉnh
-        let province = vietnamData.find(p => p.code === provinceCode);
-        
-        if (province) {
-            // Tìm huyện
-            let district = province.districts.find(d => d.code === districtCode);
-            console.log('Tìm thấy huyện:', district ? district.name : 'KHÔNG');
-            
-            if (district) {
-                console.log('Số wards:', district.wards ? district.wards.length : 0);
-                
-                if (district.wards && district.wards.length > 0) {
-                    let html = '<option value="">Phường/Xã</option>';
-                    district.wards.forEach(function(ward) {
-                        html += `<option value="${ward.code}">${ward.name}</option>`;
-                    });
-                    $('#ward-select').html(html).prop('disabled', false);
-                } else {
-                    console.log('❌ District không có wards');
-                }
-            } else {
-                console.log('❌ Không tìm thấy district');
-            }
-        } else {
-            console.log('❌ Không tìm thấy province');
-        }
-        updateFullAddress();
-    });
-    
-    // Khi chọn xã hoặc nhập chi tiết
-    $('#ward-select, #address-detail').on('change keyup', function() {
-        updateFullAddress();
-    });
+    // Event handlers
+    $('#province-select').on('change', handleProvinceChange);
+    $('#district-select').on('change', handleDistrictChange);
+    $('#ward-select').on('change', updateFullAddressWithDebounce);
+    $('#address-detail').on('keyup', updateFullAddressWithDebounce);
 });
 
-// Hàm cập nhật địa chỉ đầy đủ
-function updateFullAddress() {
-    let detail = $('#address-detail').val().trim();
-    let wardText = $('#ward-select option:selected').text();
-    let districtText = $('#district-select option:selected').text();
-    let provinceText = $('#province-select option:selected').text();
-
-    let address = '';
-    if (detail) address += detail + ', ';
-    if ($('#ward-select').val() && wardText !== 'Phường/Xã') address += wardText + ', ';
-    if ($('#district-select').val() && districtText !== 'Quận/Huyện') address += districtText + ', ';
-    if ($('#province-select').val() && provinceText !== 'Tỉnh/Thành phố') address += provinceText;
-
-    $('#full-address').text(address.replace(/, $/, ''));
-}
-</script>
-{{-- Xử lí phần hiện ảnh --}}
-<script>
-    function previewAvatar(input){
-        if(input.files && input.files[0]) {
-            var reader = new FileReader();
-            reader.onload = function(e) {
-                $('#avatar-preview').attr('src', e.target.result);
-            }
-            reader.readAsDataURL(input.files[0]);
-        }
+// Khôi phục địa chỉ đã lưu
+function restoreSavedAddress() {
+    const savedProvinceCode = "{{ old('province_code', $account->userInfo->province_code ?? '') }}";
+    const savedDistrictCode = "{{ old('district_code', $account->userInfo->district_code ?? '') }}";
+    const savedWardCode = "{{ old('ward_code', $account->userInfo->ward_code ?? '') }}";
+    const addressDetail = "{{ old('address_detail', $account->userInfo->address_detail ?? '') }}";
+    
+    if (savedProvinceCode) {
+        $('#province-select').val(savedProvinceCode).trigger('change');
     }
-</script>
-{{-- Customs ngày tháng năm --}}
-<script>
+    
+    if (addressDetail) {
+        $('#address-detail').val(addressDetail);
+    }
+    
+    if (savedDistrictCode) {
+        setTimeout(() => {
+            $('#district-select').val(savedDistrictCode).trigger('change');
+        }, 500);
+    }
+    
+    if (savedWardCode) {
+        setTimeout(() => {
+            $('#ward-select').val(savedWardCode).trigger('change');
+        }, 1000);
+    }
+}
+
+// Xử lý khi chọn tỉnh
+function handleProvinceChange() {
+    const provinceCode = parseInt($(this).val());
+    
+    // Reset quận/huyện và phường/xã
+    $('#district-select').html('<option value="">Quận/Huyện</option>').prop('disabled', true);
+    $('#ward-select').html('<option value="">Phường/Xã</option>').prop('disabled', true);
+    
+    if (!provinceCode || isNaN(provinceCode)) {
+        updateFullAddressWithDebounce();
+        return;
+    }
+    
+    const province = vietnamData.find(p => p.code === provinceCode);
+    
+    if (province?.districts?.length > 0) {
+        let html = '<option value="">Quận/Huyện</option>';
+        province.districts.forEach(district => {
+            html += `<option value="${district.code}">${district.name}</option>`;
+        });
+        $('#district-select').html(html).prop('disabled', false);
+    }
+    
+    updateFullAddressWithDebounce();
+}
+
+// Xử lý khi chọn quận/huyện
+function handleDistrictChange() {
+    const districtCode = parseInt($(this).val());
+    const provinceCode = parseInt($('#province-select').val());
+    
+    // Reset phường/xã
+    $('#ward-select').html('<option value="">Phường/Xã</option>').prop('disabled', true);
+    
+    if (!districtCode || isNaN(districtCode)) {
+        updateFullAddressWithDebounce();
+        return;
+    }
+    
+    const province = vietnamData.find(p => p.code === provinceCode);
+    if (!province) {
+        updateFullAddressWithDebounce();
+        return;
+    }
+    
+    const district = province.districts.find(d => d.code === districtCode);
+    
+    if (district?.wards?.length > 0) {
+        let html = '<option value="">Phường/Xã</option>';
+        district.wards.forEach(ward => {
+            html += `<option value="${ward.code}">${ward.name}</option>`;
+        });
+        $('#ward-select').html(html).prop('disabled', false);
+    }
+    
+    updateFullAddressWithDebounce();
+}
+
+// Debounce để tránh gọi API liên tục
+function updateFullAddressWithDebounce() {
+    clearTimeout(geocodeTimeout);
+    geocodeTimeout = setTimeout(updateFullAddress, 800);
+}
+
+// Cập nhật địa chỉ đầy đủ và lấy tọa độ
+function updateFullAddress() {
+    const detail = $('#address-detail').val().trim();
+    const wardText = $('#ward-select option:selected').text();
+    const districtText = $('#district-select option:selected').text();
+    const provinceText = $('#province-select option:selected').text();
+
+    let addressParts = [];
+    
+    if (detail) addressParts.push(detail);
+    if ($('#ward-select').val() && wardText !== 'Phường/Xã') addressParts.push(wardText);
+    if ($('#district-select').val() && districtText !== 'Quận/Huyện') addressParts.push(districtText);
+    if ($('#province-select').val() && provinceText !== 'Tỉnh/Thành phố') addressParts.push(provinceText);
+
+    const fullAddress = addressParts.join(', ');
+    $('#full-address').text(fullAddress || 'Chưa có địa chỉ đầy đủ');
+
+    // Chỉ gọi API khi có ít nhất tỉnh + huyện
+    if ($('#province-select').val() && $('#district-select').val()) {
+        fetchCoordinates(fullAddress);
+    } else {
+        // Reset tọa độ nếu chưa đủ thông tin
+        $('#latitude').val('');
+        $('#longitude').val('');
+    }
+}
+
+// Gọi API Geoapify để lấy tọa độ
+function fetchCoordinates(address) {
+    if (!GEOAPIFY_API_KEY || GEOAPIFY_API_KEY === '') {
+        return;
+    }
+
+    // Hiển thị trạng thái đang tải
+    $('#full-address').html(`${address} <span class="spinner-border spinner-border-sm ms-2" role="status"></span>`);
+
+    const url = `https://api.geoapify.com/v1/geocode/search?text=${encodeURIComponent(address)}&filter=countrycode:vn&limit=1&apiKey=${GEOAPIFY_API_KEY}`;
+
+    fetch(url)
+        .then(res => {
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            return res.json();
+        })
+        .then(data => {
+            if (data.features?.length > 0) {
+                const [lon, lat] = data.features[0].geometry.coordinates;
+                
+                $('#latitude').val(lat.toFixed(6));
+                $('#longitude').val(lon.toFixed(6));
+                
+                $('#full-address').html(`${address} <span class="text-success ms-2">✓</span>`);
+                console.log('📍 Tọa độ:', { lat, lon });
+            } else {
+                console.warn('⚠️ Không tìm thấy tọa độ');
+                $('#latitude').val('');
+                $('#longitude').val('');
+                $('#full-address').html(`${address} <span class="text-warning ms-2">⚠ Không tìm thấy tọa độ</span>`);
+            }
+        })
+        .catch(err => {
+            console.error('❌ Lỗi Geoapify:', err);
+            $('#full-address').html(`${address} <span class="text-danger ms-2">✗ Lỗi lấy tọa độ</span>`);
+        });
+}
+
+// Preview avatar
+function previewAvatar(input) {
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            $('#avatar-preview').attr('src', e.target.result);
+        }
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+
+// Flatpickr cho ngày sinh
 $(document).ready(function() {
     flatpickr("#date-of-birth", {
         dateFormat: "d/m/Y",
@@ -257,9 +312,7 @@ $(document).ready(function() {
         altFormat: "d/m/Y",
         allowInput: true,
         yearRange: [1900, new Date().getFullYear()],
-        // defaultDate: "{{ old('date_of_birth', $account->date_of_birth ? \Carbon\Carbon::parse($account->date_of_birth)->format('d/m/Y') : '') }}",
-        monthSelectorType: "static",
-        
+        monthSelectorType: "static"
     });
 });
 </script>

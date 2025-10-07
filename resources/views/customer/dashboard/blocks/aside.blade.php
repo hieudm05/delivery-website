@@ -9,16 +9,16 @@
     <div class="collapse navbar-collapse  w-auto " id="sidenav-collapse-main">
       <ul class="navbar-nav">
         <li class="nav-item">
-          <a class="nav-link active bg-gradient-dark text-white" href="../pages/dashboard.html">
-            <i class="material-symbols-rounded opacity-5">dashboard</i>
-            <span class="nav-link-text ms-1">Trang chủ</span>
+          <a class="nav-link {{ request()->routeIs('customer.dashboard.index') ? 'active bg-gradient-dark text-white' : 'text-dark' }}" href="{{ route('customer.dashboard.index') }}">
+              <i class="material-symbols-rounded opacity-5">dashboard</i>
+              <span class="nav-link-text ms-1">Trang chủ</span>
           </a>
         </li>
         <li class="nav-item mt-3">
           <h5 class="ps-4 ms-2 text-uppercase text-xs text-dark font-weight-bolder opacity-5">Đơn hàng</h5>
         </li>
         <li class="nav-item">
-          <a class="nav-link text-dark" href="{{ route('customer.orders.create') }}">
+          <a class="nav-link {{request()->routeIs('customer.orders.create') ? 'active bg-gradient-dark text-white' : 'text-dark'}}" href="{{ route('customer.orders.create') }}">
             <i class="material-symbols-rounded opacity-5">person</i>
             <span class="nav-link-text ms-1">Tạo đơn</span>
           </a>
@@ -27,10 +27,14 @@
           <h5 class="ps-4 ms-2 text-uppercase text-xs text-dark font-weight-bolder opacity-5">Cài đặt tài khoản</h5>
         </li>
         <li class="nav-item">
-          <a class="nav-link text-dark" href="{{ route('customer.account.index') }}">
+         <a class="nav-link {{ request()->routeIs('customer.account.index') ? 'active bg-gradient-dark text-white' : 'text-dark' }}" href="{{ route('customer.account.index') }}">
             <i class="material-symbols-rounded opacity-5">person</i>
             <span class="nav-link-text ms-1">Thông tin tài khoản</span>
-          </a>
+        </a>
+        <a class="nav-link {{ request()->routeIs('customer.account.product') ? 'active bg-gradient-dark text-white' : 'text-dark' }}" href="{{ route('customer.account.product') }}">
+            <i class="material-symbols-rounded opacity-5">person</i>
+            <span class="nav-link-text ms-1">Dách sách hàng hoá</span>
+        </a>
         </li>
         <li class="nav-item">
           <a class="nav-link text-dark" href="../pages/sign-in.html">

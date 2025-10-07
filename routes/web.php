@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\AdminController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Customer\Dashboard\Accounts\AccountController;
+use App\Http\Controllers\Customer\Dashboard\Accounts\ProductController;
 use App\Http\Controllers\Customer\Dashboard\DashboardCustomerController;
 use App\Http\Controllers\Customer\Dashboard\Orders\OrderController;
 use App\Http\Controllers\Drivers\DriverController;
@@ -40,13 +41,22 @@ Route::prefix('customer')
 
     // Dashboard
     Route::get('dashboard', [DashboardCustomerController::class, 'index'])->name('dashboard.index');
+
     // Quản lý tài khoản
     Route::prefix('account')
     ->name('account.')
     ->group( function () {
+        // Cập nhật tài khoản
         Route::get('/', [AccountController::class, 'index'])->name('index');
-         Route::post('update', [AccountController::class, 'update'])->name('update');
+        Route::post('update', [AccountController::class, 'update'])->name('update');
+        // Hàng hoá
+        Route::get('product', [ProductController::class, 'index'])->name('product');
+        Route::post('product', [ProductController::class, 'store'])->name('product.store');
+        Route::get('product-show/{id}', [ProductController::class, 'show'])->name('product.show');
+        Route::put('product-update/{id}', [ProductController::class, 'update'])->name('product.update');
+        Route::delete('product/{id}', [ProductController::class, 'destroy'])->name('product.destroy');
     });
+
     // Quản lý đơn hàng
     Route::prefix('orders')
     ->name('orders.')
