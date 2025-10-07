@@ -17,7 +17,6 @@
   <!-- CSS Files -->
   <link id="pagestyle" href="{{asset('assets2/css/material-dashboard.css?v=3.2.0')}}" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-
    <style>
 .form-control, .form-select {
     border: 1px solid #dee2e6 !important;

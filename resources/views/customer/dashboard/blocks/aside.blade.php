@@ -31,6 +31,10 @@
             <i class="material-symbols-rounded opacity-5">person</i>
             <span class="nav-link-text ms-1">Thông tin tài khoản</span>
         </a>
+        <a class="nav-link {{ request()->routeIs('customer.account.product') ? 'active bg-gradient-dark text-white' : 'text-dark' }}" href="{{ route('customer.account.product') }}">
+            <i class="material-symbols-rounded opacity-5">person</i>
+            <span class="nav-link-text ms-1">Dách sách hàng hoá</span>
+        </a>
         </li>
         <li class="nav-item">
           <a class="nav-link text-dark" href="../pages/sign-in.html">

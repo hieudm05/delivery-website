@@ -29,7 +29,7 @@
   --bs-gray-700: #404040;
   --bs-gray-800: #262626;
   --bs-gray-900: #171717;
-  --bs-primary: #e91e63;
+  --bs-primary: #E91E63;
   --bs-secondary: #737373;
   --bs-success: #4CAF50;
   --bs-info: #1A73E8;
@@ -26214,7 +26214,7 @@ hr.horizontal.gray-light {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #737373;
+  color: black;
   padding: 0;
   margin: 0 3px;
   border-radius: 50% !important;

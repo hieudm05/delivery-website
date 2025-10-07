@@ -87,7 +87,6 @@ class AccountController extends Controller
             return back()->with('success', 'Cập nhật thông tin thành công!');
         } catch (\Throwable $th) {
             // Trả về thông báo cho người dùng
-            dd($th);
             return back()->with('error', 'Đã xảy ra lỗi khi cập nhật thông tin. Vui lòng thử lại sau.');
         }
     }

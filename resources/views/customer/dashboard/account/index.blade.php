@@ -93,7 +93,7 @@
                             </div>
                         </div>
                         <div class="form-text text-muted" id="full-address"></div>
-                    </div>
+                </div>
              
                 <button type="submit" class="btn btn-success">Lưu thay đổi</button>
             </form>
@@ -108,7 +108,7 @@
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
     let vietnamData = [];
-let geocodeTimeout = null;
+    let geocodeTimeout = null;
 
 const GEOAPIFY_API_KEY = '{{ config("services.geoapify.api_key") }}';
 
