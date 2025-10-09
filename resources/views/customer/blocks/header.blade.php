@@ -57,7 +57,11 @@
           <li class="dropdown">
             <a href="#">
               <span class="fw-bold text-white">{{ $firstName }}</span>
-              <img src="{{ asset($user->avatar_url ? 'storage/' . $user->avatar_url : 'images/default-avatar.png') }}" alt="Avatar" width="35" height="35" class="rounded-circle ms-1">
+              @if($user->avatar_url)
+                <img src="{{ asset('storage/' . $user->avatar_url) }}" alt="Avatar" width="35" height="35" class="rounded-circle ms-1">
+              @else
+               <span></span>
+              @endif
               <i class="bi bi-chevron-down toggle-dropdown"></i>
             </a>
             <ul>

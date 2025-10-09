@@ -35,12 +35,19 @@
 
               <div class="card-body px-3 pt-3 pb-2">
                 <div>
-                  <select class="form-select mb-3" aria-label="Default select example">
-                    @php
+                   @php
                       $account = $user;
                     @endphp
+                     @if (!$account || !$account->userInfo)
+                      <a style="color:red !important;text-decoration: underline;" href="{{url('/customer/account')}}">Cập nhật thông tin tài khoản...</a>
+                    @else
+                  <select class="form-select mb-3" aria-label="Default select example">
+                   
                     <option selected>Chọn thông tin người gửi</option>
+                   
+                      
                     <option>{{ $account->full_name }} - {{ $account->userInfo->full_address}} - {{ $account->phone }}</option>
+                    @endif
                   </select>
                 </div>
 
@@ -138,7 +145,10 @@
             <div class="row g-3">
               <div class="col-12">
                 <label class="form-label">Tên hàng <span class="text-danger">*</span></label>
-                <select class="form-select mb-3" id="product-select" aria-label="Default select example">
+                @if (!$products || $products->isEmpty())
+                  <a style="color:red !important;text-decoration: underline;" href="{{url('/customer/account/product')}}">Thêm hàng hoá...</a>
+                @else
+                   <select class="form-select mb-3" id="product-select" aria-label="Default select example">
                   <option value="">--Nhập tên hàng hoá--</option>
                   @foreach ($products as $product)
                     <option value="{{ $product->id }}"
@@ -152,6 +162,8 @@
                     </option>
                   @endforeach
                 </select>
+                @endif
+               
               </div>
 
               <div class="col-md-4">
