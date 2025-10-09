@@ -1,9 +1,9 @@
-@extends('.customer.layouts.app')
+@extends('.layoutHome.layouts.app')
 @section('content')
       <!-- Hero Section -->
     <section id="hero" class="hero section dark-background">
 
-    @include('customer.blocks.banner')
+    @include('layoutHome.blocks.banner')
 
     </section>
     <!-- /Hero Section -->
