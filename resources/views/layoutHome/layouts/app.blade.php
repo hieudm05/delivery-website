@@ -2,13 +2,13 @@
 <html lang="en">
 
 <head>
-    @include('customer.blocks.head')
+    @include('layoutHome.blocks.head')
 </head>
 
 <body class="index-page">
 
   <header id="header" class="header d-flex align-items-center fixed-top">
-    @include('customer.blocks.header')
+    @include('layoutHome.blocks.header')
   </header>
 
   <main class="main">
@@ -18,7 +18,7 @@
   </main>
 
   <footer id="footer" class="footer dark-background">
-    @include('customer.blocks.footer')
+    @include('layoutHome.blocks.footer')
   </footer>
 
   <!-- Scroll Top -->
@@ -27,7 +27,7 @@
   <!-- Preloader -->
   <div id="preloader"></div>
 
-    @include('customer.blocks.js')
+    @include('layoutHome.blocks.js')
 
 </body>
 

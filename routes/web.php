@@ -22,6 +22,9 @@ Route::any('/logout', [AuthController::class, 'logout'])->name('logout');
 Route::get('/register', [AuthController::class, 'showRegisterForm'])->name('register');
 Route::post('/register', [AuthController::class, 'register']);
 
+// Ứng tuyển tài xế
+ Route::get('apply', [DriverController::class, 'create'])->name('driver.apply');
+ Route::post('apply', [DriverController::class, 'store'])->name('driver.store');
 // Admin
 Route::prefix('admin')
     ->middleware(['auth', 'role:admin'])
