@@ -25,22 +25,21 @@ class AuthController extends Controller
         $request->validate([
             'full_name' => 'required|string|max:255',
             'email'     => 'required|string|email|max:255|unique:users',
-            'phone'     => 'required|string|max:20|unique:users',
             'password'  => 'required|string|min:6|confirmed',
         ]);
+        
 
         $user = User::create([
             'full_name'     => $request->full_name,
             'email'         => $request->email,
-            'phone'         => $request->phone,
             'password_hash' => Hash::make($request->password),
             'role'          => 'customer',
-            'status'        => 'pending',
+            'status'        => 'active',
         ]);
 
         Auth::login($user);
 
-        return redirect()->route('/')->with('success', 'Đăng ký thành công!');
+        return redirect()->route('home')->with('success', 'Đăng ký thành công!');
     }
 
     /**
@@ -50,6 +49,7 @@ class AuthController extends Controller
     {
         return view('auth.login');
     }
+
 
     /**
      * Xử lý đăng nhập.
