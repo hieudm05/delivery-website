@@ -62,6 +62,8 @@ Route::prefix('customer')
     ->name('orders.')
     ->group( function () {
         Route::get('create', [OrderController::class, 'create'])->name('create');
+        Route::post('calculate', [OrderController::class, 'calculate'])->name('calculate');
+        Route::get('/api/post-offices', [OrderController::class, 'getNearby'])->name('getNearby');
     });
     });
 
