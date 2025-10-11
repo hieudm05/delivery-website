@@ -66,7 +66,13 @@
             </a>
             <ul>
               <li><a href="#">Trang cá nhân</a></li>
-              <li><a href="{{url('customer/dashboard')}}">Trang quản trị</a></li>
+              @if ($user && $user->role ==="customer")
+                 <li><a href="{{url('customer/dashboard')}}">Trang quản trị</a></li>
+              @elseif($user && $user->role ==="admin")
+                 <li><a href="{{url('admin/')}}">Trang quản trị</a></li>
+              @else
+                <span></span>
+              @endif
               <li><a href="{{ route('logout') }}"   
                 onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
                 Đăng xuất</a>
