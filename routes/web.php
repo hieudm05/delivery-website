@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\AdminController;
+use App\Http\Controllers\Admin\Driver\AdminDriverController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Customer\Dashboard\Accounts\AccountController;
 use App\Http\Controllers\Customer\Dashboard\Accounts\ProductController;
@@ -28,8 +29,13 @@ Route::post('/register', [AuthController::class, 'register']);
 // Admin
 Route::prefix('admin')
     ->middleware(['auth', 'role:admin'])
+    ->name('admin.')
     ->group(function () {
-        Route::get('/', [AdminController::class, 'index'])->name('admin.index');
+        Route::get('/', [AdminController::class, 'index'])->name('index');
+        // Duyệt hồ sơ tài xế
+        Route::get('/driver', [AdminDriverController::class, 'index'])->name('driver.index');
+        Route::get('/driver/{id}', [AdminDriverController::class, 'show'])->name('driver.show');
+        Route::get('/driver/{id}/approve', [AdminDriverController::class, 'approve'])->name('driver.approve');
     });
 
 // Driver

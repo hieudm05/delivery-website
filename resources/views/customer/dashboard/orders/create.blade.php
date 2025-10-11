@@ -334,14 +334,15 @@
 
 @endsection
 
-@push('scripts')
+{{-- @push('scripts') --}}
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
-$(document).ready(function() {
-    // Load dữ liệu tỉnh thành
+      // Load dữ liệu tỉnh thành
     let vietnamData = [];
     let geocodeTimeout = null;
     const GEOAPIFY_API_KEY = '{{ config("services.geoapify.api_key") }}';
+$(document).ready(function() {
+
 
     $.get("https://provinces.open-api.vn/api/?depth=3", function(data) {
         vietnamData = data;
@@ -353,8 +354,6 @@ $(document).ready(function() {
         });
         $('#province-select').html(html);
         
-        // Khôi phục dữ liệu cũ nếu có
-        restoreSavedAddress();
     });
     
     // Event handlers for address
@@ -440,33 +439,6 @@ $(document).ready(function() {
     }
 });
 
-// Khôi phục địa chỉ đã lưu
-function restoreSavedAddress() {
-    const savedProvinceCode = "{{ old('province_code', $account->userInfo->province_code ?? '') }}";
-    const savedDistrictCode = "{{ old('district_code', $account->userInfo->district_code ?? '') }}";
-    const savedWardCode = "{{ old('ward_code', $account->userInfo->ward_code ?? '') }}";
-    const addressDetail = "{{ old('address_detail', $account->userInfo->address_detail ?? '') }}";
-    
-    if (savedProvinceCode) {
-        $('#province-select').val(savedProvinceCode).trigger('change');
-    }
-    
-    if (addressDetail) {
-        $('#address-detail').val(addressDetail);
-    }
-    
-    if (savedDistrictCode) {
-        setTimeout(() => {
-            $('#district-select').val(savedDistrictCode).trigger('change');
-        }, 500);
-    }
-    
-    if (savedWardCode) {
-        setTimeout(() => {
-            $('#ward-select').val(savedWardCode).trigger('change');
-        }, 1000);
-    }
-}
 
 // Xử lý khi chọn tỉnh
 function handleProvinceChange() {
@@ -592,5 +564,5 @@ function fetchCoordinates(address) {
         });
 }
 </script>
-<script src="{{ asset('assets2/js/customer/dashboard/orders/fetchNearbyPostOffices.js') }}"></script>
-@endpush
+{{-- <script src="{{ asset('assets2/js/customer/dashboard/orders/fetchNearbyPostOffices.js') }}"></script> --}}
+{{-- @endpush --}}
