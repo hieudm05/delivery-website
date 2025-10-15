@@ -1,29 +1,32 @@
 <?php
 namespace App\Models\Customer\Dashboard\Orders;
 
-use App\Models\User;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Order extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
-        'sender_id', 'receiver_name', 'receiver_phone', 'receiver_address',
-        'province_code', 'district_code', 'ward_code',
-        'weight', 'length', 'width', 'height',
-        'service_type', 'cod_amount', 'total_amount', 'status'
+        'sender_id', 'sender_name', 'sender_phone', 'sender_address',
+        'sender_latitude', 'sender_longitude', 'post_office_id', 'pickup_time',
+        'recipient_name', 'recipient_phone', 'province_code', 'district_code',
+        'ward_code', 'address_detail', 'recipient_latitude', 'recipient_longitude',
+        'recipient_full_address', 'delivery_time', 'item_type', 'services',
+        'cod_amount', 'note', 'products_json', 'save_address', 'status'
     ];
 
-    public function items() {
-        return $this->hasMany(OrderItem::class);
-    }
+    protected $casts = [
+        'services' => 'array',
+        'products_json' => 'array',
+        'save_address' => 'boolean',
+        'pickup_time' => 'datetime',
+        'delivery_time' => 'datetime',
+    ];
 
-    public function extraServices() {
-        return $this->belongsToMany(ExtraService::class, 'order_extra_service')
-                    ->withPivot('amount')
-                    ->withTimestamps();
-    }
-
-    public function sender() {
-        return $this->belongsTo(User::class, 'sender_id');
+    public function products()
+    {
+        return $this->hasMany(OrderProduct::class);
     }
 }
