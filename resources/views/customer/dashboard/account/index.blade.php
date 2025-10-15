@@ -1,4 +1,3 @@
-<!-- Bạn có thể đặt vào file: resources/views/customer/dashboard/account/index.blade.php -->
 @extends('customer.dashboard.layouts.app')
 @section('title', 'Cấu hình tài khoản')
 @section('content')
@@ -102,7 +101,6 @@
 </div>
 @endsection
 
-{{-- @push('scripts') --}}
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -110,7 +108,7 @@
     let vietnamData = [];
     let geocodeTimeout = null;
 
-const GEOAPIFY_API_KEY = '{{ config("services.geoapify.api_key") }}';
+const GOONG_API_KEY = '{{ config("services.goong.api_key") }}';
 
 $(document).ready(function() {
     // Load dữ liệu tỉnh thành
@@ -254,16 +252,17 @@ function updateFullAddress() {
     }
 }
 
-// Gọi API Geoapify để lấy tọa độ
+// Gọi API Goong để lấy tọa độ
 function fetchCoordinates(address) {
-    if (!GEOAPIFY_API_KEY || GEOAPIFY_API_KEY === '') {
+    if (!GOONG_API_KEY || GOONG_API_KEY === '') {
+        console.warn('⚠️ Chưa cấu hình Goong API Key');
         return;
     }
 
     // Hiển thị trạng thái đang tải
     $('#full-address').html(`${address} <span class="spinner-border spinner-border-sm ms-2" role="status"></span>`);
 
-    const url = `https://api.geoapify.com/v1/geocode/search?text=${encodeURIComponent(address)}&filter=countrycode:vn&limit=1&apiKey=${GEOAPIFY_API_KEY}`;
+    const url = `https://rsapi.goong.io/geocode?address=${encodeURIComponent(address)}&api_key=${GOONG_API_KEY}`;
 
     fetch(url)
         .then(res => {
@@ -271,14 +270,16 @@ function fetchCoordinates(address) {
             return res.json();
         })
         .then(data => {
-            if (data.features?.length > 0) {
-                const [lon, lat] = data.features[0].geometry.coordinates;
+            if (data.results?.length > 0) {
+                const location = data.results[0].geometry.location;
+                const lat = location.lat;
+                const lng = location.lng;
                 
                 $('#latitude').val(lat.toFixed(6));
-                $('#longitude').val(lon.toFixed(6));
+                $('#longitude').val(lng.toFixed(6));
                 
                 $('#full-address').html(`${address} <span class="text-success ms-2">✓</span>`);
-                console.log('📍 Tọa độ:', { lat, lon });
+                console.log('📍 Tọa độ Goong:', { lat, lng });
             } else {
                 console.warn('⚠️ Không tìm thấy tọa độ');
                 $('#latitude').val('');
@@ -287,7 +288,7 @@ function fetchCoordinates(address) {
             }
         })
         .catch(err => {
-            console.error('❌ Lỗi Geoapify:', err);
+            console.error('❌ Lỗi Goong API:', err);
             $('#full-address').html(`${address} <span class="text-danger ms-2">✗ Lỗi lấy tọa độ</span>`);
         });
 }
@@ -316,4 +317,3 @@ $(document).ready(function() {
     });
 });
 </script>
-{{-- @endpush --}}

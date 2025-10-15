@@ -37,5 +37,8 @@ return [
     'geoapify' => [
         'api_key' => env('GEOAPIFY_API_KEY'),
     ],
+    'goong' => [
+    'api_key' => env('GOONG_API_KEY'),
+],
 
 ];
