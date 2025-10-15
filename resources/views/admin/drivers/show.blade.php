@@ -52,9 +52,9 @@
                 <a href="{{ route('admin.driver.index') }}" class="btn btn-secondary">Quay lại</a>
             </form>
             @else
-                <div class="alert alert-success">
+                {{-- <div class="alert alert-success">
                     Hồ sơ này đã được duyệt vào lúc {{ $driver->approved_at ? $driver->approved_at->format('d/m/Y H:i') : '...' }}.
-                </div>
+                </div> --}}
                 <a href="{{ route('admin.driver.index') }}" class="btn btn-secondary">Quay lại danh sách</a>
             @endif
         </div>

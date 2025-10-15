@@ -22,6 +22,7 @@ class DriverController extends Controller
     public function store(Request $request)
 {
     // dd($request->all());
+    // dd($request->all());
     $request->validate([
         'full_name' => 'required|string|max:255',
         'phone' => 'required|string|max:20',
@@ -32,6 +33,7 @@ class DriverController extends Controller
         'identity_image' => 'nullable|image|max:2048',
         'experience' => 'nullable|string',
     ]);
+
     // dd($request->input('vehicle_type'));
     // Kiểm tra xem email đã có trong bảng users chưa
     $existingUser = User::where('email', $request->email)->first();

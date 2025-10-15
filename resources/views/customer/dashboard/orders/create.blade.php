@@ -113,7 +113,7 @@
                 <label class="form-label">Chọn thông tin người gửi</label>
                 <select class="form-select" id="sender-select" name="sender_id" required>
                   <option value="">-- Chọn người gửi --</option>
-                  <option value="account" 
+                  <option value="{{ $account->id }}" 
                           data-name="{{ $account->full_name }}"
                           data-phone="{{ $account->phone }}"
                           data-lat="{{ $account->userInfo->latitude ?? '' }}" 
@@ -963,9 +963,10 @@ $('#product-select').on('change', function() {
 
 // ✅ TÍNH PREVIEW KHI THAY ĐỔI SỐ LƯỢNG/KHỐI LƯỢNG/GIÁ TRỊ (trước khi thêm)
 $('#quantity, #weight, #value, #doc-quantity, #doc-weight, #doc-value').on('input', function() {
-    if (productsList.length > 0) {
-        // Đã có sản phẩm trong list → Không tính preview, chờ user nhấn "Thêm hàng"
-        return;
+    if (productsList.length === 0) {
+        $('#baseCost').text('Chưa có sản phẩm');
+        $('#extraCost').text('0 đ');
+        $('#tongCuoc').text('Vui lòng thêm hàng hóa');
     }
     
     // Chưa có sản phẩm → Hiển thị preview
@@ -1230,85 +1231,57 @@ function setupEventHandlers() {
 }
 
 function calculateCost() {
-    console.log('🧮 calculateCost() được gọi. Số sản phẩm:', productsList.length);
+    console.log('🧮 Tính cước cho', productsList.length, 'sản phẩm');
     
-    // ✅ Nếu chưa có sản phẩm, chỉ tính phí COD (nếu có)
+    // ❌ Không có sản phẩm
     if (!productsList || productsList.length === 0) {
-        console.log('⏭️ Chưa có sản phẩm trong productsList');
-        
-        const services = $('input[name="services[]"]:checked').map((_, e) => e.value).get();
-        const codAmount = parseFloat($('#cod-amount').val()) || 0;
-        
-        let extraCost = 0;
-        
-        if (services.includes('cod') && codAmount > 0) {
-            extraCost = 1000 + (codAmount * 0.01);
-        }
-        
         $('#baseCost').text('0 đ');
-        $('#extraCost').text(extraCost.toLocaleString('vi-VN') + ' đ');
-        $('#tongCuoc').text(extraCost.toLocaleString('vi-VN') + ' đ');
-        
+        $('#extraCost').text('0 đ');
+        $('#tongCuoc').text('0 đ');
         return;
     }
     
-    // ✅ Có sản phẩm rồi, tính đầy đủ
-    let totalWeight = 0;
-    let totalValue = 0;
-    let allSpecials = [];
-    
-    productsList.forEach(item => {
-        totalWeight += item.weight * item.quantity;
-        totalValue += item.value * item.quantity;
-        allSpecials = allSpecials.concat(item.specials);
-    });
-    
-    allSpecials = [...new Set(allSpecials)];
-    
+    // ✅ Chuẩn bị data
     const services = $('input[name="services[]"]:checked').map((_, e) => e.value).get();
     const codAmount = parseFloat($('#cod-amount').val()) || 0;
     
     const data = {
-        weight: totalWeight,
-        value: totalValue,
-        length: 0,
-        width: 0,
-        height: 0,
-        specials: allSpecials,
+        products_json: JSON.stringify(productsList), // ✅ GỬI TẤT CẢ
         services: services,
         cod_amount: codAmount,
-        item_type: productsList[0].type,
+        item_type: productsList[0]?.type || 'package',
         _token: $('meta[name="csrf-token"]').attr('content') || '{{ csrf_token() }}'
     };
     
-    console.log('💰 Gọi API tính cước với:', data);
+    console.log('💰 Gửi request tính cước:', {
+        products_count: productsList.length,
+        services: services,
+        cod: codAmount
+    });
     
+    // ✅ Gọi API
     $.post('{{ route("customer.orders.calculate") }}', data)
         .done(function(res) {
-            console.log('📩 Response:', res);
-            
             if (res && res.success === true) {
-                $('#baseCost').text(res.base_cost.toLocaleString('vi-VN') + ' đ');
-                $('#extraCost').text(res.extra_cost.toLocaleString('vi-VN') + ' đ');
-                $('#tongCuoc').text(res.total.toLocaleString('vi-VN') + ' đ');
-                console.log('✅ Cập nhật cước phí thành công');
-            } else {
-                console.error('❌ Response không hợp lệ:', res);
-                $('#baseCost').text('Lỗi');
-                $('#extraCost').text('Lỗi');
-                $('#tongCuoc').text('Lỗi');
+                const baseCost = parseFloat(res.base_cost) || 0;
+                const extraCost = parseFloat(res.extra_cost) || 0;
+                const total = parseFloat(res.total) || 0;
+                
+                $('#baseCost').text(baseCost.toLocaleString('vi-VN') + ' đ');
+                $('#extraCost').text(extraCost.toLocaleString('vi-VN') + ' đ');
+                $('#tongCuoc').text(total.toLocaleString('vi-VN') + ' đ');
+                
+                console.log('✅ Cước phí:', {
+                    base: baseCost,
+                    extra: extraCost,
+                    total: total,
+                    debug: res.debug
+                });
             }
         })
-        .fail(function(xhr, status, error) {
-            console.error('❌ AJAX Error:', {
-                status: status,
-                error: error,
-                response: xhr.responseText
-            });
-            
-            $('#baseCost').text('Lỗi API');
-            $('#extraCost').text('Lỗi API');
-            $('#tongCuoc').text('Lỗi API');
+        .fail(function(xhr) {
+            console.error('❌ Lỗi API:', xhr.responseText);
+            alert('⚠️ Không thể tính cước phí. Vui lòng thử lại.');
         });
 }
 
@@ -1363,14 +1336,18 @@ function calculateCost() {
 // });
 
 function validateForm() {
-    console.log('🔍 Validate form - productsList:', productsList);
+    console.log('🔍 Validate form');
+    console.log('📦 productsList:', productsList);
+    console.log('📦 products_json value:', $('#products_json').val());
     
+    // ✅ Kiểm tra sender
     if (!$('#sender-select').val()) {
         alert('⚠️ Vui lòng chọn thông tin người gửi');
         $('#sender-select').focus();
         return false;
     }
     
+    // ✅ Kiểm tra recipient
     if (!$('#recipientName').val().trim()) {
         alert('⚠️ Vui lòng nhập tên người nhận');
         $('#recipientName').focus();
@@ -1390,58 +1367,56 @@ function validateForm() {
         return false;
     }
     
+    // ✅ Kiểm tra địa chỉ
     if (!$('#province-select').val()) {
         alert('⚠️ Vui lòng chọn Tỉnh/Thành phố');
-        $('#province-select').focus();
         return false;
     }
     
     if (!$('#district-select').val()) {
         alert('⚠️ Vui lòng chọn Quận/Huyện');
-        $('#district-select').focus();
         return false;
     }
     
     if (!$('#ward-select').val()) {
         alert('⚠️ Vui lòng chọn Phường/Xã');
-        $('#ward-select').focus();
         return false;
     }
     
     if (!$('#address-detail').val().trim()) {
         alert('⚠️ Vui lòng nhập số nhà, tên đường');
-        $('#address-detail').focus();
         return false;
     }
     
-    // ✅ KIỂM TRA SẢN PHẨM
+    // ✅ QUAN TRỌNG: Kiểm tra productsList
     if (!productsList || productsList.length === 0) {
         alert('⚠️ Vui lòng thêm ít nhất 1 hàng hóa');
-        console.error('❌ productsList:', productsList);
+        console.error('❌ productsList rỗng!');
         return false;
     }
     
+    // ✅ Kiểm tra từng sản phẩm
     for (let i = 0; i < productsList.length; i++) {
         const item = productsList[i];
         if (!item.name || !item.weight || item.weight <= 0) {
             alert(`⚠️ Hàng hoá #${i + 1} không hợp lệ`);
+            console.error('❌ Sản phẩm không hợp lệ:', item);
             return false;
         }
     }
     
+    // ✅ Kiểm tra thời gian
     if (!$('#pickup-time').val()) {
         alert('⚠️ Vui lòng chọn thời gian hẹn lấy hàng');
-        $('#pickup-time').focus();
         return false;
     }
     
     if (!$('#delivery-time').val()) {
         alert('⚠️ Vui lòng chọn thời gian hẹn giao');
-        $('#delivery-time').focus();
         return false;
     }
     
-    console.log('✅ Validate thành công!');
+    console.log('✅ Validate thành công! Sẵn sàng submit');
     return true;
 }
 
@@ -1468,7 +1443,28 @@ function fetchNearbyPostOffices(lat, lng) {
     }).fail(function() {
         console.error('❌ Không thể tải bưu cục');
     });
-}
+   
+} $('#orderForm').on('submit', function(e) {
+        console.log('📤 Chuẩn bị submit form');
+        
+        // ✅ QUAN TRỌNG: Gán products_json trước khi submit
+        $('#products_json').val(JSON.stringify(productsList));
+        
+        console.log('📦 Products gửi đi:', productsList);
+        
+        // ✅ Validate
+        if (!validateForm()) {
+            e.preventDefault();
+            return false;
+        }
+        
+        // ✅ Hiển thị loading
+        $('#submitOrder').prop('disabled', true)
+            .html('<span class="spinner-border spinner-border-sm me-2"></span>Đang xử lý...');
+        
+        // ✅ Cho phép form submit bình thường (không preventDefault)
+        return true;
+    });
 </script>
 
 <script src="{{ asset('assets2/js/customer/dashboard/orders/fetchNearbyPostOffices.js') }}"></script>

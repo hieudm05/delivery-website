@@ -60,6 +60,7 @@ class AdminDriverController extends Controller
             // 4. Tạo UserInfo rỗng (hoặc có sẵn dữ liệu nếu bạn lấy được)
             UserInfo::create([
                 'user_id' => $user->id,
+                'national_id' => $request->national_id,
                 'full_address' => null,
                 'address_detail' => null,
                 'province_code' => null,

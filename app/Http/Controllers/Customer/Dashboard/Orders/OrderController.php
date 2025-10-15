@@ -30,21 +30,27 @@ class OrderController extends Controller
     }
     public function store(Request $request)
     {
-        $data = $request->validate([
+        // ✅ Validate
+        $validated = $request->validate([
             'sender_name' => 'required|string',
             'sender_phone' => 'required|string',
             'sender_address' => 'required|string',
             'recipient_name' => 'required|string',
             'recipient_phone' => 'required|string',
             'recipient_full_address' => 'required|string',
-            'products_json' => 'required|string',
+            'products_json' => 'required|string|min:2', // ✅ Đảm bảo không rỗng
         ]);
-
-        // Parse JSON sản phẩm
+        
+        // ✅ Parse JSON an toàn
         $products = json_decode($request->products_json, true);
-
-        // Tạo đơn hàng
+        
+        if (!$products || !is_array($products) || count($products) === 0) {
+            return back()->withErrors(['products_json' => 'Vui lòng thêm ít nhất 1 sản phẩm'])->withInput();
+        }
+        
+        // ✅ Tạo đơn hàng
         $order = Order::create([
+            'user_id' => Auth::id(),
             'sender_id' => $request->sender_id,
             'sender_name' => $request->sender_name,
             'sender_phone' => $request->sender_phone,
@@ -53,6 +59,7 @@ class OrderController extends Controller
             'sender_longitude' => $request->sender_longitude,
             'post_office_id' => $request->post_office_id,
             'pickup_time' => $request->pickup_time,
+            
             'recipient_name' => $request->recipient_name,
             'recipient_phone' => $request->recipient_phone,
             'province_code' => $request->province_code,
@@ -63,82 +70,133 @@ class OrderController extends Controller
             'recipient_longitude' => $request->recipient_longitude,
             'recipient_full_address' => $request->recipient_full_address,
             'delivery_time' => $request->delivery_time,
-            'item_type' => $request->item_type,
-            'services' => $request->services,
-            'cod_amount' => $request->cod_amount,
+            
+            'item_type' => $request->item_type ?? 'package',
+            'services' => $request->services ?? [],
+            'cod_amount' => $request->cod_amount ?? 0,
             'note' => $request->note,
-            'products_json' => $products,
-            'save_address' => $request->has('save_address'),
+            'products_json' => $products, // ✅ Lưu dạng array (Laravel tự cast JSON)
             'status' => 'pending',
         ]);
-
-        // Lưu chi tiết từng sản phẩm
+        
+        // ✅ Lưu chi tiết từng sản phẩm
         foreach ($products as $product) {
             $order->products()->create([
-                'name' => $product['name'],
-                'quantity' => $product['quantity'],
-                'weight' => $product['weight'],
-                'value' => $product['value'],
-                'length' => $product['length'],
-                'width' => $product['width'],
-                'height' => $product['height'],
+                'name' => $product['name'] ?? 'Không rõ',
+                'quantity' => $product['quantity'] ?? 1,
+                'weight' => $product['weight'] ?? 0,
+                'value' => $product['value'] ?? 0,
+                'length' => $product['length'] ?? 0,
+                'width' => $product['width'] ?? 0,
+                'height' => $product['height'] ?? 0,
                 'specials' => $product['specials'] ?? [],
             ]);
         }
-
-        return redirect()->back()->with('success', 'Tạo đơn hàng thành công!');
+        
+        // ✅ Lưu địa chỉ nếu user chọn
+        // if ($request->has('save_address') && $request->save_address) {
+        //     Auth::user()->savedAddresses()->create([
+        //         'recipient_name' => $request->recipient_name,
+        //         'recipient_phone' => $request->recipient_phone,
+        //         'province_code' => $request->province_code,
+        //         'district_code' => $request->district_code,
+        //         'ward_code' => $request->ward_code,
+        //         'address_detail' => $request->address_detail,
+        //         'full_address' => $request->recipient_full_address,
+        //     ]);
+        // }
+        
+        return redirect()->route('customer.orders.create')
+            ->with('success', 'Tạo đơn hàng thành công!');
     }
 
     public function calculate(Request $request)
     {
-        $base = 20000; // Cước chính mặc định
-        $weight = $request->weight ?? 0;
-
-        // Quy đổi kích thước (cm) sang trọng lượng quy đổi
+        $products = [];
+        
+        // ✅ Nếu có products_json (đã thêm nhiều sản phẩm)
+        if ($request->has('products_json') && !empty($request->products_json)) {
+            $products = json_decode($request->products_json, true) ?? [];
+        }
+        // ✅ Nếu chỉ có weight/value (đang nhập preview)
+        elseif ($request->has('weight')) {
+            $products = [[
+                'weight' => $request->weight ?? 0,
+                'value' => $request->value ?? 0,
+                'quantity' => $request->quantity ?? 1,
+                'specials' => $request->specials ?? [],
+            ]];
+        }
+        
+        // ✅ Tính tổng từ TẤT CẢ sản phẩm
+        $totalWeight = 0;
+        $totalValue = 0;
+        $allSpecials = [];
+        
+        foreach ($products as $product) {
+            $qty = $product['quantity'] ?? 1;
+            $totalWeight += ($product['weight'] ?? 0) * $qty;
+            $totalValue += ($product['value'] ?? 0) * $qty;
+            
+            if (isset($product['specials']) && is_array($product['specials'])) {
+                $allSpecials = array_merge($allSpecials, $product['specials']);
+            }
+        }
+        
+        $allSpecials = array_unique($allSpecials);
+        
+        // ✅ Quy đổi kích thước (nếu có)
         if ($request->length && $request->width && $request->height) {
             $volWeight = ($request->length * $request->width * $request->height) / 5000;
-            $weight = max($weight, $volWeight);
+            $totalWeight = max($totalWeight, $volWeight);
         }
-
-        // Cước chính theo khối lượng
-        if ($weight > 1000) $base += ($weight - 1000) * 5;
-
+        
+        // ✅ Cước chính
+        $base = 20000;
+        if ($totalWeight > 1000) {
+            $base += ($totalWeight - 1000) * 5;
+        }
+        
+        // ✅ Phụ phí hàng đặc biệt
         $extra = 0;
-
-        // Hàng đặc biệt
-        $specials = $request->specials ?? [];
-        foreach ($specials as $sp) {
+        foreach ($allSpecials as $sp) {
             $extra += match($sp) {
-                'high_value' => 5000,      // ✅ Sửa: 'de_vo' → 'high_value'
-                'oversized' => 10000,       // ✅ Sửa: 'qua_kho' → 'oversized'
-                'liquid' => 3000,           // ✅ Sửa: 'chat_long' → 'liquid'
-                'battery' => 2000,          // ✅ Sửa: 'pin' → 'battery'
-                'fragile' => 5000,          // ✅ Thêm: fragile
-                'bulk' => 3000,             // ✅ Thêm: bulk
-                'certificate' => 2000,      // ✅ Thêm: certificate (cho tài liệu)
+                'high_value' => 5000,
+                'oversized' => 10000,
+                'liquid' => 3000,
+                'battery' => 2000,
+                'fragile' => 5000,
+                'bulk' => 3000,
+                'certificate' => 2000,
                 default => 0,
             };
         }
-
-        // Dịch vụ cộng thêm
+        
+        // ✅ Phụ phí dịch vụ
         $services = $request->services ?? [];
         foreach ($services as $service) {
             $extra += match($service) {
                 'fast' => $base * 0.15,
-                'insurance' => $base * 0.01,
-                'cod' => 1000 + ($request->cod_amount ?? 0) * 0.01,  // ✅ Sửa: tính phí COD dựa vào cod_amount
+                'insurance' => $totalValue * 0.01, // ✅ Tính trên giá trị hàng
+                'cod' => ($request->cod_amount > 0) 
+                    ? (1000 + ($request->cod_amount * 0.01)) 
+                    : 0,
                 default => 0,
             };
         }
-
+        
         $total = $base + $extra;
-
-        // ✅ SỬA: Return đúng key name mà frontend tìm kiếm
+        
         return response()->json([
             'success' => true,
-            'base_cost' => $base,      
-            'extra_cost' => $extra, 
-            'total' => $total
+            'base_cost' => round($base),
+            'extra_cost' => round($extra),
+            'total' => round($total),
+            'debug' => [
+                'totalWeight' => $totalWeight,
+                'totalValue' => $totalValue,
+                'products_count' => count($products),
+            ]
         ]);
     }
        public function getNearby(Request $request)
