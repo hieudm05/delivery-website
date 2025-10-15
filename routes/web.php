@@ -6,6 +6,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Customer\Dashboard\Accounts\AccountController;
 use App\Http\Controllers\Customer\Dashboard\Accounts\ProductController;
 use App\Http\Controllers\Customer\Dashboard\DashboardCustomerController;
+use App\Http\Controllers\Customer\Dashboard\OrderManagent\OrderManagentController;
 use App\Http\Controllers\Customer\Dashboard\Orders\OrderController;
 use App\Http\Controllers\Drivers\DriverController;
 use Illuminate\Support\Facades\Route;
@@ -35,7 +36,7 @@ Route::prefix('admin')
         // Duyệt hồ sơ tài xế
         Route::get('/driver', [AdminDriverController::class, 'index'])->name('driver.index');
         Route::get('/driver/{id}', [AdminDriverController::class, 'show'])->name('driver.show');
-        Route::get('/driver/{id}/approve', [AdminDriverController::class, 'approve'])->name('driver.approve');
+        Route::post('/driver/{id}/approve', [AdminDriverController::class, 'approve'])->name('driver.approve');
     });
 
 // Driver
@@ -69,7 +70,7 @@ Route::prefix('customer')
         Route::delete('product/{id}', [ProductController::class, 'destroy'])->name('product.destroy');
     });
 
-    // Quản lý đơn hàng
+    // Tạo đơn hàng
     Route::prefix('orders')
     ->name('orders.')
     ->group( function () {
@@ -78,6 +79,13 @@ Route::prefix('customer')
         Route::post('calculate', [OrderController::class, 'calculate'])->name('calculate');
         Route::get('/api/post-offices', [OrderController::class, 'getNearby'])->name('getNearby');
         Route::get('/addresses/list', [OrderController::class, 'list'])->name('addresses.list');
+    });
+    // Quản lý đơn hàng
+    Route::prefix('orderManagent')
+    ->name('orderManagent.')
+    ->group( function () {
+        Route::get('/',[OrderManagentController::class, 'index'])->name('index');
+        Route::get('show/{id}',[OrderManagentController::class, 'show'])->name('show');
     });
     });
 

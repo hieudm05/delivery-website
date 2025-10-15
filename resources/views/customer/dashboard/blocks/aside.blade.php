@@ -36,6 +36,16 @@
             <span class="nav-link-text ms-1">Dách sách hàng hoá</span>
         </a>
         </li>
+
+        <li class="nav-item mt-3">
+          <h5 class="ps-4 ms-2 text-uppercase text-xs text-dark font-weight-bolder opacity-5">Quản lý</h5>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {{request()->routeIs('customer.orderManagent.index') ? 'active bg-gradient-dark text-white' : 'text-dark'}}" href="{{ route('customer.orderManagent.index') }}">
+            <i class="material-symbols-rounded opacity-5">person</i>
+            <span class="nav-link-text ms-1">Vận đơn</span>
+          </a>
+        </li>
         <li class="nav-item">
           <a class="nav-link text-dark" href="../pages/sign-in.html">
             <i class="material-symbols-rounded opacity-5">login</i>
