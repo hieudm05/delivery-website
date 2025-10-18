@@ -4,7 +4,6 @@ use App\Http\Controllers\Admin\AdminController;
 use App\Http\Controllers\Admin\Driver\AdminDriverController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Customer\Dashboard\Accounts\AccountController;
-use App\Http\Controllers\Customer\Dashboard\Accounts\ProductController;
 use App\Http\Controllers\Customer\Dashboard\DashboardCustomerController;
 use App\Http\Controllers\Customer\Dashboard\OrderManagent\OrderManagentController;
 use App\Http\Controllers\Customer\Dashboard\Orders\OrderController;
@@ -62,12 +61,6 @@ Route::prefix('customer')
         // Cập nhật tài khoản
         Route::get('/', [AccountController::class, 'index'])->name('index');
         Route::post('update', [AccountController::class, 'update'])->name('update');
-        // Hàng hoá
-        Route::get('product', [ProductController::class, 'index'])->name('product');
-        Route::post('product', [ProductController::class, 'store'])->name('product.store');
-        Route::get('product-show/{id}', [ProductController::class, 'show'])->name('product.show');
-        Route::put('product-update/{id}', [ProductController::class, 'update'])->name('product.update');
-        Route::delete('product/{id}', [ProductController::class, 'destroy'])->name('product.destroy');
     });
 
     // Tạo đơn hàng

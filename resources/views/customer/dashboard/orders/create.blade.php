@@ -2,89 +2,15 @@
 @section('title', 'Tạo đơn hàng')
 
 @section('content')
-<style>
-    .special-box {
-      border: 1px solid #eee;
-      border-radius: 10px;
-      padding: 15px;
-      background: #fafafa;
-    }
-    .address-saved-item {
-      border: 1px solid #dee2e6;
-      border-radius: 8px;
-      padding: 12px;
-      margin-bottom: 10px;
-      cursor: pointer;
-      transition: all 0.3s;
-    }
-    .address-saved-item:hover {
-      border-color: #dc3545;
-      background: #fff5f5;
-    }
-    .address-saved-item.active {
-      border-color: #dc3545;
-      background: #fff5f5;
-    }
-    .quick-select-btn {
-      font-size: 0.875rem;
-      padding: 0.25rem 0.75rem;
-    }
-    .cost-breakdown {
-      background: #f8f9fa;
-      border-radius: 8px;
-      padding: 15px;
-    }
-    .cost-item {
-      display: flex;
-      justify-content: space-between;
-      padding: 8px 0;
-      border-bottom: 1px dashed #dee2e6;
-    }
-    .cost-item:last-child {
-      border-bottom: none;
-      font-weight: bold;
-      font-size: 1.1rem;
-      color: #dc3545;
-    }
-    .product-item {
-      border: 1px solid #dee2e6;
-      border-radius: 8px;
-      padding: 12px;
-      margin-bottom: 10px;
-      background: #fff;
-    }
-    .product-item .remove-btn {
-      cursor: pointer;
-      color: #dc3545;
-    }
-    /* AUTOCOMPLETE STYLES */
-    #address-suggestions {
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-      border: 1px solid #dee2e6;
-      border-radius: 8px;
-      margin-top: 2px;
-    }
-    #address-suggestions .list-group-item {
-      border: none;
-      border-bottom: 1px solid #f0f0f0;
-      padding: 10px 15px;
-      cursor: pointer;
-    }
-    #address-suggestions .list-group-item:hover {
-      background-color: #f8f9fa;
-    }
-    #address-suggestions .list-group-item:last-child {
-      border-bottom: none;
-    }
-    .address-input-wrapper {
-      position: relative;
-    }
-</style>
+<link rel="stylesheet" href="{{ asset('assets2/css/customer/dashboard/orders/style.css') }}">
 
 <div class="container-fluid py-4">
   <form id="orderForm" method="POST" action="{{ route('customer.orders.store') }}">
     @csrf
     <input type="hidden" id="products_json" name="products_json">
+    <input type="hidden" id="pickup_time_formatted" name="pickup_time_formatted">
+    <input type="hidden" id="delivery_time_formatted" name="delivery_time_formatted">
+
     <div class="row">
       <!-- CỘT TRÁI: THÔNG TIN NGƯỜI GỬI & NHẬN -->
       <div class="col-lg-6">
@@ -203,7 +129,6 @@
                   </div>
                   <div class="col-md-6 address-input-wrapper">
                     <input type="text" id="address-detail" name="address_detail" class="form-control" placeholder="Số nhà, tên đường..." required autocomplete="off">
-                    <!-- Autocomplete suggestions -->
                     <div id="address-suggestions" class="list-group position-absolute w-100" style="z-index: 1000; display: none; max-height: 200px; overflow-y: auto;"></div>
                   </div>
                 </div>
@@ -238,7 +163,7 @@
         </div>
       </div>
 
-      <!-- CỘT PHẢI: THÔNG TIN HÀNG HÓA (giữ nguyên như cũ) -->
+      <!-- CỘT PHẢI: THÔNG TIN HÀNG HÓA -->
       <div class="col-lg-6">
         <div class="card mb-4">
           <div class="card-header pb-0">
@@ -246,6 +171,7 @@
           </div>
 
           <div class="card-body">
+            <!-- LOẠI HÀNG -->
             <div class="mb-3">
               <label class="form-label fw-bold">LOẠI HÀNG HÓA</label>
               <div>
@@ -260,175 +186,167 @@
               </div>
             </div>
 
-            <div id="products-list" class="mb-3"></div>
-
+            <!-- FORM NHẬP BƯUUUU KIỆ -->
             <div id="formBuuKien">
-              <div class="row g-3">
-                <div class="col-12">
-                  <label class="form-label">Tên hàng</label>
-                  @if (!$products || $products->isEmpty())
-                    <div class="alert alert-warning">
-                      <a href="{{url('/customer/account/product')}}" class="alert-link">⚠️ Vui lòng thêm hàng hoá trước</a>
-                    </div>
-                  @else
-                    <select class="form-select mb-3" id="product-select">
-                      <option value="">-- Chọn hàng hoá --</option>
-                      @foreach ($products as $product)
-                        <option value="{{ $product->id }}"
-                                data-name="{{ $product->name }}"
-                                data-quantity="{{ $product->quantity ?? 1 }}"
-                                data-weight="{{ $product->weight ?? 10 }}"
-                                data-value="{{ $product->price ?? 10000 }}"
-                                data-length="{{ $product->length ?? 0 }}"
-                                data-width="{{ $product->width ?? 0 }}"
-                                data-height="{{ $product->height ?? 0 }}">
-                          {{ $product->name }}
-                        </option>
-                      @endforeach
-                      <option value="custom">+ Nhập hàng mới</option>
-                    </select>
-                    <input type="text" class="form-control mb-3 d-none" id="custom-product-name" placeholder="Nhập tên hàng hoá mới">
-                  @endif
-                </div>
-
-                <div class="col-md-4">
-                  <label class="form-label">Số lượng</label>
-                  <input type="number" class="form-control" id="quantity" value="1" min="1">
-                </div>
-                <div class="col-md-4">
-                  <label class="form-label">Khối lượng</label>
-                  <div class="input-group">
-                    <input type="number" class="form-control" id="weight" value="10" min="1">
-                    <span class="input-group-text">g</span>
+              <div class="product-input-section">
+                <h6 class="fw-bold mb-3">Thêm hàng hoá</h6>
+                
+                <div class="row g-3">
+                  <!-- Tên hàng -->
+                  <div class="col-12">
+                    <label class="form-label">Tên hàng <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="product-name" 
+                           placeholder="VD: Áo thun, Sách, Điện thoại..." >
                   </div>
-                </div>
-                <div class="col-md-4">
-                  <label class="form-label">Giá trị (VNĐ)</label>
-                  <input type="number" class="form-control" id="value" value="10000" min="0">
-                </div>
-              </div>
 
-              <div class="row mt-3">
-                <div class="col-12 mb-2">
-                  <label class="form-label">Kích thước (không bắt buộc)</label>
-                </div>
-                <div class="col-md-4">
-                  <input type="number" class="form-control" id="length" placeholder="Dài (cm)" min="0">
-                </div>
-                <div class="col-md-4">
-                  <input type="number" class="form-control" id="width" placeholder="Rộng (cm)" min="0">
-                </div>
-                <div class="col-md-4">
-                  <input type="number" class="form-control" id="height" placeholder="Cao (cm)" min="0">
-                </div>
-              </div>
-
-              <div class="mt-4 special-box">
-                <h6 class="fw-bold mb-2"><i class="bi bi-box"></i> TÍNH CHẤT HÀNG HÓA ĐẶC BIỆT</h6>
-                <div class="row">
+                  <!-- Số lượng, KL, GT -->
                   <div class="col-md-4">
-                    <div class="form-check">
-                      <input class="form-check-input" type="checkbox" id="giaTriCao" value="high_value">
-                      <label class="form-check-label" for="giaTriCao">Giá trị cao</label>
-                    </div>
-                    <div class="form-check">
-                      <input class="form-check-input" type="checkbox" id="quaKho" value="oversized">
-                      <label class="form-check-label" for="quaKho">Quá khổ</label>
-                    </div>
+                    <label class="form-label">Số lượng <span class="text-danger">*</span></label>
+                    <input type="number" class="form-control" id="quantity" value="" min="1" >
                   </div>
                   <div class="col-md-4">
-                    <div class="form-check">
-                      <input class="form-check-input" type="checkbox" id="deVo" value="fragile">
-                      <label class="form-check-label" for="deVo">Dễ vỡ</label>
-                    </div>
-                    <div class="form-check">
-                      <input class="form-check-input" type="checkbox" id="chatLong" value="liquid">
-                      <label class="form-check-label" for="chatLong">Chất lỏng</label>
-                    </div>
+                    <label class="form-label">Khối lượng (g) <span class="text-danger">*</span></label>
+                    <input type="number" class="form-control" id="weight" value="" min="1" >
                   </div>
                   <div class="col-md-4">
-                    <div class="form-check">
-                      <input class="form-check-input" type="checkbox" id="nguyenKhoi" value="bulk">
-                      <label class="form-check-label" for="nguyenKhoi">Nguyên khối</label>
+                    <label class="form-label">Giá trị (VNĐ) <span class="text-danger">*</span></label>
+                    <input type="number" class="form-control" id="value" value="" min="0" >
+                  </div>
+                </div>
+
+                <!-- Kích thước (optional) -->
+                <div class="row mt-3">
+                  <div class="col-12 mb-2">
+                    <label class="form-label">Kích thước (không bắt buộc)</label>
+                  </div>
+                  <div class="col-md-4">
+                    <input type="number" class="form-control" id="length" placeholder="Dài (cm)" min="0">
+                  </div>
+                  <div class="col-md-4">
+                    <input type="number" class="form-control" id="width" placeholder="Rộng (cm)" min="0">
+                  </div>
+                  <div class="col-md-4">
+                    <input type="number" class="form-control" id="height" placeholder="Cao (cm)" min="0">
+                  </div>
+                </div>
+
+                <!-- Tính chất đặc biệt -->
+                <div class="mt-4 special-box">
+                  <h6 class="fw-bold mb-2"><i class="bi bi-exclamation-diamond"></i> Tính chất hàng hóa</h6>
+                  <div class="row">
+                    <div class="col-md-4">
+                      <div class="form-check">
+                        <input class="form-check-input special-checkbox" type="checkbox" id="giaTriCao" value="high_value">
+                        <label class="form-check-label" for="giaTriCao">Giá trị cao</label>
+                      </div>
+                      <div class="form-check">
+                        <input class="form-check-input special-checkbox" type="checkbox" id="quaKho" value="oversized">
+                        <label class="form-check-label" for="quaKho">Quá khổ</label>
+                      </div>
                     </div>
-                    <div class="form-check">
-                      <input class="form-check-input" type="checkbox" id="pin" value="battery">
-                      <label class="form-check-label" for="pin">Từ tính, Pin</label>
+                    <div class="col-md-4">
+                      <div class="form-check">
+                        <input class="form-check-input special-checkbox" type="checkbox" id="deVo" value="fragile">
+                        <label class="form-check-label" for="deVo">Dễ vỡ</label>
+                      </div>
+                      <div class="form-check">
+                        <input class="form-check-input special-checkbox" type="checkbox" id="chatLong" value="liquid">
+                        <label class="form-check-label" for="chatLong">Chất lỏng</label>
+                      </div>
+                    </div>
+                    <div class="col-md-4">
+                      <div class="form-check">
+                        <input class="form-check-input special-checkbox" type="checkbox" id="nguyenKhoi" value="bulk">
+                        <label class="form-check-label" for="nguyenKhoi">Nguyên khối</label>
+                      </div>
+                      <div class="form-check">
+                        <input class="form-check-input special-checkbox" type="checkbox" id="pin" value="battery">
+                        <label class="form-check-label" for="pin">Từ tính, Pin</label>
+                      </div>
                     </div>
                   </div>
                 </div>
+
+                <!-- Nút thêm -->
+                <div class="mt-3 text-end">
+                  <button type="button" class="btn btn-primary" id="addProductBtn">
+                    <i class="bi bi-plus-circle"></i> Thêm hàng
+                  </button>
+                </div>
               </div>
 
-              <div class="mt-3 text-end">
-                <button type="button" class="btn btn-primary" id="addProductBtn">
-                  <i class="bi bi-plus-circle"></i> Thêm hàng
-                </button>
-              </div>
+              <!-- Danh sách sản phẩm đã thêm -->
+              <div id="products-list"></div>
             </div>
 
+            <!-- FORM NHẬP TÀI LIỆU -->
             <div id="formTaiLieu" class="d-none">
-              <div class="row g-3">
-                <div class="col-12">
-                  <label class="form-label">Tên tài liệu</label>
-                  <input type="text" class="form-control" id="document-name" placeholder="Nhập tên tài liệu...">
-                </div>
-                <div class="col-md-4">
-                  <label class="form-label">Số lượng</label>
-                  <input type="number" class="form-control" id="doc-quantity" value="1" min="1">
-                </div>
-                <div class="col-md-4">
-                  <label class="form-label">Khối lượng</label>
-                  <div class="input-group">
+              <div class="product-input-section">
+                <h6 class="fw-bold mb-3">Thêm tài liệu (Nhập tay)</h6>
+                
+                <div class="row g-3">
+                  <div class="col-12">
+                    <label class="form-label">Tên tài liệu <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="document-name" placeholder="VD: Hóa đơn, Giấy chứng chỉ...">
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Số lượng <span class="text-danger">*</span></label>
+                    <input type="number" class="form-control" id="doc-quantity" value="1" min="1">
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Khối lượng (g) <span class="text-danger">*</span></label>
                     <input type="number" class="form-control" id="doc-weight" value="10" min="1">
-                    <span class="input-group-text">g</span>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Giá trị (VNĐ) <span class="text-danger">*</span></label>
+                    <input type="number" class="form-control" id="doc-value" value="10000" min="0">
                   </div>
                 </div>
-                <div class="col-md-4">
-                  <label class="form-label">Giá trị (VNĐ)</label>
-                  <input type="number" class="form-control" id="doc-value" value="10000" min="0">
-                </div>
-              </div>
 
-              <div class="row mt-3">
-                <div class="col-12 mb-2">
-                  <label class="form-label">Kích thước (không bắt buộc)</label>
+                <div class="row mt-3">
+                  <div class="col-12 mb-2">
+                    <label class="form-label">Kích thước (không bắt buộc)</label>
+                  </div>
+                  <div class="col-md-4">
+                    <input type="number" class="form-control" id="doc-length" placeholder="Dài (cm)" min="0">
+                  </div>
+                  <div class="col-md-4">
+                    <input type="number" class="form-control" id="doc-width" placeholder="Rộng (cm)" min="0">
+                  </div>
+                  <div class="col-md-4">
+                    <input type="number" class="form-control" id="doc-height" placeholder="Cao (cm)" min="0">
+                  </div>
                 </div>
-                <div class="col-md-4">
-                  <input type="number" class="form-control" id="doc-length" placeholder="Dài (cm)" min="0">
-                </div>
-                <div class="col-md-4">
-                  <input type="number" class="form-control" id="doc-width" placeholder="Rộng (cm)" min="0">
-                </div>
-                <div class="col-md-4">
-                  <input type="number" class="form-control" id="doc-height" placeholder="Cao (cm)" min="0">
-                </div>
-              </div>
 
-              <div class="mt-4 special-box">
-                <h6 class="fw-bold mb-2">TÍNH CHẤT HÀNG HÓA ĐẶC BIỆT</h6>
-                <div class="row">
-                  <div class="col-md-6">
-                    <div class="form-check">
-                      <input class="form-check-input" type="checkbox" id="taiLieuGiaTri" value="high_value">
-                      <label class="form-check-label" for="taiLieuGiaTri">Giá trị cao</label>
+                <div class="mt-4 special-box">
+                  <h6 class="fw-bold mb-2">Tính chất hàng hóa</h6>
+                  <div class="row">
+                    <div class="col-md-6">
+                      <div class="form-check">
+                        <input class="form-check-input doc-special-checkbox" type="checkbox" id="taiLieuGiaTri" value="high_value">
+                        <label class="form-check-label" for="taiLieuGiaTri">Giá trị cao</label>
+                      </div>
+                    </div>
+                    <div class="col-md-6">
+                      <div class="form-check">
+                        <input class="form-check-input doc-special-checkbox" type="checkbox" id="hoaDon" value="certificate">
+                        <label class="form-check-label" for="hoaDon">Hóa đơn, Giấy chứng nhận</label>
+                      </div>
                     </div>
                   </div>
-                  <div class="col-md-6">
-                    <div class="form-check">
-                      <input class="form-check-input" type="checkbox" id="hoaDon" value="certificate">
-                      <label class="form-check-label" for="hoaDon">Hóa đơn, Giấy chứng nhận</label>
-                    </div>
-                  </div>
+                </div>
+
+                <div class="mt-3 text-end">
+                  <button type="button" class="btn btn-primary" id="addDocumentBtn">
+                    <i class="bi bi-plus-circle"></i> Thêm tài liệu
+                  </button>
                 </div>
               </div>
 
-              <div class="mt-3 text-end">
-                <button type="button" class="btn btn-primary" id="addDocumentBtn">
-                  <i class="bi bi-plus-circle"></i> Thêm tài liệu
-                </button>
-              </div>
+              <div id="documents-list"></div>
             </div>
 
+            <!-- DỊCH VỤ CỘNG THÊM -->
             <div class="card mt-4">
               <div class="card-header bg-light">
                 <h6 class="mb-0"><i class="bi bi-truck"></i> Dịch vụ cộng thêm</h6>
@@ -475,11 +393,13 @@
               </div>
             </div>
 
+            <!-- GHI CHÚ -->
             <div class="mt-3">
               <label class="form-label">Ghi chú</label>
               <textarea class="form-control" id="note" name="note" rows="3" placeholder="Nhập ghi chú cho đơn hàng (không bắt buộc)"></textarea>
             </div>
 
+            <!-- NÚT SUBMIT -->
             <div class="mt-4 text-end">
               <button type="button" class="btn btn-secondary me-2" onclick="window.history.back()">Hủy</button>
               <button type="submit" class="btn btn-danger" id="submitOrder">
@@ -495,39 +415,77 @@
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
-  // ⚠️ QUAN TRỌNG: Thay YOUR_GOONG_API_KEY bằng API key thật của bạn
-const GOONG_API_KEY = '{{ config("services.goong.api_key") }}';
+  const GOONG_API_KEY = '{{ config("services.goong.api_key") }}';
 
 let vietnamData = [];
-let savedAddresses = [];
 let productsList = [];
 let geocodeTimeout = null;
 let autocompleteTimeout = null;
 
 $(document).ready(function() {
-    console.log('🚀 Khởi tạo form với Goong API');
-    initializeForm();
+    console.log('🚀 Khởi tạo form tạo đơn hàng');
     loadProvinces();
     setupEventHandlers();
     setDefaultDateTime();
     setupGoongAutocomplete();
+    setupToggleForms();
 });
 
-function initializeForm() {
-    console.log('📝 Form tạo đơn hàng đã sẵn sàng');
-}
-
+// ============ DATETIME HANDLING ============
 function setDefaultDateTime() {
-    const now = new Date();
-    now.setHours(now.getHours() + 2);
-    const dateString = now.toISOString().slice(0, 16);
-    $('#pickup-time, #delivery-time').val(dateString);
+  const now = new Date();
+  const pickupTime = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+  const deliveryTime = new Date(now.getTime() + 3 * 60 * 60 * 1000);
+
+  $('#pickup-time').val(toDatetimeLocalString(pickupTime));
+  $('#delivery-time').val(toDatetimeLocalString(deliveryTime));
 }
 
-// ========== GOONG AUTOCOMPLETE ==========
+function toDatetimeLocalString(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
+function formatDatetimeForDatabase(datetimeLocalValue) {
+  if (!datetimeLocalValue) return null;
+  const [date, time] = datetimeLocalValue.split('T');
+  return `${date} ${time}:00`;
+}
+
+function validateDatetimes() {
+  const pickupValue = $('#pickup-time').val();
+  const deliveryValue = $('#delivery-time').val();
+  
+  if (!pickupValue || !deliveryValue) {
+    alert('⚠️ Vui lòng chọn thời gian hẹn');
+    return false;
+  }
+  
+  const pickup = new Date(pickupValue);
+  const delivery = new Date(deliveryValue);
+  const now = new Date();
+  
+  if (pickup <= now) {
+    alert('⚠️ Thời gian hẹn lấy phải trong tương lai');
+    return false;
+  }
+  
+  const minDeliveryTime = new Date(pickup.getTime() + 60 * 60 * 1000);
+  if (delivery < minDeliveryTime) {
+    alert('⚠️ Thời gian giao phải ít nhất 1 giờ sau thời gian lấy');
+    return false;
+  }
+  
+  return true;
+}
+
+// ============ GOONG AUTOCOMPLETE ============
 function setupGoongAutocomplete() {
-    console.log('🔍 Đã kích hoạt Goong Autocomplete');
-    
     $('#address-detail').on('input', function() {
         const query = $(this).val().trim();
         
@@ -591,7 +549,8 @@ function displayAutocompleteSuggestions(predictions) {
     
     $('#address-suggestions').html(html).show();
     
-    $('.list-group-item', '#address-suggestions').on('click', function() {
+    $('.list-group-item', '#address-suggestions').on('click', function(e) {
+        e.preventDefault();
         const placeId = $(this).data('place-id');
         const description = $(this).data('description');
         
@@ -617,17 +576,13 @@ function goongPlaceDetail(placeId, description) {
                 $('#longitude').val(lng);
                 $('#geocode-status').html(`
                     <small class="text-success">
-                        <i class="bi bi-check-circle"></i> Đã tìm thấy tọa độ (Goong API)
+                        <i class="bi bi-check-circle"></i> Đã tìm thấy tọa độ
                     </small>
                 `);
                 
                 parseGoongAddress(result, description);
                 
-                console.log('✅ Đã chọn địa chỉ từ Goong:', {
-                    lat: lat,
-                    lng: lng,
-                    address: description
-                });
+                console.log('✅ Địa chỉ từ Goong:', { lat, lng, address: description });
             }
         },
         error: function() {
@@ -681,10 +636,7 @@ function parseGoongAddress(result, description) {
     }, 1500);
 }
 
-// ========== GEOCODING VỚI GOONG ==========
 function fetchCoordinates(address) {
-    console.log('🗺️ Lấy tọa độ cho địa chỉ:', address);
-    
     $.ajax({
         url: 'https://rsapi.goong.io/geocode',
         data: {
@@ -702,17 +654,10 @@ function fetchCoordinates(address) {
                 $('#longitude').val(lng);
                 $('#geocode-status').html(`
                     <small class="text-success">
-                        <i class="bi bi-check-circle"></i> Đã tìm thấy tọa độ (Goong API)
+                        <i class="bi bi-check-circle"></i> Đã tìm thấy tọa độ
                     </small>
                 `);
-                
-                console.log('✅ Goong API tìm thấy:', {
-                    lat: lat,
-                    lng: lng,
-                    formatted_address: result.formatted_address
-                });
             } else {
-                console.warn('⚠️ Goong API không tìm thấy kết quả');
                 $('#geocode-status').html(`
                     <small class="text-warning">
                         <i class="bi bi-exclamation-triangle"></i> Không tìm thấy tọa độ chính xác
@@ -720,8 +665,7 @@ function fetchCoordinates(address) {
                 `);
             }
         },
-        error: function(xhr, status, error) {
-            console.error('❌ Goong API lỗi:', error);
+        error: function() {
             $('#geocode-status').html(`
                 <small class="text-danger">
                     <i class="bi bi-x-circle"></i> Lỗi kết nối Goong API
@@ -731,7 +675,7 @@ function fetchCoordinates(address) {
     });
 }
 
-// ========== LOAD DỮ LIỆU ==========
+// ============ LOAD DỮ LIỆU TỈNH/HUYỆN ============
 function loadProvinces() {
     $.get("https://provinces.open-api.vn/api/?depth=3", function(data) {
         vietnamData = data;
@@ -745,9 +689,57 @@ function loadProvinces() {
     });
 }
 
+// ============ NGƯỜI GỬI ============
+$('#sender-select').on('change', function() {
+    const selectedOption = $(this).find('option:selected');
+    const name = selectedOption.data('name');
+    const phone = selectedOption.data('phone');
+    const lat = selectedOption.data('lat');
+    const lng = selectedOption.data('lng');
+    const address = selectedOption.data('address');
+    
+    if (lat && lng) {
+        $('#sender-name').val(name);
+        $('#sender-phone').val(phone);
+        $('#sender-latitude').val(lat);
+        $('#sender-longitude').val(lng);
+        $('#sender-address').val(address);
+        
+        $('#sender-name-display').text(name);
+        $('#sender-phone-display').text(phone);
+        $('#sender-address-display').text(address);
+        $('#sender-info').removeClass('d-none');
+    } else {
+        $('#sender-info').addClass('d-none');
+    }
+});
+
+$('#sameAsAccount').on('change', function() {
+    if ($(this).is(':checked')) {
+        $('#post-office-selects').slideDown();
+        $('#appointment-select').slideUp();
+        
+        const lat = $('#sender-latitude').val();
+        const lng = $('#sender-longitude').val();
+        if (lat && lng) {
+            fetchNearbyPostOffices(parseFloat(lat), parseFloat(lng));
+        }
+    } else {
+        $('#post-office-selects').slideUp();
+        $('#appointment-select').slideDown();
+    }
+});
+
+// ============ NGƯỜI NHẬN - ĐỊA CHỈ ============
+$('#loadSavedAddress').on('click', function() {
+    $('#saved-addresses-container').toggleClass('d-none');
+    if (!$('#saved-addresses-container').hasClass('d-none')) {
+        loadSavedAddresses();
+    }
+});
+
 function loadSavedAddresses() {
     $.get('{{ route("customer.orders.addresses.list") }}', function(data) {
-        savedAddresses = data;
         displaySavedAddresses(data);
     }).fail(function() {
         alert('Không thể tải địa chỉ đã lưu');
@@ -763,13 +755,13 @@ function displaySavedAddresses(addresses) {
     let html = '';
     addresses.forEach(addr => {
         html += `
-            <div class="address-saved-item" data-address='${JSON.stringify(addr)}'>
+            <div class="address-saved-item">
                 <div class="d-flex justify-content-between align-items-start">
                     <div>
                         <strong>${addr.recipient_name}</strong> - ${addr.recipient_phone}
                         <div class="text-muted small">${addr.full_address}</div>
                     </div>
-                    <button type="button" class="btn btn-sm btn-outline-danger quick-select-btn" onclick='selectSavedAddress(${JSON.stringify(addr)})'>Chọn</button>
+                    <button type="button" class="btn btn-sm btn-outline-danger" onclick='selectSavedAddress(${JSON.stringify(addr)})'>Chọn</button>
                 </div>
             </div>
         `;
@@ -792,65 +784,7 @@ function selectSavedAddress(addr) {
     }, 300);
 
     $('#saved-addresses-container').addClass('d-none');
-    
-    console.log('✅ Đã chọn địa chỉ:', addr.recipient_name);
 }
-
-// ========== XỬ LÝ NGƯỜI GỬI ==========
-$('#sender-select').on('change', function() {
-    const selectedOption = $(this).find('option:selected');
-    const name = selectedOption.data('name');
-    const phone = selectedOption.data('phone');
-    const lat = selectedOption.data('lat');
-    const lng = selectedOption.data('lng');
-    const address = selectedOption.data('address');
-    
-    if (lat && lng) {
-        $('#sender-name').val(name);
-        $('#sender-phone').val(phone);
-        $('#sender-latitude').val(lat);
-        $('#sender-longitude').val(lng);
-        $('#sender-address').val(address);
-        
-        $('#sender-name-display').text(name);
-        $('#sender-phone-display').text(phone);
-        $('#sender-address-display').text(address);
-        $('#sender-info').removeClass('d-none');
-        
-        if ($('#sameAsAccount').is(':checked')) {
-            fetchNearbyPostOffices(parseFloat(lat), parseFloat(lng));
-        }
-        
-        console.log('✅ Đã chọn người gửi:', name);
-    } else {
-        $('#sender-info').addClass('d-none');
-        console.warn('⚠️ Không có tọa độ người gửi');
-    }
-});
-
-$('#sameAsAccount').on('change', function() {
-    if ($(this).is(':checked')) {
-        $('#post-office-selects').slideDown();
-        $('#appointment-select').slideUp();
-        
-        const lat = $('#sender-latitude').val();
-        const lng = $('#sender-longitude').val();
-        if (lat && lng) {
-            fetchNearbyPostOffices(parseFloat(lat), parseFloat(lng));
-        }
-    } else {
-        $('#post-office-selects').slideUp();
-        $('#appointment-select').slideDown();
-    }
-});
-
-// ========== XỬ LÝ ĐỊA CHỈ NGƯỜI NHẬN ==========
-$('#loadSavedAddress').on('click', function() {
-    $('#saved-addresses-container').toggleClass('d-none');
-    if (!$('#saved-addresses-container').hasClass('d-none')) {
-        loadSavedAddresses();
-    }
-});
 
 $('#province-select').on('change', function() {
     const provinceCode = parseInt($(this).val());
@@ -932,125 +866,49 @@ function updateFullAddress() {
     }
 }
 
-// ========== XỬ LÝ SẢN PHẨM ==========
-$('#product-select').on('change', function() {
-    const selectedOption = $(this).find('option:selected');
-    const value = $(this).val();
-    
-    if (value === 'custom') {
-        $('#custom-product-name').removeClass('d-none').focus();
-        $('#quantity').val(1);
-        $('#weight').val(10);
-        $('#value').val(10000);
-        $('#length, #width, #height').val('');
-    } else if (value) {
-        $('#custom-product-name').addClass('d-none');
-        $('#quantity').val(selectedOption.data('quantity') || 1);
-        $('#weight').val(selectedOption.data('weight') || 10);
-        $('#value').val(selectedOption.data('value') || 10000);
-        $('#length').val(selectedOption.data('length') || '');
-        $('#width').val(selectedOption.data('width') || '');
-        $('#height').val(selectedOption.data('height') || '');
-        
-        // ✅ TỰ ĐỘNG THÊM SẢN PHẨM VÀO DANH SÁCH
-        setTimeout(() => {
-            $('#addProductBtn').trigger('click');
-        }, 100);
-    } else {
-        $('#custom-product-name').addClass('d-none');
-    }
-});
-
-// ✅ TÍNH PREVIEW KHI THAY ĐỔI SỐ LƯỢNG/KHỐI LƯỢNG/GIÁ TRỊ (trước khi thêm)
-$('#quantity, #weight, #value, #doc-quantity, #doc-weight, #doc-value').on('input', function() {
-    if (productsList.length === 0) {
-        $('#baseCost').text('Chưa có sản phẩm');
-        $('#extraCost').text('0 đ');
-        $('#tongCuoc').text('Vui lòng thêm hàng hóa');
-    }
-    
-    // Chưa có sản phẩm → Hiển thị preview
-    const weight = parseFloat($('#weight').val() || $('#doc-weight').val() || 0);
-    const value = parseFloat($('#value').val() || $('#doc-value').val() || 0);
-    const quantity = parseInt($('#quantity').val() || $('#doc-quantity').val() || 1);
-    
-    if (weight > 0) {
-        calculatePreviewCost(weight * quantity, value * quantity);
-    }
-});
-
-function calculatePreviewCost(totalWeight, totalValue) {
-    const services = $('input[name="services[]"]:checked').map((_, e) => e.value).get();
-    const codAmount = parseFloat($('#cod-amount').val()) || 0;
-    
-    const data = {
-        weight: totalWeight,
-        value: totalValue,
-        length: 0,
-        width: 0,
-        height: 0,
-        specials: [],
-        services: services,
-        cod_amount: codAmount,
-        item_type: $('#buuKien').is(':checked') ? 'package' : 'document',
-        _token: $('meta[name="csrf-token"]').attr('content') || '{{ csrf_token() }}'
-    };
-    
-    console.log('👁️ Preview cước phí:', data);
-    
-    $.post('{{ route("customer.orders.calculate") }}', data)
-        .done(function(res) {
-            if (res && res.success === true) {
-                $('#baseCost').text(res.base_cost.toLocaleString('vi-VN') + ' đ (dự kiến)');
-                $('#extraCost').text(res.extra_cost.toLocaleString('vi-VN') + ' đ');
-                $('#tongCuoc').text(res.total.toLocaleString('vi-VN') + ' đ');
-            }
-        })
-        .fail(function() {
-            console.warn('⚠️ Không thể tính preview');
-        });
+// ============ TOGGLE LOẠI HÀNG HÓA ============
+function setupToggleForms() {
+    $('input[name="item_type"]').on('change', function() {
+        if ($('#buuKien').is(':checked')) {
+            $('#formBuuKien').removeClass('d-none');
+            $('#formTaiLieu').addClass('d-none');
+        } else {
+            $('#formTaiLieu').removeClass('d-none');
+            $('#formBuuKien').addClass('d-none');
+        }
+    });
 }
 
+// ============ THÊM HÀNG HÓA (BƯUUU KIỆ) ============
 $('#addProductBtn').on('click', function() {
-    const productSelect = $('#product-select').val();
-    const customName = $('#custom-product-name').val().trim();
-    
-    let productName = '';
-    if (productSelect === 'custom') {
-        if (!customName) {
-            alert('⚠️ Vui lòng nhập tên hàng hoá');
-            $('#custom-product-name').focus();
-            return;
-        }
-        productName = customName;
-    } else if (productSelect) {
-        productName = $('#product-select option:selected').data('name');
-    } else {
-        alert('⚠️ Vui lòng chọn hàng hoá');
-        return;
-    }
-    
+    const name = $('#product-name').val().trim();
     const quantity = parseInt($('#quantity').val()) || 1;
     const weight = parseFloat($('#weight').val()) || 0;
     const value = parseFloat($('#value').val()) || 0;
     const length = parseFloat($('#length').val()) || 0;
     const width = parseFloat($('#width').val()) || 0;
     const height = parseFloat($('#height').val()) || 0;
-    
+
+    if (!name) {
+        alert('⚠️ Vui lòng nhập tên hàng');
+        $('#product-name').focus();
+        return;
+    }
+
     if (weight <= 0) {
         alert('⚠️ Khối lượng phải lớn hơn 0');
         $('#weight').focus();
         return;
     }
-    
+
     const specials = [];
-    $('#formBuuKien input[type="checkbox"]:checked').each(function() {
+    $('#formBuuKien .special-checkbox:checked').each(function() {
         specials.push($(this).val());
     });
-    
+
     const product = {
         type: 'package',
-        name: productName,
+        name: name,
         quantity: quantity,
         weight: weight,
         value: value,
@@ -1059,46 +917,45 @@ $('#addProductBtn').on('click', function() {
         height: height,
         specials: specials
     };
-    
+
     productsList.push(product);
-    console.log('✅ Đã thêm sản phẩm:', productName, '- Tổng:', productsList.length);
-    console.log('📦 productsList:', productsList);
-    
+    console.log('✅ Đã thêm hàng:', name);
+
     renderProductsList();
     resetProductForm();
     calculateCost();
 });
 
+// ============ THÊM TÀI LIỆU ============
 $('#addDocumentBtn').on('click', function() {
-    const documentName = $('#document-name').val().trim();
-    
-    if (!documentName) {
-        alert('⚠️ Vui lòng nhập tên tài liệu');
-        $('#document-name').focus();
-        return;
-    }
-    
+    const name = $('#document-name').val().trim();
     const quantity = parseInt($('#doc-quantity').val()) || 1;
     const weight = parseFloat($('#doc-weight').val()) || 0;
     const value = parseFloat($('#doc-value').val()) || 0;
     const length = parseFloat($('#doc-length').val()) || 0;
     const width = parseFloat($('#doc-width').val()) || 0;
     const height = parseFloat($('#doc-height').val()) || 0;
-    
+
+    if (!name) {
+        alert('⚠️ Vui lòng nhập tên tài liệu');
+        $('#document-name').focus();
+        return;
+    }
+
     if (weight <= 0) {
         alert('⚠️ Khối lượng phải lớn hơn 0');
         $('#doc-weight').focus();
         return;
     }
-    
+
     const specials = [];
-    $('#formTaiLieu input[type="checkbox"]:checked').each(function() {
+    $('#formTaiLieu .doc-special-checkbox:checked').each(function() {
         specials.push($(this).val());
     });
-    
-    const document = {
+
+    const doc = {
         type: 'document',
-        name: documentName,
+        name: name,
         quantity: quantity,
         weight: weight,
         value: value,
@@ -1107,101 +964,82 @@ $('#addDocumentBtn').on('click', function() {
         height: height,
         specials: specials
     };
-    
-    productsList.push(document);
-    console.log('✅ Đã thêm tài liệu:', documentName, '- Tổng:', productsList.length);
-    
+
+    productsList.push(doc);
+    console.log('✅ Đã thêm tài liệu:', name);
+
     renderProductsList();
     resetDocumentForm();
     calculateCost();
 });
 
 function renderProductsList() {
+    const container = $('#products-list');
+    
     if (productsList.length === 0) {
-        $('#products-list').html('');
+        container.html('');
         return;
     }
-    
+
     let html = '<div class="mb-3"><label class="form-label fw-bold">Danh sách hàng hóa đã thêm:</label></div>';
-    
-    productsList.forEach((item, index) => {
-        const dimensionText = (item.length || item.width || item.height) 
-            ? ` - ${item.length}×${item.width}×${item.height}cm` 
+
+    productsList.forEach((item, idx) => {
+        const dims = (item.length || item.width || item.height) 
+            ? ` | ${item.length}×${item.width}×${item.height}cm` 
             : '';
-        
+        const icon = item.type === 'package' ? '📦' : '📄';
+
         html += `
             <div class="product-item">
                 <div class="d-flex justify-content-between align-items-start">
                     <div class="flex-grow-1">
-                        <strong>${item.name}</strong>
+                        <strong>${icon} ${item.name}</strong>
                         <div class="text-muted small">
-                            ${item.type === 'package' ? '📦 Bưu kiện' : '📄 Tài liệu'} | 
-                            SL: ${item.quantity} | 
-                            KL: ${item.weight}g | 
-                            GT: ${item.value.toLocaleString('vi-VN')}đ${dimensionText}
+                            SL: ${item.quantity} | KL: ${item.weight}g | GT: ${item.value.toLocaleString('vi-VN')}đ${dims}
                         </div>
                         ${item.specials.length > 0 ? `<div class="text-danger small">⚠️ ${item.specials.join(', ')}</div>` : ''}
                     </div>
-                    <button type="button" class="btn btn-sm btn-outline-danger remove-btn" onclick="removeProduct(${index})">
+                    <button type="button" class="btn btn-sm btn-outline-danger remove-btn" onclick="removeProduct(${idx})">
                         <i class="bi bi-trash"></i>
                     </button>
                 </div>
             </div>
         `;
     });
-    
-    $('#products-list').html(html);
+
+    container.html(html);
     $('#products_json').val(JSON.stringify(productsList));
 }
 
-function removeProduct(index) {
-    if (confirm('Xóa hàng hóa này?')) {
-        productsList.splice(index, 1);
+function removeProduct(idx) {
+    if (confirm('Xóa hàng này?')) {
+        productsList.splice(idx, 1);
         renderProductsList();
         calculateCost();
-        console.log('🗑️ Đã xóa sản phẩm tại vị trí:', index);
     }
 }
 
 function resetProductForm() {
-    $('#product-select').val('');
-    $('#custom-product-name').val('').addClass('d-none');
-    $('#quantity').val(1);
-    $('#weight').val(10);
-    $('#value').val(10000);
+    $('#product-name').val('');
+    $('#quantity').val('1');
+    $('#weight').val('10');
+    $('#value').val('10000');
     $('#length, #width, #height').val('');
-    $('#formBuuKien input[type="checkbox"]').prop('checked', false);
+    $('#formBuuKien .special-checkbox').prop('checked', false);
+    $('#product-name').focus();
 }
 
 function resetDocumentForm() {
     $('#document-name').val('');
-    $('#doc-quantity').val(1);
-    $('#doc-weight').val(10);
-    $('#doc-value').val(10000);
+    $('#doc-quantity').val('1');
+    $('#doc-weight').val('10');
+    $('#doc-value').val('10000');
     $('#doc-length, #doc-width, #doc-height').val('');
-    $('#formTaiLieu input[type="checkbox"]').prop('checked', false);
+    $('#formTaiLieu .doc-special-checkbox').prop('checked', false);
+    $('#document-name').focus();
 }
 
-// ========== TOGGLE LOẠI HÀNG ==========
-const buuKienRadio = document.getElementById('buuKien');
-const taiLieuRadio = document.getElementById('taiLieu');
-const formBuuKien = document.getElementById('formBuuKien');
-const formTaiLieu = document.getElementById('formTaiLieu');
-
-function toggleForms() {
-    if (buuKienRadio.checked) {
-        formBuuKien.classList.remove('d-none');
-        formTaiLieu.classList.add('d-none');
-    } else {
-        formTaiLieu.classList.remove('d-none');
-        formBuuKien.classList.add('d-none');
-    }
-}
-
-buuKienRadio.addEventListener('change', toggleForms);
-taiLieuRadio.addEventListener('change', toggleForms);
-
-// ========== XỬ LÝ DỊCH VỤ COD ==========
+// ============ DỊCH VỤ COD ============
 $('#codService').on('change', function() {
     if ($(this).is(':checked')) {
         $('#cod-amount-container').removeClass('d-none');
@@ -1212,18 +1050,15 @@ $('#codService').on('change', function() {
     calculateCost();
 });
 
-// ========== TÍNH CƯỚC PHÍ - FIXED VERSION ==========
+// ============ TÍNH CƯỚC PHÍ ============
 function setupEventHandlers() {
-    // ✅ Chỉ tính lại khi thay đổi services/COD VÀ đã có sản phẩm
     $('input[type=checkbox][name="services[]"]').on('change', function() {
-        console.log('🔄 Service thay đổi');
         if (productsList.length > 0) {
             calculateCost();
         }
     });
     
     $('#cod-amount').on('input', function() {
-        console.log('🔄 COD amount thay đổi');
         if (productsList.length > 0) {
             calculateCost();
         }
@@ -1231,9 +1066,6 @@ function setupEventHandlers() {
 }
 
 function calculateCost() {
-    console.log('🧮 Tính cước cho', productsList.length, 'sản phẩm');
-    
-    // ❌ Không có sản phẩm
     if (!productsList || productsList.length === 0) {
         $('#baseCost').text('0 đ');
         $('#extraCost').text('0 đ');
@@ -1241,25 +1073,17 @@ function calculateCost() {
         return;
     }
     
-    // ✅ Chuẩn bị data
     const services = $('input[name="services[]"]:checked').map((_, e) => e.value).get();
     const codAmount = parseFloat($('#cod-amount').val()) || 0;
     
     const data = {
-        products_json: JSON.stringify(productsList), // ✅ GỬI TẤT CẢ
+        products_json: JSON.stringify(productsList),
         services: services,
         cod_amount: codAmount,
         item_type: productsList[0]?.type || 'package',
         _token: $('meta[name="csrf-token"]').attr('content') || '{{ csrf_token() }}'
     };
     
-    console.log('💰 Gửi request tính cước:', {
-        products_count: productsList.length,
-        services: services,
-        cod: codAmount
-    });
-    
-    // ✅ Gọi API
     $.post('{{ route("customer.orders.calculate") }}', data)
         .done(function(res) {
             if (res && res.success === true) {
@@ -1270,116 +1094,38 @@ function calculateCost() {
                 $('#baseCost').text(baseCost.toLocaleString('vi-VN') + ' đ');
                 $('#extraCost').text(extraCost.toLocaleString('vi-VN') + ' đ');
                 $('#tongCuoc').text(total.toLocaleString('vi-VN') + ' đ');
-                
-                console.log('✅ Cước phí:', {
-                    base: baseCost,
-                    extra: extraCost,
-                    total: total,
-                    debug: res.debug
-                });
             }
         })
         .fail(function(xhr) {
-            console.error('❌ Lỗi API:', xhr.responseText);
-            alert('⚠️ Không thể tính cước phí. Vui lòng thử lại.');
+            console.error('❌ Lỗi tính cước:', xhr.responseText);
         });
 }
 
-// ========== XỬ LÝ SUBMIT FORM ==========
-// $('#orderForm').on('submit', function(e) {
-//     e.preventDefault();
-    
-//     if (!validateForm()) {
-//         return false;
-//     }
-    
-//     $('#submitOrder').prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-2"></span>Đang xử lý...');
-    
-//     const formData = new FormData(this);
-//     formData.append('products', JSON.stringify(productsList));
-    
-//     console.log('📦 Gửi đơn hàng với', productsList.length, 'sản phẩm');
-//     console.log('📦 productsList data:', productsList);
-    
-//     $.ajax({
-//         url: $(this).attr('action'),
-//         method: 'POST',
-//         data: formData,
-//         processData: false,
-//         contentType: false,
-//         success: function(res) {
-//             if (res.success) {
-//                 alert('✅ Tạo đơn hàng thành công!');
-//                 window.location.href = '{{ route("customer.orders.create") }}';
-//             } else {
-//                 alert('❌ Lỗi: ' + (res.message || 'Không thể tạo đơn hàng'));
-//                 $('#submitOrder').prop('disabled', false).html('<i class="bi bi-check-circle"></i> Tạo đơn hàng');
-//             }
-//         },
-//         error: function(xhr) {
-//             let errorMsg = 'Không thể tạo đơn hàng';
-//             if (xhr.responseJSON && xhr.responseJSON.message) {
-//                 errorMsg = xhr.responseJSON.message;
-//             } else if (xhr.responseText) {
-//                 try {
-//                     const response = JSON.parse(xhr.responseText);
-//                     errorMsg = response.message || errorMsg;
-//                 } catch (e) {
-//                     console.error('Parse error:', e);
-//                 }
-//             }
-//             alert('❌ ' + errorMsg);
-//             console.error('Submit error:', xhr);
-//             $('#submitOrder').prop('disabled', false).html('<i class="bi bi-check-circle"></i> Tạo đơn hàng');
-//         }
-//     });
-// });
-
+// ============ VALIDATE & SUBMIT FORM ============
 function validateForm() {
-    console.log('🔍 Validate form');
-    console.log('📦 productsList:', productsList);
-    console.log('📦 products_json value:', $('#products_json').val());
-    
-    // ✅ Kiểm tra sender
     if (!$('#sender-select').val()) {
         alert('⚠️ Vui lòng chọn thông tin người gửi');
-        $('#sender-select').focus();
         return false;
     }
     
-    // ✅ Kiểm tra recipient
     if (!$('#recipientName').val().trim()) {
         alert('⚠️ Vui lòng nhập tên người nhận');
-        $('#recipientName').focus();
         return false;
     }
     
     if (!$('#recipientPhone').val().trim()) {
         alert('⚠️ Vui lòng nhập số điện thoại người nhận');
-        $('#recipientPhone').focus();
         return false;
     }
     
     const phonePattern = /^(0|\+84)[0-9]{9,10}$/;
     if (!phonePattern.test($('#recipientPhone').val().trim())) {
         alert('⚠️ Số điện thoại không hợp lệ');
-        $('#recipientPhone').focus();
         return false;
     }
     
-    // ✅ Kiểm tra địa chỉ
-    if (!$('#province-select').val()) {
-        alert('⚠️ Vui lòng chọn Tỉnh/Thành phố');
-        return false;
-    }
-    
-    if (!$('#district-select').val()) {
-        alert('⚠️ Vui lòng chọn Quận/Huyện');
-        return false;
-    }
-    
-    if (!$('#ward-select').val()) {
-        alert('⚠️ Vui lòng chọn Phường/Xã');
+    if (!$('#province-select').val() || !$('#district-select').val() || !$('#ward-select').val()) {
+        alert('⚠️ Vui lòng chọn địa chỉ đầy đủ');
         return false;
     }
     
@@ -1388,41 +1134,43 @@ function validateForm() {
         return false;
     }
     
-    // ✅ QUAN TRỌNG: Kiểm tra productsList
     if (!productsList || productsList.length === 0) {
         alert('⚠️ Vui lòng thêm ít nhất 1 hàng hóa');
-        console.error('❌ productsList rỗng!');
         return false;
     }
     
-    // ✅ Kiểm tra từng sản phẩm
-    for (let i = 0; i < productsList.length; i++) {
-        const item = productsList[i];
-        if (!item.name || !item.weight || item.weight <= 0) {
-            alert(`⚠️ Hàng hoá #${i + 1} không hợp lệ`);
-            console.error('❌ Sản phẩm không hợp lệ:', item);
-            return false;
-        }
-    }
-    
-    // ✅ Kiểm tra thời gian
-    if (!$('#pickup-time').val()) {
-        alert('⚠️ Vui lòng chọn thời gian hẹn lấy hàng');
+    if (!validateDatetimes()) {
         return false;
     }
     
-    if (!$('#delivery-time').val()) {
-        alert('⚠️ Vui lòng chọn thời gian hẹn giao');
-        return false;
-    }
-    
-    console.log('✅ Validate thành công! Sẵn sàng submit');
     return true;
 }
 
-function fetchNearbyPostOffices(lat, lng) {
-    console.log('🏢 Tìm bưu cục gần:', { lat, lng });
+$('#orderForm').on('submit', function(e) {
+    console.log('📤 Chuẩn bị submit form');
     
+    $('#products_json').val(JSON.stringify(productsList));
+    
+    if (!validateForm()) {
+        e.preventDefault();
+        return false;
+    }
+    
+    const pickupValue = $('#pickup-time').val();
+    const deliveryValue = $('#delivery-time').val();
+    
+    $('#pickup_time_formatted').val(formatDatetimeForDatabase(pickupValue));
+    $('#delivery_time_formatted').val(formatDatetimeForDatabase(deliveryValue));
+    
+    $('#submitOrder').prop('disabled', true)
+        .html('<span class="spinner-border spinner-border-sm me-2"></span>Đang xử lý...');
+    
+    console.log('✅ Form sẵn sàng submit');
+    return true;
+});
+
+// ============ POST OFFICE ============
+function fetchNearbyPostOffices(lat, lng) {
     $.get('{{ route("customer.orders.getNearby") }}', {
         latitude: lat,
         longitude: lng,
@@ -1432,39 +1180,17 @@ function fetchNearbyPostOffices(lat, lng) {
             let html = '<option value="">-- Chọn bưu cục --</option>';
             data.forEach(office => {
                 html += `<option value="${office.id}" data-lat="${office.latitude}" data-lng="${office.longitude}">
-                    ${office.name} - ${office.address} (${office.distance.toFixed(2)} km)
+                    ${office.name} - ${office.address}
                 </option>`;
             });
             $('#postOfficeSelect').html(html);
-            console.log('✅ Tìm thấy', data.length, 'bưu cục');
         } else {
             $('#postOfficeSelect').html('<option value="">Không tìm thấy bưu cục gần đây</option>');
         }
     }).fail(function() {
         console.error('❌ Không thể tải bưu cục');
     });
-   
-} $('#orderForm').on('submit', function(e) {
-        console.log('📤 Chuẩn bị submit form');
-        
-        // ✅ QUAN TRỌNG: Gán products_json trước khi submit
-        $('#products_json').val(JSON.stringify(productsList));
-        
-        console.log('📦 Products gửi đi:', productsList);
-        
-        // ✅ Validate
-        if (!validateForm()) {
-            e.preventDefault();
-            return false;
-        }
-        
-        // ✅ Hiển thị loading
-        $('#submitOrder').prop('disabled', true)
-            .html('<span class="spinner-border spinner-border-sm me-2"></span>Đang xử lý...');
-        
-        // ✅ Cho phép form submit bình thường (không preventDefault)
-        return true;
-    });
+}
 </script>
 
 <script src="{{ asset('assets2/js/customer/dashboard/orders/fetchNearbyPostOffices.js') }}"></script>

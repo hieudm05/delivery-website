@@ -22,11 +22,9 @@ class OrderController extends Controller
     {
         // dd("Đã vào");
         $user = User::with('userInfo',)->find(Auth::id());
-        // Hàng hoá
-        $products = Product::where('user_id', Auth::id())->get();
         // dd($user);
         return view('customer.dashboard.orders.create',
-            compact('user','products'));
+            compact('user'));
     }
     public function store(Request $request)
     {
