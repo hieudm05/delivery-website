@@ -11,10 +11,18 @@ class DriverProfile extends Model
     use HasFactory;
     protected $table = "driver_profiles";
 
-    protected $fillable = [
-        'full_name',
+   protected $fillable = [
         'user_id',
+        'full_name',
         'email',
+        'phone',
+        'province_code',
+        'post_office_id',     
+        'post_office_name',   
+        'post_office_address',
+        'post_office_lat',    
+        'post_office_lng',    
+        'post_office_phone',  
         'vehicle_type',
         'license_number',
         'license_image',
