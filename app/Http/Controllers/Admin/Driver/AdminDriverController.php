@@ -51,7 +51,7 @@ class AdminDriverController extends Controller
             $user = User::create([
                 'email' => $driver->email,
                 'full_name' => $driver->full_name,
-                'phone' => $driver->user?->phone ?? null,
+                'phone' => $driver->phone ?? null,
                 'password_hash' => Hash::make($randomPassword),
                 'role' => 'driver',
                 'status' => 'active',
@@ -60,7 +60,6 @@ class AdminDriverController extends Controller
             // 4. Tạo UserInfo rỗng (hoặc có sẵn dữ liệu nếu bạn lấy được)
             UserInfo::create([
                 'user_id' => $user->id,
-                'national_id' => $request->national_id,
                 'full_address' => null,
                 'address_detail' => null,
                 'province_code' => null,

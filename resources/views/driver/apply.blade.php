@@ -2,7 +2,7 @@
 @section('title', 'Ứng tuyển tài xế')
 
 @section('content')
-<div class="container mt-5 mb-5 min-vh-100 d-flex align-items-center">
+<div class="container mt-5 mb-5 d-flex align-items-center">
     <div class="card shadow-lg border-0">
         <div class="row g-0">
             <!-- Cột trái: ảnh minh họa -->
@@ -21,81 +21,163 @@
                     </h4>
 
                     @if(session('success'))
-                        <div class="alert alert-success">{{ session('success') }}</div>
+                        <div class="alert alert-success alert-dismissible fade show">
+                            {{ session('success') }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
                     @endif
 
-                    <form method="POST" action="{{ route('driver.store') }}" enctype="multipart/form-data">
+                    @if(session('error'))
+                        <div class="alert alert-danger alert-dismissible fade show">
+                            {{ session('error') }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    @endif
+
+                    @if($errors->any())
+                        <div class="alert alert-danger">
+                            <strong>Lỗi:</strong>
+                            <ul class="mb-0 mt-2">
+                                @foreach($errors->all() as $error)
+                                    <li>{{ $error }}</li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    @endif
+
+                    <form method="POST" action="{{ route('driver.store') }}" enctype="multipart/form-data" novalidate>
                         @csrf
                         
                         <div class="row g-3">
-                            <!-- Họ tên / SĐT -->
+                            <!-- Họ tên -->
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold">Họ và tên</label>
-                                <input type="text" name="full_name" class="form-control" 
-                                       value="{{ old('full_name') }}" required>
+                                <label class="form-label fw-semibold">Họ và tên <span class="text-danger">*</span></label>
+                                <input type="text" name="full_name" class="form-control @error('full_name') is-invalid @enderror" 
+                                       value="{{ old('full_name') }}" placeholder="Nhập họ và tên" required>
+                                @error('full_name')
+                                    <small class="text-danger">{{ $message }}</small>
+                                @enderror
                             </div>
+
+                            <!-- SĐT -->
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold">Số điện thoại</label>
-                                <input type="text" name="phone" class="form-control" 
-                                       value="{{ old('phone') }}" required>
+                                <label class="form-label fw-semibold">Số điện thoại <span class="text-danger">*</span></label>
+                                <input type="tel" name="phone" class="form-control @error('phone') is-invalid @enderror" 
+                                       value="{{ old('phone') }}" placeholder="0912345678" required>
+                                @error('phone')
+                                    <small class="text-danger">{{ $message }}</small>
+                                @enderror
                             </div>
-                            <div>
-                                <label class="form-label fw-semibold">Email</label>
-                                <input type="email" name="email" class="form-control" 
-                                       value="{{ old('email') }}" required>
+
+                            <!-- Email -->
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">Email <span class="text-danger">*</span></label>
+                                <input type="email" name="email" class="form-control @error('email') is-invalid @enderror" 
+                                       value="{{ old('email') }}" placeholder="email@example.com" required>
+                                @error('email')
+                                    <small class="text-danger">{{ $message }}</small>
+                                @enderror
                             </div>
-                            <!-- Khu vực ứng tuyển -->
-                            <div class="col-md-12">
-                                <label class="form-label fw-semibold">Khu vực ứng tuyển</label>
+
+                            <!-- TỈNH / BƯUUU CỤC -->
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">Khu vực ứng tuyển <span class="text-danger">*</span></label>
                                 <div class="row g-2">
+                                    <!-- Tỉnh -->
                                     <div class="col-md-6">
-                                        <select name="province_code" id="province" class="form-select" required>
+                                        <select name="province_code" id="province" class="form-select @error('province_code') is-invalid @enderror" required>
                                             <option value="">-- Chọn Tỉnh/Thành phố --</option>
                                         </select>
+                                        @error('province_code')
+                                            <small class="text-danger">{{ $message }}</small>
+                                        @enderror
                                     </div>
+
+                                    <!-- Bưu cục -->
                                     <div class="col-md-6">
-                                        <select name="post_office" id="postOffice" class="form-select" required>
+                                        <select name="post_office_id" id="postOffice" class="form-select @error('post_office_id') is-invalid @enderror" required disabled>
                                             <option value="">-- Chọn Bưu cục --</option>
                                         </select>
+                                        <small id="postOfficeLoading" class="text-muted d-none">
+                                            <span class="spinner-border spinner-border-sm me-2"></span>Đang tải...
+                                        </small>
+                                        @error('post_office_id')
+                                            <small class="text-danger">{{ $message }}</small>
+                                        @enderror
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- Loại công việc -->
-                            <div class="col-md-6">
-                                <div class="d-flex align-items-center gap-2">
-                                    <input type="radio" checked class="" style="font-size: medium">
-                                    <label class="form-label fw-semibold mb-0">Nhân viên bưu tá</label>
+                            <!-- Hiển thị info bưu cục -->
+                            <div class="col-12">
+                                <div id="postOfficeInfo" class="alert alert-info d-none">
+                                    <strong>Bưu cục đã chọn:</strong>
+                                    <div id="postOfficeInfoContent"></div>
                                 </div>
-                                <div>(Nhân viên Giao - Nhận hàng bằng xe máy)</div>
+                            </div>
+
+                            <!-- Hidden fields lưu thông tin bưu cục -->
+                            <input type="hidden" name="post_office_name" id="postOfficeName">
+                            <input type="hidden" name="post_office_address" id="postOfficeAddress">
+                            <input type="hidden" name="post_office_lat" id="postOfficeLat">
+                            <input type="hidden" name="post_office_lng" id="postOfficeLng">
+                            <input type="hidden" name="post_office_phone" id="postOfficePhone">
+
+                            <!-- Loại công việc -->
+                            <div class="col-12">
+                                <div class="alert alert-info">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <input type="radio" name="vehicle_type" value="Xe máy" checked id="vehicleType">
+                                        <label class="form-label fw-semibold mb-0" for="vehicleType">Nhân viên bưu tá</label>
+                                    </div>
+                                    <div class="text-muted small ms-4">(Nhân viên Giao - Nhận hàng bằng xe máy)</div>
+                                </div>
                             </div>
 
                             <!-- GPLX -->
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold">Số GPLX</label>
-                                <input type="text" name="license_number" class="form-control" 
-                                       value="{{ old('license_number') }}">
+                                <input type="text" name="license_number" class="form-control @error('license_number') is-invalid @enderror" 
+                                       value="{{ old('license_number') }}" placeholder="Nhập số GPLX">
+                                @error('license_number')
+                                    <small class="text-danger">{{ $message }}</small>
+                                @enderror
                             </div>
 
+                            <!-- Ảnh GPLX -->
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold">Ảnh GPLX</label>
-                                <input type="file" name="license_image" class="form-control">
+                                <label class="form-label fw-semibold">Ảnh GPLX (Tối đa 2MB)</label>
+                                <input type="file" name="license_image" class="form-control @error('license_image') is-invalid @enderror" 
+                                       accept="image/*">
+                                @error('license_image')
+                                    <small class="text-danger">{{ $message }}</small>
+                                @enderror
                             </div>
 
-                            <div class="col-md-6">
-                                <label class="form-label fw-semibold">Ảnh CCCD</label> <span>("scan 2 mặt")</span>
-                                <input type="file" name="identity_image" class="form-control">
+                            <!-- Ảnh CCCD -->
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">Ảnh CCCD <span class="text-muted">(scan 2 mặt, tối đa 2MB)</span></label>
+                                <input type="file" name="identity_image" class="form-control @error('identity_image') is-invalid @enderror" 
+                                       accept="image/*">
+                                @error('identity_image')
+                                    <small class="text-danger">{{ $message }}</small>
+                                @enderror
                             </div>
 
+                            <!-- Kinh nghiệm -->
                             <div class="col-12">
                                 <label class="form-label fw-semibold">Kinh nghiệm giao hàng</label>
-                                <textarea name="experience" class="form-control" rows="3" 
-                                          placeholder="Mô tả ngắn gọn kinh nghiệm...">{{ old('experience') }}</textarea>
+                                <textarea name="experience" class="form-control @error('experience') is-invalid @enderror" 
+                                          rows="3" placeholder="Mô tả ngắn gọn kinh nghiệm giao hàng của bạn...">{{ old('experience') }}</textarea>
+                                @error('experience')
+                                    <small class="text-danger">{{ $message }}</small>
+                                @enderror
                             </div>
 
+                            <!-- Button submit -->
                             <div class="col-12">
                                 <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold">
-                                    Gửi hồ sơ ứng tuyển
+                                    <i class="bi bi-send"></i> Gửi hồ sơ ứng tuyển
                                 </button>
                             </div>
                         </div>
@@ -106,42 +188,130 @@
     </div>
 </div>
 
-{{-- Script xử lý danh sách tỉnh và bưu cục --}}
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
-document.addEventListener('DOMContentLoaded', function () {
+$(document).ready(function() {
     const provinceSelect = document.getElementById('province');
     const postOfficeSelect = document.getElementById('postOffice');
 
-    // Lấy danh sách tỉnh từ API
-    fetch('https://provinces.open-api.vn/api/p/')
-        .then(res => res.json())
-        .then(data => {
-            data.forEach(province => {
-                const opt = document.createElement('option');
-                opt.value = province.code;
-                opt.textContent = province.name;
-                provinceSelect.appendChild(opt);
-            });
-        });
-
-    // Khi chọn tỉnh -> hiển thị danh sách bưu cục (giả lập)
-    provinceSelect.addEventListener('change', function () {
-        postOfficeSelect.innerHTML = '<option value="">-- Chọn Bưu cục --</option>';
-        const selectedProvince = this.options[this.selectedIndex].text;
-
-        // Dữ liệu bưu cục mẫu
-        const offices = {
-            'Hà Nội': ['Bưu cục Cầu Giấy', 'Bưu cục Hoàng Mai', 'Bưu cục Hà Đông'],
-            'TP Hồ Chí Minh': ['Bưu cục Quận 1', 'Bưu cục Thủ Đức', 'Bưu cục Tân Bình'],
-            'Đà Nẵng': ['Bưu cục Hải Châu', 'Bưu cục Liên Chiểu']
-        };
-
-        const list = offices[selectedProvince] || ['Bưu cục trung tâm'];
-        list.forEach(name => {
+    // ========== LOAD TỈNH TỪ API MIỄN PHÍ ==========
+    $.get('https://provinces.open-api.vn/api/p/', function(data) {
+        data.forEach(province => {
             const opt = document.createElement('option');
-            opt.value = name;
-            opt.textContent = name;
-            postOfficeSelect.appendChild(opt);
+            opt.value = province.code;
+            opt.textContent = province.name;
+            opt.dataset.name = province.name; // Lưu tên để gửi cho Goong
+            provinceSelect.appendChild(opt);
+        });
+        
+        // Restore old value
+        if ('{{ old("province_code") }}') {
+            $(provinceSelect).val('{{ old("province_code") }}').trigger('change');
+        }
+    }).fail(function() {
+        alert('Lỗi tải danh sách tỉnh');
+    });
+
+    // ========== LOAD BƯUUU CỤC THEO TỈNH (DÙNG GOONG) ==========
+    $(provinceSelect).on('change', function() {
+        const provinceCode = $(this).val();
+        const provinceName = $(this).find('option:selected').data('name');
+        
+        // Clear postOffice
+        $(postOfficeSelect).html('<option value="">-- Chọn Bưu cục --</option>').prop('disabled', true);
+        $('#postOfficeInfo').addClass('d-none');
+        
+        if (!provinceCode) {
+            return;
+        }
+
+        // Hiển thị loading
+        $('#postOfficeLoading').removeClass('d-none');
+
+        // ✅ Gọi API backend (Goong)
+        $.ajax({
+            url: '{{ route("api.post-offices.by-province") }}',
+            method: 'GET',
+            data: { 
+                province_code: provinceCode,
+                province_name: provinceName 
+            },
+            dataType: 'json',
+            success: function(res) {
+                console.log('✅ Bưu cục (Goong):', res);
+                
+                if (res.success && res.data.length > 0) {
+                    let html = '<option value="">-- Chọn Bưu cục --</option>';
+                    
+                    res.data.forEach(office => {
+                        const phone = office.phone || 'Không có';
+                        html += `<option value="${office.id}" 
+                                    data-name="${office.name}"
+                                    data-address="${office.address}"
+                                    data-lat="${office.latitude}"
+                                    data-lng="${office.longitude}"
+                                    data-phone="${phone}"
+                                    data-place-id="${office.place_id}">
+                            ${office.name}
+                        </option>`;
+                    });
+                    
+                    $(postOfficeSelect).html(html).prop('disabled', false);
+                    
+                    // Restore old value
+                    if ('{{ old("post_office_id") }}') {
+                        $(postOfficeSelect).val('{{ old("post_office_id") }}').trigger('change');
+                    }
+                } else {
+                    $(postOfficeSelect).html('<option value="">Không tìm thấy bưu cục</option>');
+                    alert('Không tìm thấy bưu cục nào tại ' + provinceName);
+                }
+            },
+            error: function(xhr) {
+                console.error('❌ Lỗi:', xhr);
+                alert('Lỗi tải danh sách bưu cục');
+            },
+            complete: function() {
+                $('#postOfficeLoading').addClass('d-none');
+            }
+        });
+    });
+
+    // ========== KHI CHỌN BƯUUU CỤC ==========
+    $(postOfficeSelect).on('change', function() {
+        const selectedOption = $(this).find('option:selected');
+        const id = $(this).val();
+        const name = selectedOption.data('name');
+        const address = selectedOption.data('address');
+        const lat = selectedOption.data('lat');
+        const lng = selectedOption.data('lng');
+        const phone = selectedOption.data('phone');
+
+        if (!id) {
+            $('#postOfficeInfo').addClass('d-none');
+            return;
+        }
+
+        // Lưu vào hidden fields
+        $('#postOfficeName').val(name);
+        $('#postOfficeAddress').val(address);
+        $('#postOfficeLat').val(lat);
+        $('#postOfficeLng').val(lng);
+        $('#postOfficePhone').val(phone);
+
+        // Hiển thị info
+        const infoHtml = `
+            <div><strong>Tên:</strong> ${name}</div>
+            <div><strong>Địa chỉ:</strong> ${address}</div>
+            <div><strong>SĐT:</strong> ${phone}</div>
+            <div class="small text-muted mt-2">📍 Tọa độ: ${lat}, ${lng}</div>
+        `;
+        
+        $('#postOfficeInfoContent').html(infoHtml);
+        $('#postOfficeInfo').removeClass('d-none');
+
+        console.log('✅ Đã chọn bưu cục:', {
+            id, name, address, lat, lng, phone
         });
     });
 });
