@@ -398,6 +398,26 @@
               <label class="form-label">Ghi chú</label>
               <textarea class="form-control" id="note" name="note" rows="3" placeholder="Nhập ghi chú cho đơn hàng (không bắt buộc)"></textarea>
             </div>
+            <div class="card mt-4">
+            <div class="card-header bg-light">
+              <h6 class="mb-0"><i class="bi bi-images"></i> Hình ảnh đơn hàng </h6>
+            </div>
+            <div class="card-body">
+              <div class="mb-3">
+                <label class="form-label">Thêm hình ảnh hàng hóa (tối đa 5 ảnh, mỗi ảnh max 5MB)</label>
+                <input type="file" 
+                      class="form-control" 
+                      id="order-images" 
+                      name="images[]" 
+                      accept="image/*" 
+                      multiple>
+                <small class="text-muted">Hỗ trợ: JPG, PNG, GIF</small>
+              </div>
+
+              <!-- Preview ảnh đã chọn -->
+              <div id="image-preview-container" class="row g-2"></div>
+            </div>
+          </div>
 
             <!-- NÚT SUBMIT -->
             <div class="mt-4 text-end">
@@ -1194,4 +1214,5 @@ function fetchNearbyPostOffices(lat, lng) {
 </script>
 
 <script src="{{ asset('assets2/js/customer/dashboard/orders/fetchNearbyPostOffices.js') }}"></script>
+<script src="{{ asset('assets2/js/customer/dashboard/orders/handleImage.js') }}"></script>
 @endsection

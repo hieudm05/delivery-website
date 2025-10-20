@@ -1,6 +1,7 @@
 <?php
 namespace App\Models\Customer\Dashboard\Orders;
 
+use App\Models\Driver\Orders\OrderDeliveryImage;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -29,4 +30,14 @@ class Order extends Model
     {
         return $this->hasMany(OrderProduct::class);
     }
+    public function pickupImages()
+    {
+        return $this->hasMany(OrderImage::class);
+    }
+
+    public function deliveryImages()
+    {
+        return $this->hasMany(OrderDeliveryImage::class);
+    }
+
 }
