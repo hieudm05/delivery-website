@@ -3,6 +3,7 @@ namespace App\Http\Controllers\Customer\Dashboard\Orders;
 use App\Http\Controllers\Controller;
 use App\Models\Customer\Dashboard\Accounts\Product;
 use App\Models\Customer\Dashboard\Orders\Order;
+use App\Models\Customer\Dashboard\Orders\OrderImage;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -36,7 +37,8 @@ class OrderController extends Controller
             'recipient_name' => 'required|string',
             'recipient_phone' => 'required|string',
             'recipient_full_address' => 'required|string',
-            'products_json' => 'required|string|min:2', // ✅ Đảm bảo không rỗng
+            'products_json' => 'required|string|min:2',
+            'images.*' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120', // Max 5MB
         ]);
         
         // ✅ Parse JSON an toàn
@@ -103,9 +105,34 @@ class OrderController extends Controller
         //         'full_address' => $request->recipient_full_address,
         //     ]);
         // }
+         // ✅ XỬ LÝ UPLOAD HÌNH ẢNH
+        if ($request->hasFile('images')) {
+            $this->handleImageUpload($order, $request->file('images'), $request->input('image_notes', []));
+        }
         
         return redirect()->route('customer.orders.create')
             ->with('success', 'Tạo đơn hàng thành công!');
+    }
+     /**
+     * ✅ Xử lý upload nhiều ảnh
+     */
+    private function handleImageUpload($order, $images, $notes = [])
+    {
+        foreach ($images as $index => $image) {
+            // Tạo tên file unique
+            $fileName = 'order_' . $order->id . '_' . time() . '_' . uniqid() . '.' . $image->getClientOriginalExtension();
+            
+            // Lưu vào storage/app/public/orders/{order_id}/
+            $path = $image->storeAs('orders/' . $order->id, $fileName, 'public');
+            
+            // ✅ Lưu vào bảng order_images
+            OrderImage::create([
+                'order_id' => $order->id,
+                'image_path' => $path,
+                'type' => 'pickup', // Mặc định là ảnh lúc pickup
+                'note' => $notes[$index] ?? null,
+            ]);
+        }
     }
 
     public function calculate(Request $request)
