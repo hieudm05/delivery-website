@@ -5,100 +5,189 @@
 @section('content')
 <div class="container py-4">
 
-    <!-- Header -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h4 class="fw-bold text-primary">
-            <i class="bi bi-truck me-2"></i> Quản lý vận đơn
-        </h4>
-        <a href="{{ route('customer.orders.create') }}" class="btn btn-primary">
-            <i class="bi bi-plus-lg"></i> Tạo đơn mới
-        </a>
-    </div>
-
-    <!-- Card hiển thị từng vận đơn -->
-    <div class="row g-4">
-        @foreach($orders as $order)
-            @php
-                $rawProducts = $order->products_json;
-                $products = is_string($rawProducts) ? json_decode($rawProducts, true) : $rawProducts;
-                $firstProduct = $products[0] ?? [];
-                $statusBadge = [
-                    'pending' => 'bg-warning text-dark',
-                    'confirmed' => 'bg-warning text-dark',
-                    'picking_up' => 'bg-warning text-dark',
-                    'picked_up' => 'bg-warning text-dark',
-                    'shipping' => 'bg-info text-white',
-                    'delivered' => 'bg-success text-white',
-                    'cancelled' => 'bg-danger text-white',
-                ][$order->status ?? 'pending'];
-            @endphp
-
-            <div class="col-12 col-md-6 col-lg-4">
-                <div class="card border-0 shadow-sm rounded-4 h-100">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between">
-                            <h6 class="fw-bold text-secondary">Mã đơn: #{{ $order->id }}</h6>
-                            <span class="badge {{ $statusBadge }}">
-                                {{ ucfirst($order->status ?? 'Mới tạo') }}
-                            </span>
-                        </div>
-
-                        <hr style="background-color: red" >
-
-                        <div class="mb-2">
-                            <i class="bi bi-box-seam me-2 text-primary"></i>
-                            <strong>{{ $firstProduct['name'] ?? 'Sản phẩm' }}</strong>
-                            <div class="small text-muted">
-                                Loại: {{ $firstProduct['type'] ?? 'package' }} |
-                                SL: {{ $firstProduct['quantity'] ?? 1 }}
-                            </div>
-                        </div>
-
-                        <div class="mb-2">
-                            <i class="bi bi-person-fill me-2 text-success"></i>
-                            <span class="fw-bold">Người gửi:</span> {{ $order->sender_name }}<br>
-                            <span class="text-muted small">{{ $order->sender_address }}</span>
-                        </div>
-
-                        <div class="mb-2">
-                            <i class="bi bi-geo-alt-fill me-2 text-danger"></i>
-                            <span class="fw-bold">Người nhận:</span> {{ $order->recipient_name }}<br>
-                            <span class="text-muted small">{{ $order->recipient_full_address }}</span>
-                        </div>
-
-                        <div class="mb-3">
-                            <i class="bi bi-clock me-2 text-secondary"></i>
-                            Giao dự kiến: {{ \Carbon\Carbon::parse($order->delivery_time)->format('H:i d/m/Y') }}
-                        </div>
-
-                        <div class="d-flex justify-content-between align-items-center">
-                            <a href="{{ route('customer.orderManagent.show', $order->id) }}" class="btn btn-sm btn-outline-primary rounded-pill">
-                                 Xem chi tiết
-                            </a>
-                            <div>
-                                @if($order->status === 'pending')
-                                <a href="#" class="btn btn-sm btn-outline-success rounded-pill me-1">
-                                    Sửa
-                                </a>
-                                <a href="#" class="btn btn-sm btn-outline-danger rounded-pill">
-                                    Xoá
-                                </a>
-                                @endif
-                              
-                            </div>
-                        </div>
+    <!-- Header với Search & Filter -->
+    <div class="card shadow-sm border-0 rounded-4 mb-4">
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-md-3">
+                    <h4 class="fw-bold text-primary mb-0">
+                        <i class="bi bi-truck me-2"></i> Quản lý vận đơn
+                    </h4>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="input-group">
+                        <span class="input-group-text bg-white border-end-0">
+                            <i class="bi bi-search"></i>
+                        </span>
+                        <input type="text" 
+                               id="searchInput" 
+                               class="form-control border-start-0" 
+                               placeholder="Tìm theo mã đơn, tên, SĐT...">
                     </div>
                 </div>
+
+                <div class="col-md-3 text-end">
+                    <a href="{{ route('customer.orders.create') }}" class="btn btn-primary">
+                        <i class="bi bi-plus-lg"></i> Tạo đơn mới
+                    </a>
+                </div>
             </div>
-        @endforeach
+
+            <!-- Tabs Filter Status -->
+            <ul class="nav nav-pills mt-3" id="statusTabs" role="tablist">
+                <li class="nav-item">
+                    <button class="nav-link active" data-status="all">
+                        Tất cả <span class="badge bg-secondary ms-1">{{ array_sum($statusCounts) }}</span>
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link" data-status="pending">
+                        Chờ xác nhận <span class="badge bg-warning ms-1">{{ $statusCounts['pending'] ?? 0 }}</span>
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link" data-status="confirmed">
+                        Đã xác nhận <span class="badge bg-info ms-1">{{ $statusCounts['confirmed'] ?? 0 }}</span>
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link" data-status="shipping">
+                        Đang giao <span class="badge bg-primary ms-1">{{ $statusCounts['shipping'] ?? 0 }}</span>
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link" data-status="delivered">
+                        Đã giao <span class="badge bg-success ms-1">{{ $statusCounts['delivered'] ?? 0 }}</span>
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link" data-status="cancelled">
+                        Đã hủy <span class="badge bg-danger ms-1">{{ $statusCounts['cancelled'] ?? 0 }}</span>
+                    </button>
+                </li>
+            </ul>
+        </div>
     </div>
 
-    @if(count($orders) == 0)
-        <div class="text-center py-5 text-muted">
-            <i class="bi bi-inbox fs-1 d-block mb-3"></i>
-            Chưa có vận đơn nào được tạo.
+    <!-- Loading Spinner -->
+    <div id="loadingSpinner" class="text-center d-none">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
         </div>
-    @endif
+    </div>
+
+    <!-- Order Cards Container -->
+    <div class="row" id="ordersContainer">
+        @include('customer.dashboard.orderManagent._orders_list', ['orders' => $orders])
+    </div>
+
+    <!-- Pagination Container -->
+    <div id="paginationContainer" class="mt-4 d-flex justify-content-center">
+        {{ $orders->links() }}
+    </div>
 
 </div>
+
+<style>
+.nav-pills .nav-link {
+    border-radius: 20px;
+    margin-right: 8px;
+    transition: all 0.3s;
+}
+
+.nav-pills .nav-link:hover {
+    background-color: #f0f0f0;
+}
+
+.nav-pills .nav-link.active {
+    background-color: #0d6efd;
+    color: white;
+}
+</style>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+let filterTimeout = null;
+
+$(document).ready(function() {
+    setupFilterHandlers();
+});
+
+function setupFilterHandlers() {
+    // ✅ Filter theo status
+    $('#statusTabs button').on('click', function() {
+        const status = $(this).data('status');
+        
+        $('#statusTabs button').removeClass('active');
+        $(this).addClass('active');
+        
+        loadOrders({ status: status });
+    });
+
+    // ✅ Search với debounce
+    $('#searchInput').on('input', function() {
+        clearTimeout(filterTimeout);
+        
+        filterTimeout = setTimeout(() => {
+            const search = $(this).val();
+            const status = $('#statusTabs button.active').data('status');
+            
+            loadOrders({ status: status, search: search });
+        }, 500);
+    });
+
+    // ✅ Pagination links
+    $(document).on('click', '.pagination a', function(e) {
+        e.preventDefault();
+        const url = $(this).attr('href');
+        
+        if (url) {
+            const status = $('#statusTabs button.active').data('status');
+            const search = $('#searchInput').val();
+            
+            loadOrders({ status: status, search: search }, url);
+        }
+    });
+}
+
+function loadOrders(params = {}, url = null) {
+    const targetUrl = url || '{{ route("customer.orderManagent.index") }}';
+    
+    $('#loadingSpinner').removeClass('d-none');
+    $('#ordersContainer').css('opacity', '0.5');
+    
+    $.ajax({
+        url: targetUrl,
+        method: 'GET',
+        data: params,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        success: function(response) {
+            if (response.success) {
+                $('#ordersContainer').html(response.html);
+                $('#paginationContainer').html(response.pagination);
+            }
+        },
+        error: function(xhr) {
+            console.error('Error loading orders:', xhr);
+            alert('Có lỗi xảy ra khi tải dữ liệu');
+        },
+        complete: function() {
+            $('#loadingSpinner').addClass('d-none');
+            $('#ordersContainer').css('opacity', '1');
+        }
+    });
+}
+</script>
+
+@if(session('success'))
+<script>
+    $(document).ready(function() {
+        alert('✅ {{ session("success") }}');
+    });
+</script>
+@endif
+
 @endsection
