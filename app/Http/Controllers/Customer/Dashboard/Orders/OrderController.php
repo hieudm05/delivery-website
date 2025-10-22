@@ -111,29 +111,46 @@ class OrderController extends Controller
         }
         
         return redirect()->route('customer.orders.create')
-            ->with('success', 'Tạo đơn hàng thành công!');
-    }
-     /**
-     * ✅ Xử lý upload nhiều ảnh
-     */
-    private function handleImageUpload($order, $images, $notes = [])
-    {
-        foreach ($images as $index => $image) {
-            // Tạo tên file unique
-            $fileName = 'order_' . $order->id . '_' . time() . '_' . uniqid() . '.' . $image->getClientOriginalExtension();
-            
-            // Lưu vào storage/app/public/orders/{order_id}/
-            $path = $image->storeAs('orders/' . $order->id, $fileName, 'public');
-            
-            // ✅ Lưu vào bảng order_images
-            OrderImage::create([
-                'order_id' => $order->id,
-                'image_path' => $path,
-                'type' => 'pickup', // Mặc định là ảnh lúc pickup
-                'note' => $notes[$index] ?? null,
-            ]);
+                ->with('success', 'Tạo đơn hàng thành công!');
         }
-    }
+        /**
+         * ✅ Xử lý upload nhiều ảnh
+         */
+        private function handleImageUpload($order, $images = null, $notes = [], $type = 'pickup')
+        {
+            // Nếu không có ảnh được gửi lên, bỏ qua an toàn
+            if (empty($images)) {
+                // Nếu bạn muốn lưu ghi chú ngay cả khi không có ảnh, có thể thêm xử lý ở đây
+                return;
+            }
+
+            // Nếu chỉ có 1 ảnh (đối tượng UploadedFile), chuyển thành mảng để foreach vẫn chạy
+            if (!is_array($images)) {
+                $images = [$images];
+            }
+
+            foreach ($images as $index => $image) {
+                // Bỏ qua nếu không phải file hợp lệ
+                if (!$image->isValid()) {
+                    continue;
+                }
+
+                // Tạo tên file unique
+                $fileName = 'order_' . $order->id . '_' . time() . '_' . uniqid() . '.' . $image->getClientOriginalExtension();
+
+                // Lưu file vào storage/app/public/orders/{order_id}/
+                $path = $image->storeAs('orders/' . $order->id, $fileName, 'public');
+
+                // ✅ Lưu vào bảng order_images
+                OrderImage::create([
+                    'order_id' => $order->id,
+                    'image_path' => $path,
+                    'type' => $type, // mặc định là 'pickup', có thể truyền 'issue', 'delivery'...
+                    'note' => $notes[$index] ?? ("Ảnh " . ucfirst($type) . " #" . ($index + 1)),
+                ]);
+            }
+        }
+
 
     public function calculate(Request $request)
     {

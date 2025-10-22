@@ -10,21 +10,62 @@ class Order extends Model
     use HasFactory;
 
     protected $fillable = [
-        'sender_id', 'sender_name', 'sender_phone', 'sender_address',
-        'sender_latitude', 'sender_longitude', 'post_office_id', 'pickup_time',
-        'recipient_name', 'recipient_phone', 'province_code', 'district_code',
-        'ward_code', 'address_detail', 'recipient_latitude', 'recipient_longitude',
-        'recipient_full_address', 'delivery_time', 'item_type', 'services',
-        'cod_amount', 'note', 'products_json', 'save_address', 'status'
+        'sender_id',
+        'sender_name',
+        'sender_phone',
+        'sender_address',
+        'sender_latitude',
+        'sender_longitude',
+        'post_office_id',
+        'pickup_time',
+        'recipient_name',
+        'recipient_phone',
+        'province_code',
+        'district_code',
+        'ward_code',
+        'address_detail',
+        'recipient_latitude',
+        'recipient_longitude',
+        'recipient_full_address',
+        'delivery_time',
+        'item_type',
+        'services',
+        'cod_amount',
+        'note',
+        'products_json',
+        'save_address',
+        'status',
+        'driver_id',
+        'actual_pickup_start_time',
+        'actual_pickup_time',
+        'actual_packages',
+        'actual_weight',
+        'pickup_note',
+        'pickup_latitude',
+        'pickup_longitude',
+        'pickup_issue_type',
+        'pickup_issue_note',
+        'pickup_issue_time',
+        'pickup_issue_driver_id',
+        'current_hub_id',
+        'hub_transfer_time',
+        'hub_transfer_note',
     ];
 
-    protected $casts = [
-        'services' => 'array',
-        'products_json' => 'array',
-        'save_address' => 'boolean',
-        'pickup_time' => 'datetime',
-        'delivery_time' => 'datetime',
+
+   protected $casts = [
+    'services' => 'array',
+    'products_json' => 'array',
+    'pickup_time' => 'datetime',
+    'delivery_time' => 'datetime',
+    'actual_pickup_start_time' => 'datetime',
+    'actual_pickup_time' => 'datetime',
+    'pickup_issue_time' => 'datetime',
+    'hub_transfer_time' => 'datetime',
+    'created_at' => 'datetime',
+    'updated_at' => 'datetime',
     ];
+
 
     public function products()
     {

@@ -8,6 +8,7 @@ use App\Http\Controllers\Customer\Dashboard\DashboardCustomerController;
 use App\Http\Controllers\Customer\Dashboard\OrderManagent\OrderManagentController;
 use App\Http\Controllers\Customer\Dashboard\Orders\OrderController;
 use App\Http\Controllers\Drivers\DriverController;
+use App\Http\Controllers\Drivers\PickupController;
 use Illuminate\Support\Facades\Route;
 
 // Trang chủ
@@ -49,8 +50,34 @@ Route::prefix('admin')
 // Driver
 Route::prefix('driver')
     ->middleware(['auth', 'role:driver'])
+    ->name('driver.')
     ->group(function () {
-        Route::get('/', [DriverController::class, 'index'])->name('driver.index');
+        Route::get('/', [DriverController::class, 'index'])->name('index');
+
+         //Danh sách đơn cần lấy
+        Route::prefix('pickup')
+        ->name('pickup.')
+        ->group( function () {
+            Route::get('/', [PickupController::class, 'index'])->name('index');
+               // Lấy vị trí bưu cục tài xế
+            Route::get('/location', [PickupController::class, 'location'])->name('location');
+            // Chi tiết đơn hàng cần lấy
+            Route::get('/{id}', [PickupController::class, 'show'])->name('show');
+            //Bắt đầu lấy hàng (chuyển trạng thái sang picking_up)
+            Route::post('/{id}/start', [PickupController::class, 'startPickup'])->name('start');
+            //Xác nhận đã lấy hàng thành công
+            Route::post('/{id}/confirm', [PickupController::class, 'confirmPickup'])->name('confirm');
+            //Báo cáo vấn đề khi lấy hàng
+            Route::post('/{id}/report-issue', [PickupController::class, 'reportIssue'])->name('report-issue');
+            //Danh sách đơn đã lấy trong ngày
+            Route::get('/picked/list', [PickupController::class, 'pickedOrders'])->name('picked-orders');
+            //Chuyển hàng về bưu cục (gộp nhiều đơn)
+            Route::post('/transfer-to-hub', [PickupController::class, 'transferToHub'])->name('transfer-to-hub');
+            // Lấy ảnh
+            Route::get('/{id}/images', [PickupController::class, 'uploadImage'])->name('images');
+         
+        });
+
     });
 
 // Customer
