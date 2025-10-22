@@ -66,6 +66,8 @@ class AdminDriverController extends Controller
                 'district_code' => null,
                 'ward_code' => null,
             ]);
+            $driver->user_id = $user->id;
+            $driver->save();
 
             // 5. Gửi email thông báo
             Mail::raw("Xin chào {$driver->full_name},\n\nHồ sơ của bạn đã được duyệt.\nTài khoản đăng nhập:\nEmail: {$driver->email}\nMật khẩu: {$randomPassword}\n\nVui lòng đăng nhập và đổi mật khẩu sau khi đăng nhập.", function ($message) use ($driver) {

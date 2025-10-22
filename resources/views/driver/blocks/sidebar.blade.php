@@ -10,7 +10,7 @@
         </a>
       </li>
       <li>
-        <a href="#">
+        <a href="{{ route('driver.pickup.index') }}">
           <i class="fas fa-clipboard-list"></i>
           <span class="menu-text">Đơn Hàng</span>
         </a>
