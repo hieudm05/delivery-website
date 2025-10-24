@@ -352,30 +352,53 @@
                 <h6 class="mb-0"><i class="bi bi-truck"></i> Dịch vụ cộng thêm</h6>
               </div>
               <div class="card-body">
+                <!-- Dịch vụ giao nhanh -->
                 <div class="form-check mb-2">
                   <input class="form-check-input" type="checkbox" value="fast" id="fastService" name="services[]">
                   <label class="form-check-label" for="fastService">
                     Giao nhanh <span class="text-muted">(+15%)</span>
                   </label>
                 </div>
+
+                <!-- Bảo hiểm -->
                 <div class="form-check mb-2">
                   <input class="form-check-input" type="checkbox" value="insurance" id="insuranceService" name="services[]">
                   <label class="form-check-label" for="insuranceService">
                     Bảo hiểm hàng hóa <span class="text-muted">(1% giá trị)</span>
                   </label>
                 </div>
+
+                <!-- ✅ COD -->
                 <div class="form-check mb-3">
                   <input class="form-check-input" type="checkbox" value="cod" id="codService" name="services[]">
                   <label class="form-check-label" for="codService">
-                    Dịch vụ thu hộ <span class="text-muted">(1.000đ + 1%)</span>
+                    Dịch vụ thu hộ (COD) <span class="text-muted">(1.000đ + 1%)</span>
                   </label>
                 </div>
 
+                <!-- Số tiền COD -->
                 <div id="cod-amount-container" class="d-none mb-3">
-                  <label class="form-label">Số tiền thu hộ (VNĐ)</label>
+                  <label class="form-label">Số tiền thu hộ (VNĐ) <span class="text-danger">*</span></label>
                   <input type="number" class="form-control" id="cod-amount" name="cod_amount" min="0" placeholder="Nhập số tiền cần thu">
                 </div>
 
+                <!-- ✅ NGƯỜI TRẢ CƯỚC -->
+                <div class="mb-3 p-3 bg-light border rounded">
+                  <label class="form-label fw-bold">Người trả cước phí <span class="text-danger">*</span></label>
+                  <div>
+                    <div class="form-check form-check-inline">
+                      <input class="form-check-input" type="radio" name="payer" id="payerSender" value="sender" checked>
+                      <label class="form-check-label" for="payerSender">Người gửi</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                      <input class="form-check-input" type="radio" name="payer" id="payerRecipient" value="recipient">
+                      <label class="form-check-label" for="payerRecipient">Người nhận</label>
+                    </div>
+                  </div>
+                  <small class="text-muted d-block mt-2" id="payer-note">Người gửi thanh toán cước phí</small>
+                </div>
+
+                <!-- CHI TIẾT PHÍ -->
                 <div class="cost-breakdown mt-3">
                   <div class="cost-item">
                     <span>Cước chính:</span>
@@ -385,9 +408,23 @@
                     <span>Phụ phí:</span>
                     <span id="extraCost">0 đ</span>
                   </div>
+                  <!-- ✅ THÊM PHÍ COD -->
+                  <div class="cost-item" id="codFeeRow" style="display:none;">
+                    <span>Phí COD:</span>
+                    <span id="codFee" class="text-warning">0 đ</span>
+                  </div>
                   <div class="cost-item">
                     <span>Tổng cước:</span>
-                    <span id="tongCuoc" class="text-danger">0 đ</span>
+                    <span id="tongCuoc" class="text-danger fw-bold">0 đ</span>
+                  </div>
+                  <hr>
+                  <div class="cost-item">
+                    <span><strong>Người gửi trả:</strong></span>
+                    <span id="senderPays" class="text-primary fw-bold">0 đ</span>
+                  </div>
+                  <div class="cost-item">
+                    <span><strong>Người nhận trả:</strong></span>
+                    <span id="recipientPays" class="text-success fw-bold">0 đ</span>
                   </div>
                 </div>
               </div>
@@ -1085,6 +1122,28 @@ function setupEventHandlers() {
     });
 }
 
+// ============ NGƯỜI TRẢ CƯỚC ============
+$('input[name="payer"]').on('change', function() {
+    const payer = $('input[name="payer"]:checked').val();
+    const hasCOD = $('#codService').is(':checked') && parseFloat($('#cod-amount').val()) > 0;
+    
+    let note = '';
+    if (payer === 'sender') {
+        note = hasCOD 
+            ? 'Người gửi KHÔNG trả phí (có COD), người nhận trả tiền hàng' 
+            : 'Người gửi trả phí ship';
+    } else {
+        note = hasCOD 
+            ? 'Người nhận trả cả tiền hàng + tiền ship' 
+            : 'Người nhận trả phí ship';
+    }
+    
+    $('#payer-note').text(note);
+    
+    if (productsList.length > 0) {
+        calculateCost();
+    }
+});
 function calculateCost() {
     if (!productsList || productsList.length === 0) {
         $('#baseCost').text('0 đ');
@@ -1095,11 +1154,13 @@ function calculateCost() {
     
     const services = $('input[name="services[]"]:checked').map((_, e) => e.value).get();
     const codAmount = parseFloat($('#cod-amount').val()) || 0;
+    const payer = $('input[name="payer"]:checked').val();
     
     const data = {
         products_json: JSON.stringify(productsList),
         services: services,
         cod_amount: codAmount,
+        payer: payer,
         item_type: productsList[0]?.type || 'package',
         _token: $('meta[name="csrf-token"]').attr('content') || '{{ csrf_token() }}'
     };
@@ -1107,20 +1168,33 @@ function calculateCost() {
     $.post('{{ route("customer.orders.calculate") }}', data)
         .done(function(res) {
             if (res && res.success === true) {
-                const baseCost = parseFloat(res.base_cost) || 0;
-                const extraCost = parseFloat(res.extra_cost) || 0;
-                const total = parseFloat(res.total) || 0;
+                $('#baseCost').text((res.base_cost || 0).toLocaleString('vi-VN') + ' đ');
+                $('#extraCost').text((res.extra_cost || 0).toLocaleString('vi-VN') + ' đ');
                 
-                $('#baseCost').text(baseCost.toLocaleString('vi-VN') + ' đ');
-                $('#extraCost').text(extraCost.toLocaleString('vi-VN') + ' đ');
-                $('#tongCuoc').text(total.toLocaleString('vi-VN') + ' đ');
+                // ✅ HIỂN THỊ PHÍ COD (nếu có)
+                if (res.cod_fee > 0) {
+                    $('#codFee').text(res.cod_fee.toLocaleString('vi-VN') + ' đ');
+                    $('#codFeeRow').show();
+                } else {
+                    $('#codFeeRow').hide();
+                }
+                
+                $('#tongCuoc').text((res.total || 0).toLocaleString('vi-VN') + ' đ');
+                $('#senderPays').text((res.sender_pays || 0).toLocaleString('vi-VN') + ' đ');
+                $('#recipientPays').text((res.recipient_pays || 0).toLocaleString('vi-VN') + ' đ');
+            } else {
+                console.error('❌ Lỗi tính cước:', res.message || 'Không xác định');
+                resetCostDisplay();
             }
         })
         .fail(function(xhr) {
             console.error('❌ Lỗi tính cước:', xhr.responseText);
         });
-}
+  }
 
+function resetCostDisplay() {
+    $('#baseCost, #extraCost, #tongCuoc, #senderPays, #recipientPays').text('0 đ');
+}
 // ============ VALIDATE & SUBMIT FORM ============
 function validateForm() {
     if (!$('#sender-select').val()) {

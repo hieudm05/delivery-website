@@ -31,6 +31,11 @@ class Order extends Model
         'item_type',
         'services',
         'cod_amount',
+        'cod_fee',          
+        'shipping_fee',     
+        'sender_total',     
+        'recipient_total',  
+        'payer',
         'note',
         'products_json',
         'save_address',
@@ -52,25 +57,28 @@ class Order extends Model
         'hub_transfer_note',
     ];
 
-
-   protected $casts = [
-    'services' => 'array',
-    'products_json' => 'array',
-    'pickup_time' => 'datetime',
-    'delivery_time' => 'datetime',
-    'actual_pickup_start_time' => 'datetime',
-    'actual_pickup_time' => 'datetime',
-    'pickup_issue_time' => 'datetime',
-    'hub_transfer_time' => 'datetime',
-    'created_at' => 'datetime',
-    'updated_at' => 'datetime',
+    protected $casts = [
+        'services' => 'array',
+        'products_json' => 'array',
+        'cod_fee' => 'decimal:2',       
+        'shipping_fee' => 'decimal:2',  
+        'sender_total' => 'decimal:2',  
+        'recipient_total' => 'decimal:2',
+        'pickup_time' => 'datetime',
+        'delivery_time' => 'datetime',
+        'actual_pickup_start_time' => 'datetime',
+        'actual_pickup_time' => 'datetime',
+        'pickup_issue_time' => 'datetime',
+        'hub_transfer_time' => 'datetime',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
     ];
-
 
     public function products()
     {
         return $this->hasMany(OrderProduct::class);
     }
+
     public function pickupImages()
     {
         return $this->hasMany(OrderImage::class);
@@ -80,13 +88,113 @@ class Order extends Model
     {
         return $this->hasMany(OrderDeliveryImage::class);
     }
-       public function images()
+
+    public function images()
     {
         return $this->hasMany(OrderImage::class);
     }
+
     /**
-     * ✅ Scope để filter theo status
+     * ✅ LOGIC TÍNH PHÍ DỰA TRÊN NGƯỜI TRẢ CƯỚC & COD
+     * 
+     * Quy tắc:
+     * 1. Người gửi trả: 
+     *    - Không COD: Người gửi trả = tiền ship
+     *    - Có COD: Người gửi trả = 0đ
+     * 
+     * 2. Người nhận trả:
+     *    - Không COD: Người nhận trả = tiền ship
+     *    - Có COD: Người nhận trả = tiền hàng + tiền ship
      */
+    public function getPaymentDetailsAttribute()
+    {
+        $hasCOD = in_array('cod', $this->services ?? []) && $this->cod_amount > 0;
+        $shippingFee = $this->calculateShippingFee();
+        
+        return [
+            'payer' => $this->payer,
+            'has_cod' => $hasCOD,
+            'cod_amount' => $hasCOD ? $this->cod_amount : 0,
+            'shipping_fee' => $shippingFee,
+            'sender_pays' => $this->calculateSenderPays($hasCOD, $shippingFee),
+            'recipient_pays' => $this->calculateRecipientPays($hasCOD, $shippingFee),
+        ];
+    }
+
+    /**
+     * ✅ Tính tiền người gửi trả
+     */
+   private function calculateSenderPays($hasCOD, $shippingFee)
+    {
+        $codFee = $hasCOD ? $this->calculateCODFee() : 0;
+        
+        if ($this->payer === 'sender') {
+            // Người gửi trả: ship + phí COD (nếu có)
+            return $shippingFee + $codFee;
+        }
+        
+        // Người nhận trả ship, nhưng người gửi vẫn chịu phí COD
+        return $codFee;
+    }
+    private function calculateCODFee()
+    {
+        if ($this->cod_amount > 0) {
+            return 1000 + ($this->cod_amount * 0.01);
+        }
+        return 0;
+    }
+
+    /**
+     * ✅ Tính tiền người nhận trả
+     */
+    private function calculateRecipientPays($hasCOD, $shippingFee)
+    {
+        if ($this->payer === 'recipient') {
+            // Người nhận trả: ship + tiền hàng (nếu COD)
+            return $shippingFee + ($hasCOD ? $this->cod_amount : 0);
+        }
+        
+        // Người gửi trả ship, người nhận chỉ trả tiền hàng (nếu COD)
+        return $hasCOD ? $this->cod_amount : 0;
+    }
+
+    /**
+     * ✅ Tính phí ship (logic cũ, giữ nguyên)
+     */
+    private function calculateShippingFee()
+    {
+        $products = $this->products_json ?? [];
+        $totalWeight = 0;
+        $totalValue = 0;
+
+        foreach ($products as $product) {
+            $qty = $product['quantity'] ?? 1;
+            $totalWeight += ($product['weight'] ?? 0) * $qty;
+            $totalValue += ($product['value'] ?? 0) * $qty;
+        }
+
+        // Cước chính
+        $base = 20000;
+        if ($totalWeight > 1000) {
+            $base += ($totalWeight - 1000) * 5;
+        }
+
+        // Phụ phí
+        $extra = 0;
+        $services = $this->services ?? [];
+        
+        foreach ($services as $service) {
+            $extra += match($service) {
+                'fast' => $base * 0.15,
+                'insurance' => $totalValue * 0.01,
+                'cod' => ($this->cod_amount > 0) ? (1000 + ($this->cod_amount * 0.01)) : 0,
+                default => 0,
+            };
+        }
+
+        return round($base + $extra);
+    }
+
     public function scopeWithStatus($query, $status)
     {
         if ($status && $status !== 'all') {
@@ -95,9 +203,6 @@ class Order extends Model
         return $query;
     }
 
-    /**
-     * ✅ Scope để search
-     */
     public function scopeSearch($query, $search)
     {
         if ($search) {
@@ -112,9 +217,6 @@ class Order extends Model
         return $query;
     }
 
-    /**
-     * ✅ Accessor để lấy tên status dễ đọc
-     */
     public function getStatusLabelAttribute()
     {
         return match($this->status) {
@@ -129,9 +231,6 @@ class Order extends Model
         };
     }
 
-    /**
-     * ✅ Accessor để lấy màu badge status
-     */
     public function getStatusBadgeAttribute()
     {
         return match($this->status) {
@@ -145,5 +244,4 @@ class Order extends Model
             default => 'dark'
         };
     }
-
 }
