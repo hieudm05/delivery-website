@@ -1,12 +1,14 @@
 <?php
 
 use App\Http\Controllers\Admin\AdminController;
+use App\Http\Controllers\Admin\CodManagent\CodManagementController;
 use App\Http\Controllers\Admin\Driver\AdminDriverController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Customer\Dashboard\Accounts\AccountController;
 use App\Http\Controllers\Customer\Dashboard\DashboardCustomerController;
 use App\Http\Controllers\Customer\Dashboard\OrderManagent\OrderManagentController;
 use App\Http\Controllers\Customer\Dashboard\Orders\OrderController;
+use App\Http\Controllers\Drivers\CodPaymentController;
 use App\Http\Controllers\Drivers\DriverController;
 use App\Http\Controllers\Drivers\PickupController;
 use Illuminate\Support\Facades\Route;
@@ -45,6 +47,17 @@ Route::prefix('admin')
         Route::get('/driver', [AdminDriverController::class, 'index'])->name('driver.index');
         Route::get('/driver/{id}', [AdminDriverController::class, 'show'])->name('driver.show');
         Route::post('/driver/{id}/approve', [AdminDriverController::class, 'approve'])->name('driver.approve');
+        // ADMIN COD MANAGEMENT 
+        Route::prefix('cod')
+        ->name('cod.')
+        ->group( function () {
+            Route::get('/', [CodManagementController::class, 'index'])->name('index');
+            Route::get('statistics', [CodManagementController::class, 'statistics'])->name('statistics');
+            Route::get('{id}', [CodManagementController::class, 'show'])->name('show');
+            Route::post('{id}/confirm', [CodManagementController::class, 'confirmReceived'])->name('confirm');
+            Route::post('{id}/transfer-sender', [CodManagementController::class, 'transferToSender'])->name('transfer');
+            Route::post('{id}/dispute', [CodManagementController::class, 'dispute'])->name('dispute');
+        });
     });
 
 // Driver
@@ -53,7 +66,6 @@ Route::prefix('driver')
     ->name('driver.')
     ->group(function () {
         Route::get('/', [DriverController::class, 'index'])->name('index');
-
          //Danh sách đơn cần lấy
         Route::prefix('pickup')
         ->name('pickup.')
@@ -75,9 +87,15 @@ Route::prefix('driver')
             Route::post('/transfer-to-hub', [PickupController::class, 'transferToHub'])->name('transfer-to-hub');
             // Lấy ảnh
             Route::get('/{id}/images', [PickupController::class, 'uploadImage'])->name('images');
-         
         });
-
+        // DRIVER COD MANAGEMENT
+        Route::prefix('cod')
+        ->name('cod.')
+        ->group( function () {
+            Route::get('/', [CodPaymentController::class, 'index'])->name('index');
+            Route::get('/{id}', [CodPaymentController::class, 'show'])->name('show');
+            Route::post('/{id}/transfer', [CodPaymentController::class, 'transfer'])->name('transfer');
+        });
     });
 
 // Customer
