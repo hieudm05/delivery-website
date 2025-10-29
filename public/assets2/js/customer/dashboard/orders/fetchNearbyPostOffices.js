@@ -43,7 +43,7 @@ async function fetchNearbyPostOffices(lat, lon) {
     
     $('#postOfficeSelect').html('<option value="">Đang tải bưu cục...</option>');
 
-    const radius = 5000; // 5km
+    const radius = 10000; // 10km
     
     const overpassQuery = `
         [out:json][timeout:25];
@@ -90,7 +90,12 @@ async function fetchNearbyPostOffices(lat, lon) {
             id: item.id,
             type: 'node'
         })).filter(office => {
-            return office.name !== 'Bưu cục' || office.address !== 'Không có địa chỉ chi tiết';
+           return (
+                office.name && 
+                office.name !== 'Bưu cục' && 
+                office.address && 
+                office.address !== 'Không có địa chỉ chi tiết'
+            );
         });
 
         console.log('📍 Danh sách bưu cục tìm được:', postOffices);
@@ -113,7 +118,7 @@ async function fetchNearbyPostOffices(lat, lon) {
 async function fetchNearbyPostOfficesNominatim(lat, lon) {
     console.log('📡 Gọi Nominatim API...');
     
-    const keywords = ['bưu điện', 'bưu cục', 'post office', 'vnpost', 'vietnam post'];
+    const keywords = ['bưu cục', 'post office', 'vnpost', 'vietnam post'];
     let allResults = [];
     
     for (const keyword of keywords) {
@@ -276,9 +281,14 @@ async function calculateDistanceAndDisplay(lat, lon, postOffices) {
             
             const durationText = office.duration ? ` (${office.duration})` : '';
             
-            html += `<option value="${office.lat},${office.lng}" data-distance="${office.distance}" data-index="${index}">
-                ${index + 1}. ${office.name} - ${office.address} ${distanceText}${durationText}
-            </option>`;
+           html += `<option value="${office.id}" 
+                data-lat="${office.lat}" 
+                data-lng="${office.lng}" 
+                data-distance="${office.distance}" 
+                data-index="${index}">
+            ${index + 1}. ${office.name} - ${office.address} ${distanceText}${durationText}
+        </option>`;
+
         });
         
         $('#postOfficeSelect').html(html);
@@ -299,9 +309,14 @@ async function calculateDistanceAndDisplay(lat, lon, postOffices) {
         let html = '<option value="">Chọn bưu cục gần nhất</option>';
         officesWithHaversine.slice(0, 15).forEach((office, index) => {
             const distanceKm = (office.distance / 1000).toFixed(1);
-            html += `<option value="${office.lat},${office.lng}" data-distance="${office.distance}">
-                ${index + 1}. ${office.name} - ${office.address} (~${distanceKm}km)
-            </option>`;
+           html += `<option value="${office.id}" 
+                data-lat="${office.lat}" 
+                data-lng="${office.lng}" 
+                data-distance="${office.distance}" 
+                data-index="${index}">
+            ${index + 1}. ${office.name} - ${office.address} ${distanceText}${durationText}
+        </option>`;
+
         });
         
         $('#postOfficeSelect').html(html);

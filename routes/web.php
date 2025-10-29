@@ -29,8 +29,9 @@ Route::post('/register', [AuthController::class, 'register']);
 // Ứng tuyển tài xế
  Route::get('apply', [DriverController::class, 'create'])->name('driver.apply');
  Route::post('apply', [DriverController::class, 'store'])->name('driver.store');
- Route::get('/api/post-offices', [DriverController::class, 'getByProvince'])
-    ->name('api.post-offices.by-province');
+Route::get('/post-offices-apply', [DriverController::class, 'getByProvince'])
+    ->name('driver-apply.getByProvince');
+    
 
 Route::get('/api/post-offices/{id}/detail', [DriverController::class, 'getDetail'])
     ->name('api.post-offices.detail');

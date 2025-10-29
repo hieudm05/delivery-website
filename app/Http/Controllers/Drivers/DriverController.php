@@ -7,35 +7,26 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class DriverController extends Controller
 {
-    protected $goongApiKey;
-
-    public function __construct()
-    {
-        $this->goongApiKey = config('services.goong.api_key');
-    }
-
     public function index()
     {
         return view('driver.index');
     }
 
-    // Form ứng tuyển
     public function create()
     {
         return view('driver.apply');
     }
 
-    // Gửi đơn ứng tuyển
     public function store(Request $request)
     {
         $request->validate([
             'full_name' => 'required|string|max:255',
             'phone' => 'required|string|max:20',
             'email' => 'required|email|max:255',
-            'province_code' => 'required|string',
             'post_office_id' => 'required|string',
             'post_office_name' => 'required|string',
             'post_office_address' => 'required|string',
@@ -48,11 +39,9 @@ class DriverController extends Controller
             'experience' => 'nullable|string',
         ]);
 
-        // Kiểm tra xem email đã có trong bảng users chưa
         $existingUser = User::where('email', $request->email)->first();
         $userId = $existingUser ? $existingUser->id : null;
 
-        // Kiểm tra trùng hồ sơ ứng tuyển
         $duplicate = DriverProfile::where('email', $request->email)
             ->orWhere(function($q) use ($userId) {
                 if ($userId) {
@@ -65,7 +54,6 @@ class DriverController extends Controller
             return back()->with('error', 'Email này đã ứng tuyển rồi, vui lòng chờ duyệt!');
         }
 
-        // Upload ảnh nếu có
         $licensePath = $request->hasFile('license_image')
             ? $request->file('license_image')->store('licenses', 'public')
             : null;
@@ -74,13 +62,12 @@ class DriverController extends Controller
             ? $request->file('identity_image')->store('identities', 'public')
             : null;
 
-        // Tạo hồ sơ tài xế
         DriverProfile::create([
             'user_id' => $userId,
             'full_name' => $request->full_name,
             'email' => $request->email,
             'phone' => $request->phone,
-            'province_code' => $request->province_code,
+            'province_code' => $request->province_code ?? 1,
             'post_office_id' => $request->post_office_id,
             'post_office_name' => $request->post_office_name,
             'post_office_address' => $request->post_office_address,
@@ -99,51 +86,72 @@ class DriverController extends Controller
     }
 
     /**
-     * API: Lấy danh sách bưu cục theo tỉnh (dùng Goong)
-     * GET /api/post-offices/by-province?province_code=01&province_name=Hà Nội
+     * ✅ TÌM BƯU CỤC THEO TỈNH - CẤU TRÚC 3 TẦNG API
      */
     public function getByProvince(Request $request)
     {
         $provinceCode = $request->query('province_code');
         $provinceName = $request->query('province_name', '');
-        
-        if (!$provinceCode) {
+
+        if (!$provinceCode || !$provinceName) {
             return response()->json([
                 'success' => false,
-                'message' => 'Vui lòng cung cấp province_code'
+                'message' => 'Vui lòng cung cấp province_code và province_name'
             ], 400);
         }
 
         try {
-            // ✅ Dùng Goong Place Autocomplete để tìm bưu cục
-            $searchResults = $this->searchPostOfficesByGoong($provinceName);
-            
-            if ($searchResults->isEmpty()) {
-                return response()->json([
-                    'success' => true,
-                    'data' => [],
-                    'message' => 'Không tìm thấy bưu cục nào'
+            // 🗺️ Tầng 1: Lấy tọa độ trung tâm bằng Nominatim
+            $geocodeResponse = Http::timeout(3)
+                ->withHeaders(['User-Agent' => 'ViettelPostApp/1.0'])
+                ->get('https://nominatim.openstreetmap.org/search', [
+                    'q' => $provinceName . ', Vietnam',
+                    'format' => 'json',
+                    'limit' => 1
                 ]);
+
+            if (!$geocodeResponse->successful() || empty($geocodeResponse->json())) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Không tìm thấy tọa độ của tỉnh'
+                ], 404);
             }
 
-            // ✅ Lấy chi tiết từng bưu cục (có tọa độ chính xác)
-            $offices = [];
-            foreach ($searchResults as $result) {
-                $detail = $this->getPlaceDetailByGoong($result['place_id']);
-                if ($detail) {
-                    $offices[] = $detail;
-                }
+            $location = $geocodeResponse->json()[0];
+            $centerLat = $location['lat'];
+            $centerLng = $location['lon'];
+
+            // 🏢 Tầng 2: Gọi Overpass API (đa endpoint)
+            $postOffices = $this->searchPostOfficesOverpass($centerLat, $centerLng, 50000, $provinceName);
+
+            // ⚡ Tầng 3: Nếu Overpass không ra kết quả → fallback sang Nominatim search
+            if (empty($postOffices)) {
+                Log::warning("Overpass không có kết quả, fallback Nominatim Search");
+                $postOffices = $this->searchPostOfficesNominatim($provinceName, $centerLat, $centerLng);
+            }
+
+            if (empty($postOffices)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Không tìm thấy bưu cục nào trong khu vực'
+                ], 404);
             }
 
             return response()->json([
                 'success' => true,
-                'data' => $offices,
-                'count' => count($offices)
+                'data' => $postOffices,
+                'count' => count($postOffices),
+                'center' => [
+                    'lat' => $centerLat,
+                    'lng' => $centerLng
+                ]
             ]);
 
         } catch (\Exception $e) {
-            \Log::error('Lỗi lấy bưu cục Goong: ' . $e->getMessage());
-            
+            Log::error('Lỗi tìm bưu cục theo tỉnh', [
+                'error' => $e->getMessage(),
+                'province' => $provinceName
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Lỗi hệ thống: ' . $e->getMessage()
@@ -152,179 +160,120 @@ class DriverController extends Controller
     }
 
     /**
-     * Tìm bưu cục bằng Goong Place Autocomplete
+     * ✅ Tầng 2: TÌM BƯU CỤC BẰNG OVERPASS (đa endpoint fallback)
      */
-    private function searchPostOfficesByGoong($provinceName)
+    private function searchPostOfficesOverpass($lat, $lng, $radius = 500000, $provinceName = null)
     {
-        try {
-            $keywords = ['bưu cục', 'viettel post', 'bưu điện','bưu tá'];
-            $results = collect();
+        $overpassEndpoints = [
+            'https://overpass-api.de/api/interpreter',
+            'https://overpass.openstreetmap.fr/api/interpreter',
+            'https://overpass.kumi.systems/api/interpreter',
+        ];
 
-            foreach ($keywords as $keyword) {
-                $query = $keyword;
-                if ($provinceName) {
-                    $query .= " {$provinceName}";
-                }
+        $query = "[out:json][timeout:25];
+        (
+          node['amenity'='post_office'](around:$radius,$lat,$lng);
+          node['office'='post_office'](around:$radius,$lat,$lng);
+          way['amenity'='post_office'](around:$radius,$lat,$lng);
+        );
+        out body;>;out skel qt;";
 
-                $response = Http::timeout(10)->get('https://rsapi.goong.io/Place/AutoComplete', [
-                    'api_key' => $this->goongApiKey,
-                    'input' => $query,
-                    'limit' => 20
-                ]);
+        foreach ($overpassEndpoints as $endpoint) {
+            try {
+                Log::info("Thử gọi Overpass API: $endpoint");
+                $response = Http::timeout(5)->get($endpoint, ['data' => $query]);
 
                 if ($response->successful()) {
                     $data = $response->json();
-                    
-                    if (isset($data['predictions'])) {
-                        foreach ($data['predictions'] as $prediction) {
-                            // Lọc kết quả có chứa "bưu" hoặc "post"
-                            $desc = strtolower($prediction['description'] ?? '');
-                            if (
-                                strpos($desc, 'bưu') !== false || 
-                                strpos($desc, 'post') !== false ||
-                                strpos($desc, 'viettel') !== false
-                            ) {
-                                $results->push([
-                                    'place_id' => $prediction['place_id'],
-                                    'name' => $prediction['structured_formatting']['main_text'] ?? '',
-                                    'address' => $prediction['description'] ?? '',
-                                ]);
-                            }
-                        }
+                    if (!empty($data['elements'])) {
+                        Log::info("Overpass trả về kết quả tại $endpoint");
+                        return $this->processOverpassResults($data, $lat, $lng, $provinceName);
                     }
                 }
-
-                usleep(100000); // Delay 100ms để tránh rate limit
+            } catch (\Exception $e) {
+                Log::warning("Overpass lỗi tại $endpoint: " . $e->getMessage());
+                continue;
             }
-
-            return $results->unique('place_id')->take(10);
-
-        } catch (\Exception $e) {
-            \Log::error('Goong search error: ' . $e->getMessage());
-            return collect();
         }
+
+        return []; // Tất cả endpoint đều lỗi
+    }
+
+    private function processOverpassResults($data, $lat, $lng, $provinceName)
+    {
+        $nodes = array_filter($data['elements'], fn($i) => $i['type'] === 'node' && isset($i['lat'], $i['lon']));
+        $postOffices = [];
+
+        foreach ($nodes as $item) {
+            $tags = $item['tags'] ?? [];
+            $name = $tags['name'] ?? $tags['name:vi'] ?? null;
+            $address = $tags['addr:full'] ?? $tags['addr:street'] ?? $tags['addr:city'] ?? null;
+            if (!$name || !$address) continue;
+            if ($provinceName && stripos($address, $provinceName) === false) continue;
+
+            $distance = $this->haversine($lat, $lng, $item['lat'], $item['lon']);
+
+            $postOffices[] = [
+                'id' => 'node_' . $item['id'],
+                'name' => $name,
+                'address' => $address,
+                'latitude' => $item['lat'],
+                'longitude' => $item['lon'],
+                'distance' => round($distance, 2),
+                'phone' => $tags['phone'] ?? $tags['contact:phone'] ?? null,
+            ];
+        }
+
+        usort($postOffices, fn($a, $b) => $a['distance'] <=> $b['distance']);
+        return array_slice($postOffices, 0, 20);
     }
 
     /**
-     * Lấy chi tiết địa điểm từ Goong (có tọa độ chính xác)
+     * ✅ Tầng 3: Fallback bằng Nominatim Search
      */
-    private function getPlaceDetailByGoong($placeId)
+    private function searchPostOfficesNominatim($provinceName, $lat, $lng)
     {
         try {
-            $response = Http::timeout(10)->get('https://rsapi.goong.io/Place/Detail', [
-                'place_id' => $placeId,
-                'api_key' => $this->goongApiKey
-            ]);
+            $url = "https://nominatim.openstreetmap.org/search";
+            $response = Http::timeout(5)
+                ->withHeaders(['User-Agent' => 'ViettelPostApp/1.0'])
+                ->get($url, [
+                    'q' => 'bưu cục ' . $provinceName . ', Vietnam',
+                    'format' => 'json',
+                    'limit' => 50,
+                    'lat' => $lat,
+                    'lon' => $lng,
+                    'bounded' => 1,
+                ]);
 
-            if ($response->successful()) {
-                $data = $response->json();
-                
-                if (isset($data['result'])) {
-                    $result = $data['result'];
-                    
-                    return [
-                        'id' => $placeId,
-                        'name' => $result['name'] ?? 'Bưu cục',
-                        'address' => $result['formatted_address'] ?? '',
-                        'latitude' => $result['geometry']['location']['lat'] ?? null,
-                        'longitude' => $result['geometry']['location']['lng'] ?? null,
-                        'phone' => $result['formatted_phone_number'] ?? null,
-                        'place_id' => $placeId
-                    ];
-                }
-            }
-
-            return null;
-
-        } catch (\Exception $e) {
-            \Log::error("Goong detail error for {$placeId}: " . $e->getMessage());
-            return null;
-        }
-    }
-
-    /**
-     * API: Tìm bưu cục gần nhất theo tọa độ
-     * GET /api/post-offices/nearby?lat=21.0285&lng=105.8542&limit=5
-     */
-    public function getNearby(Request $request)
-    {
-        $lat = $request->query('lat');
-        $lng = $request->query('lng');
-        $limit = $request->query('limit', 5);
-
-        if (!$lat || !$lng) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Vui lòng cung cấp lat và lng'
-            ], 400);
-        }
-
-        try {
-            // Tìm kiếm bưu cục gần vị trí
-            $response = Http::timeout(10)->get('https://rsapi.goong.io/Place/AutoComplete', [
-                'api_key' => $this->goongApiKey,
-                'input' => 'bưu cục',
-                'location' => "{$lat},{$lng}",
-                'radius' => 10000, // 10km
-                'limit' => $limit
-            ]);
-
-            if (!$response->successful()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Không thể kết nối Goong API'
-                ], 500);
-            }
+            if (!$response->successful()) return [];
 
             $data = $response->json();
-            $offices = collect();
-
-            if (isset($data['predictions'])) {
-                foreach ($data['predictions'] as $prediction) {
-                    $detail = $this->getPlaceDetailByGoong($prediction['place_id']);
-                    if ($detail) {
-                        // Tính khoảng cách
-                        $distance = $this->calculateDistance(
-                            $lat, $lng,
-                            $detail['latitude'], $detail['longitude']
-                        );
-                        $detail['distance'] = round($distance, 2);
-                        $offices->push($detail);
-                    }
-                }
+            $results = [];
+            foreach ($data as $item) {
+                $results[] = [
+                    'id' => $item['osm_id'],
+                    'name' => $item['display_name'],
+                    'address' => $item['display_name'],
+                    'latitude' => $item['lat'],
+                    'longitude' => $item['lon'],
+                    'distance' => round($this->haversine($lat, $lng, $item['lat'], $item['lon']), 2),
+                    'phone' => null,
+                ];
             }
-
-            return response()->json([
-                'success' => true,
-                'data' => $offices->sortBy('distance')->values()
-            ]);
-
+            return $results;
         } catch (\Exception $e) {
-            \Log::error('Goong nearby error: ' . $e->getMessage());
-            
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ], 500);
+            Log::error('Lỗi Nominatim fallback: ' . $e->getMessage());
+            return [];
         }
     }
 
-    /**
-     * Tính khoảng cách Haversine (km)
-     */
-    private function calculateDistance($lat1, $lon1, $lat2, $lon2)
+    private function haversine($lat1, $lon1, $lat2, $lon2)
     {
-        $R = 6371; // Bán kính Trái Đất (km)
-        
+        $R = 6371;
         $dLat = deg2rad($lat2 - $lat1);
         $dLon = deg2rad($lon2 - $lon1);
-        
-        $a = sin($dLat / 2) * sin($dLat / 2) +
-             cos(deg2rad($lat1)) * cos(deg2rad($lat2)) *
-             sin($dLon / 2) * sin($dLon / 2);
-        
-        $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
-        
-        return $R * $c;
+        $a = sin($dLat / 2) ** 2 + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLon / 2) ** 2;
+        return $R * 2 * atan2(sqrt($a), sqrt(1 - $a));
     }
 }

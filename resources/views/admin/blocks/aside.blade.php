@@ -23,6 +23,12 @@
             <span class="nav-link-text ms-1">Hồ sơ</span>
           </a>
         </li>
+         <li class="nav-item">
+          <a class="nav-link {{request()->routeIs('admin.cod.index') ? 'active bg-gradient-dark text-white' : 'text-dark'}}" href="{{ route('admin.cod.index') }}">
+            <i class="material-symbols-rounded opacity-5">person</i>
+            <span class="nav-link-text ms-1">Quản lý tiền COD</span>
+          </a>
+        </li>
          {{-- <li class="nav-item mt-3">
           <h5 class="ps-4 ms-2 text-uppercase text-xs text-dark font-weight-bolder opacity-5">Cài đặt tài khoản</h5>
         </li>
