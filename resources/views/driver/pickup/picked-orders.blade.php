@@ -277,14 +277,15 @@ $(document).ready(function() {
                 select.empty(); // xoá các option cũ
                 select.append(`<option value="">-- Chọn bưu cục --</option>`);
 
-                const option = `
-                    <option value="1"
+               const option = `
+                    <option value="${data.id}"
                             data-lat="${data.latitude}"
                             data-lng="${data.longitude}"
                             data-address="${data.address}">
                         ${data.name}
                     </option>
                 `;
+
                 select.append(option);
 
                 // ✅ Hiển thị card “Bưu cục gần nhất”

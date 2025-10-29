@@ -244,8 +244,8 @@ class OrderController extends Controller
 
     public function getNearby(Request $request)
     {
-        $lat = $request->query('lat');
-        $lon = $request->query('lon');
+        $latitude = $request->query('latitude');
+        $longitude = $request->query('longitude');
 
         $response = Http::get('https://api.viettelpost.vn/api/bplocation/public/listPO');
         $data = $response->json();
@@ -254,15 +254,24 @@ class OrderController extends Controller
             return response()->json(['error' => 'Không thể tải danh sách bưu cục'], 500);
         }
 
-        $offices = collect($data['data'])->map(function ($po) use ($lat, $lon) {
-            $distance = $this->haversine($lat, $lon, $po['Lat'], $po['Lng']);
-            return array_merge($po, ['distance' => round($distance, 2)]);
+        $offices = collect($data['data'])->map(function ($po) use ($latitude, $longitude) {
+            $distance = $this->haversine($latitude, $longitude, $po['Lat'], $po['Lng']);
+
+            return [
+                'id'       => $po['POCode'],         
+                'name'     => $po['POName'],
+                'address'  => $po['Address'],
+                'latitude' => $po['Lat'],
+                'longitude'=> $po['Lng'],
+                'distance' => round($distance, 2),
+            ];
         });
 
         $nearby = $offices->sortBy('distance')->take(5)->values();
 
-        return response()->json(['status' => true, 'data' => $nearby]);
+        return response()->json($nearby);
     }
+
 
     private function haversine($lat1, $lon1, $lat2, $lon2)
     {

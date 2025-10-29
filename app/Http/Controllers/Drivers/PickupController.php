@@ -218,49 +218,78 @@ class PickupController extends Controller
     /**
      * Chuyển hàng về bưu cục (sau khi lấy hàng)
      */
-    public function transferToHub(Request $request)
-    {
-        $request->validate([
-            'order_ids' => 'required|array',
-            'order_ids.*' => 'exists:orders,id',
-            'hub_id' => 'required|exists:post_offices,id',
-            'note' => 'nullable|string|max:500',
-        ]);
-
-        DB::beginTransaction();
-        try {
-            $orders = Order::whereIn('id', $request->order_ids)
-                ->where('status', 'picked_up')
-                ->get();
-
-            if ($orders->count() !== count($request->order_ids)) {
-                throw new \Exception('Một số đơn hàng không hợp lệ hoặc chưa được lấy');
-            }
-
-            foreach ($orders as $order) {
-                $order->update([
-                    'status' => 'at_hub', // Đang ở bưu cục
-                    'current_hub_id' => $request->hub_id,
-                    'hub_transfer_time' => now(),
-                    'hub_transfer_note' => $request->note,
-                ]);
-            }
-
-            DB::commit();
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Đã chuyển ' . $orders->count() . ' đơn hàng về bưu cục',
-            ]);
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json([
-                'success' => false,
-                'message' => 'Có lỗi xảy ra: ' . $e->getMessage()
-            ], 500);
+  public function transferToHub(Request $request)
+{
+    // ✅ Xử lý đầu vào: chấp nhận 1 ID, mảng, hoặc JSON string
+    $orderIds = $request->order_ids;
+    dd($orderIds);
+    // Nếu là JSON (ví dụ: "[1,2,3]") → decode thành mảng
+    if (is_string($orderIds)) {
+        $decoded = json_decode($orderIds, true);
+        if (json_last_error() === JSON_ERROR_NONE) {
+            $orderIds = $decoded;
+        } else {
+            $orderIds = [$orderIds]; // chỉ 1 đơn
         }
     }
+
+    // Nếu vẫn không phải mảng, thì bọc lại
+    if (!is_array($orderIds)) {
+        $orderIds = [$orderIds];
+    }
+
+    // Loại bỏ phần tử rỗng/null
+    $orderIds = array_filter($orderIds);
+
+    // ✅ Validate cơ bản
+    $request->validate([
+        'note'   => 'nullable|string|max:500',
+    ]);
+
+    if (empty($orderIds)) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Không có đơn hàng nào được chọn.',
+        ], 400);
+    }
+
+    DB::beginTransaction();
+    try {
+        // ✅ Chỉ lấy các đơn hợp lệ
+        $orders = Order::whereIn('id', $orderIds)
+            ->where('status', 'picked_up')
+            ->get();
+
+        if ($orders->count() !== count($orderIds)) {
+            throw new \Exception('Một số đơn hàng không hợp lệ hoặc chưa được lấy.');
+        }
+
+        foreach ($orders as $order) {
+            $order->update([
+                'status'             => 'at_hub',
+                'current_hub_id'     =>  $request->hub_id ? $request->hub_id : $order->current_hub_id,
+                'hub_transfer_time'  => now(),
+                'hub_transfer_note'  => $request->note,
+            ]);
+        }
+
+        DB::commit();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Đã chuyển ' . $orders->count() . ' đơn hàng về bưu cục.',
+        ]);
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        return response()->json([
+            'success' => false,
+            'message' => 'Có lỗi xảy ra: ' . $e->getMessage(),
+        ], 500);
+    }
+}
+
+
 
     /**
      * Lấy đơn hàng đã lấy trong ngày (để chuẩn bị về bưu cục)
@@ -307,6 +336,7 @@ class PickupController extends Controller
         return response()->json([
             'success' => true,
             'data' => [
+                'id' => $profile->post_office_id,
                 'name' => $profile->post_office_name,
                 'address' => $profile->post_office_address,
                 'latitude' => $profile->post_office_lat,
