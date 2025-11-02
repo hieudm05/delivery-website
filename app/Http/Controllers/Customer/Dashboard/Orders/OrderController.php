@@ -3,10 +3,12 @@ namespace App\Http\Controllers\Customer\Dashboard\Orders;
 
 use App\Http\Controllers\Controller;
 use App\Models\Customer\Dashboard\Orders\Order;
+use App\Models\Customer\Dashboard\Orders\OrderGroup;
 use App\Models\Customer\Dashboard\Orders\OrderImage;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 
 class OrderController extends Controller
@@ -27,31 +29,70 @@ class OrderController extends Controller
         return view('customer.dashboard.orders.create', compact('user'));
     }
 
+    /**
+     * ✅ STORE - HỖ TRỢ CẢ ĐƠN ĐƠN GIẢN & ĐƠN NHIỀU NGƯỜI NHẬN
+     */
     public function store(Request $request)
     {
-        // ✅ Validate
+        // ✅ Validate dữ liệu cơ bản
         $validated = $request->validate([
             'sender_name' => 'required|string',
             'sender_phone' => 'required|string',
             'sender_address' => 'required|string',
-            'recipient_name' => 'required|string',
-            'recipient_phone' => 'required|string',
-            'recipient_full_address' => 'required|string',
-            'products_json' => 'required|string|min:2',
-            'payer' => 'required|in:sender,recipient', // ✅ THÊM MỚI
-            'images.*' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
+            'recipients' => 'required|array|min:1',
+            'recipients.*.recipient_name' => 'required|string',
+            'recipients.*.recipient_phone' => 'required|string',
+            'recipients.*.recipient_full_address' => 'required|string',
+            'recipients.*.products_json' => 'required|string|min:2',
+            'recipients.*.payer' => 'required|in:sender,recipient',
         ]);
 
-        // ✅ Parse JSON
-        $products = json_decode($request->products_json, true);
-        $calculationResult = $this->calculateOrderFees($products, $request);
-
-        if (!$products || !is_array($products) || count($products) === 0) {
-            return back()->withErrors(['products_json' => 'Vui lòng thêm ít nhất 1 sản phẩm'])->withInput();
+        DB::beginTransaction();
+        try {
+            $recipients = $request->recipients;
+            
+            // ✅ NẾU CHỈ CÓ 1 NGƯỜI NHẬN → TẠO ĐƠN ĐƠN GIẢN (order_group_id = NULL)
+            if (count($recipients) === 1) {
+                $order = $this->createStandaloneOrder($request, $recipients[0]);
+                DB::commit();
+                
+                return redirect()->route('customer.orders.create')
+                    ->with('success', 'Tạo đơn hàng thành công! Mã đơn: #' . $order->id);
+            }
+            
+            // ✅ NẾU CÓ NHIỀU NGƯỜI NHẬN → TẠO ORDER GROUP + NHIỀU ORDERS
+            $orderGroup = $this->createOrderGroup($request);
+            
+            foreach ($recipients as $recipientData) {
+                $this->createGroupOrder($orderGroup, $request, $recipientData);
+            }
+            
+            // ✅ Cập nhật tổng kết
+            $orderGroup->recalculateTotals();
+            
+            DB::commit();
+            
+            return redirect()->route('customer.orders.create')
+                ->with('success', "Tạo đơn hàng gộp thành công! Mã nhóm: #{$orderGroup->id} - {$orderGroup->total_recipients} người nhận");
+                
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('Order creation failed: ' . $e->getMessage());
+            
+            return back()->withErrors(['error' => 'Có lỗi xảy ra: ' . $e->getMessage()])->withInput();
         }
+    }
 
-        // ✅ Tạo đơn hàng
+    /**
+     * ✅ TẠO ĐƠN ĐƠN GIẢN (1 người gửi → 1 người nhận)
+     */
+    private function createStandaloneOrder($request, $recipientData)
+    {
+        $products = json_decode($recipientData['products_json'], true);
+        $calculationResult = $this->calculateOrderFees($products, $recipientData);
+        
         $order = Order::create([
+            'order_group_id' => null, // ✅ ĐƠN ĐỘC LẬP
             'user_id' => Auth::id(),
             'sender_id' => $request->sender_id,
             'sender_name' => $request->sender_name,
@@ -61,32 +102,32 @@ class OrderController extends Controller
             'sender_longitude' => $request->sender_longitude,
             'post_office_id' => $request->post_office_id,
             'pickup_time' => $request->pickup_time_formatted,
-
-            'recipient_name' => $request->recipient_name,
-            'recipient_phone' => $request->recipient_phone,
-            'province_code' => $request->province_code,
-            'district_code' => $request->district_code,
-            'ward_code' => $request->ward_code,
-            'address_detail' => $request->address_detail,
-            'recipient_latitude' => $request->recipient_latitude,
-            'recipient_longitude' => $request->recipient_longitude,
-            'recipient_full_address' => $request->recipient_full_address,
-            'delivery_time' => $request->delivery_time_formatted,
-
-            'item_type' => $request->item_type ?? 'package',
-            'services' => $request->services ?? [],
-            'cod_amount' => $request->cod_amount ?? 0,
-            'cod_fee' => $calculationResult['cod_fee'],           // LƯU PHÍ COD
-            'shipping_fee' => $calculationResult['shipping_fee'], // LƯU PHÍ SHIP
-            'sender_total' => $calculationResult['sender_pays'],  // LƯU TỔNG NGƯỜI GỬI TRẢ
-            'recipient_total' => $calculationResult['recipient_pays'], //LƯU TỔNG NGƯỜI NHẬN TRẢ
-            'payer' => $request->payer,
-            'note' => $request->note,
+            
+            'recipient_name' => $recipientData['recipient_name'],
+            'recipient_phone' => $recipientData['recipient_phone'],
+            'province_code' => $recipientData['province_code'],
+            'district_code' => $recipientData['district_code'],
+            'ward_code' => $recipientData['ward_code'],
+            'address_detail' => $recipientData['address_detail'],
+            'recipient_latitude' => $recipientData['recipient_latitude'],
+            'recipient_longitude' => $recipientData['recipient_longitude'],
+            'recipient_full_address' => $recipientData['recipient_full_address'],
+            'delivery_time' => $recipientData['delivery_time_formatted'],
+            
+            'item_type' => $recipientData['item_type'] ?? 'package',
+            'services' => $recipientData['services'] ?? [],
+            'cod_amount' => $recipientData['cod_amount'] ?? 0,
+            'cod_fee' => $calculationResult['cod_fee'],
+            'shipping_fee' => $calculationResult['shipping_fee'],
+            'sender_total' => $calculationResult['sender_pays'],
+            'recipient_total' => $calculationResult['recipient_pays'],
+            'payer' => $recipientData['payer'],
+            'note' => $recipientData['note'] ?? null,
             'products_json' => $products,
             'status' => 'pending',
         ]);
-
-        // ✅ Lưu chi tiết sản phẩm
+        
+        // Lưu products
         foreach ($products as $product) {
             $order->products()->create([
                 'name' => $product['name'] ?? 'Không rõ',
@@ -99,14 +140,99 @@ class OrderController extends Controller
                 'specials' => $product['specials'] ?? [],
             ]);
         }
-
-        // ✅ Upload ảnh
-        if ($request->hasFile('images')) {
-            $this->handleImageUpload($order, $request->file('images'), $request->input('image_notes', []));
+        
+        // Upload ảnh (nếu có)
+        if (isset($recipientData['images'])) {
+            $this->handleImageUpload($order, $recipientData['images']);
         }
+        
+        return $order;
+    }
 
-        return redirect()->route('customer.orders.create')
-            ->with('success', 'Tạo đơn hàng thành công!');
+    /**
+     * ✅ TẠO ORDER GROUP (Đơn tổng)
+     */
+    private function createOrderGroup($request)
+    {
+        return OrderGroup::create([
+            'user_id' => Auth::id(),
+            'sender_name' => $request->sender_name,
+            'sender_phone' => $request->sender_phone,
+            'sender_address' => $request->sender_address,
+            'sender_latitude' => $request->sender_latitude,
+            'sender_longitude' => $request->sender_longitude,
+            'post_office_id' => $request->post_office_id,
+            'pickup_time' => $request->pickup_time_formatted,
+            'total_recipients' => count($request->recipients),
+            'status' => 'pending',
+            'note' => $request->note,
+        ]);
+    }
+
+    /**
+     * ✅ TẠO ORDER CON (Thuộc group)
+     */
+    private function createGroupOrder($orderGroup, $request, $recipientData)
+    {
+        $products = json_decode($recipientData['products_json'], true);
+        $calculationResult = $this->calculateOrderFees($products, $recipientData);
+        
+        $order = Order::create([
+            'order_group_id' => $orderGroup->id, // ✅ THUỘC GROUP
+            'user_id' => Auth::id(),
+            'sender_id' => $request->sender_id,
+            'sender_name' => $request->sender_name,
+            'sender_phone' => $request->sender_phone,
+            'sender_address' => $request->sender_address,
+            'sender_latitude' => $request->sender_latitude,
+            'sender_longitude' => $request->sender_longitude,
+            'post_office_id' => $request->post_office_id,
+            'pickup_time' => $request->pickup_time_formatted,
+            
+            'recipient_name' => $recipientData['recipient_name'],
+            'recipient_phone' => $recipientData['recipient_phone'],
+            'province_code' => $recipientData['province_code'],
+            'district_code' => $recipientData['district_code'],
+            'ward_code' => $recipientData['ward_code'],
+            'address_detail' => $recipientData['address_detail'],
+            'recipient_latitude' => $recipientData['recipient_latitude'],
+            'recipient_longitude' => $recipientData['recipient_longitude'],
+            'recipient_full_address' => $recipientData['recipient_full_address'],
+            'delivery_time' => $recipientData['delivery_time_formatted'],
+            
+            'item_type' => $recipientData['item_type'] ?? 'package',
+            'services' => $recipientData['services'] ?? [],
+            'cod_amount' => $recipientData['cod_amount'] ?? 0,
+            'cod_fee' => $calculationResult['cod_fee'],
+            'shipping_fee' => $calculationResult['shipping_fee'],
+            'sender_total' => $calculationResult['sender_pays'],
+            'recipient_total' => $calculationResult['recipient_pays'],
+            'payer' => $recipientData['payer'],
+            'note' => $recipientData['note'] ?? null,
+            'products_json' => $products,
+            'status' => 'pending',
+        ]);
+        
+        // Lưu products
+        foreach ($products as $product) {
+            $order->products()->create([
+                'name' => $product['name'] ?? 'Không rõ',
+                'quantity' => $product['quantity'] ?? 1,
+                'weight' => $product['weight'] ?? 0,
+                'value' => $product['value'] ?? 0,
+                'length' => $product['length'] ?? 0,
+                'width' => $product['width'] ?? 0,
+                'height' => $product['height'] ?? 0,
+                'specials' => $product['specials'] ?? [],
+            ]);
+        }
+        
+        // Upload ảnh (nếu có)
+        if (isset($recipientData['images'])) {
+            $this->handleImageUpload($order, $recipientData['images']);
+        }
+        
+        return $order;
     }
 
     private function handleImageUpload($order, $images = null, $notes = [], $type = 'pickup')
@@ -135,7 +261,8 @@ class OrderController extends Controller
             ]);
         }
     }
-    private function calculateOrderFees($products, $request)
+
+    private function calculateOrderFees($products, $recipientData)
     {
         $totalWeight = 0;
         $totalValue = 0;
@@ -153,13 +280,11 @@ class OrderController extends Controller
         
         $allSpecials = array_unique($allSpecials);
         
-        // Cước chính
         $base = 20000;
         if ($totalWeight > 1000) {
             $base += ($totalWeight - 1000) * 5;
         }
         
-        // Phụ phí hàng đặc biệt
         $extra = 0;
         foreach ($allSpecials as $sp) {
             $extra += match ($sp) {
@@ -174,25 +299,22 @@ class OrderController extends Controller
             };
         }
         
-        // Phụ phí dịch vụ
-        $services = $request->services ?? [];
+        $services = $recipientData['services'] ?? [];
         foreach ($services as $service) {
             $extra += match ($service) {
                 'fast' => $base * 0.15,
                 'insurance' => $totalValue * 0.01,
-                default => 0, // ⚠️ Bỏ COD ở đây
+                default => 0,
             };
         }
         
         $shippingFee = round($base + $extra);
         
-        // ✅ TÍNH PHÍ COD RIÊNG
-        $hasCOD = in_array('cod', $services) && ($request->cod_amount > 0);
-        $codAmount = $hasCOD ? $request->cod_amount : 0;
+        $hasCOD = in_array('cod', $services) && (($recipientData['cod_amount'] ?? 0) > 0);
+        $codAmount = $hasCOD ? $recipientData['cod_amount'] : 0;
         $codFee = $hasCOD ? (1000 + ($codAmount * 0.01)) : 0;
         
-        // ✅ TÍNH TIỀN NGƯỜI GỬI & NGƯỜI NHẬN TRẢ
-        $payer = $request->payer ?? 'sender';
+        $payer = $recipientData['payer'] ?? 'sender';
         
         if ($payer === 'sender') {
             $senderPays = $shippingFee + $codFee;
@@ -213,9 +335,6 @@ class OrderController extends Controller
         ];
     }
 
-    /**
-     * ✅ API TÍNH CƯỚC - CẬP NHẬT LOGIC MỚI
-     */
     public function calculate(Request $request)
     {
         $products = [];
@@ -224,15 +343,14 @@ class OrderController extends Controller
             $products = json_decode($request->products_json, true) ?? [];
         }
         
-        // SỬ DỤNG HÀM TÍNH PHÍ CHUNG
-        $result = $this->calculateOrderFees($products, $request);
+        $result = $this->calculateOrderFees($products, $request->all());
         
         return response()->json([
             'success' => true,
             'base_cost' => $result['base_cost'],
             'extra_cost' => $result['extra_cost'],
             'shipping_fee' => $result['shipping_fee'],
-            'cod_fee' => $result['cod_fee'],           //TRẢ VỀ PHÍ COD
+            'cod_fee' => $result['cod_fee'],
             'total' => $result['shipping_fee'] + $result['cod_fee'],
             'payer' => $request->payer ?? 'sender',
             'has_cod' => in_array('cod', $request->services ?? []),
@@ -258,7 +376,7 @@ class OrderController extends Controller
             $distance = $this->haversine($latitude, $longitude, $po['Lat'], $po['Lng']);
 
             return [
-                'id'       => $po['POCode'],         
+                'id'       => $po['POCode'],
                 'name'     => $po['POName'],
                 'address'  => $po['Address'],
                 'latitude' => $po['Lat'],
@@ -271,7 +389,6 @@ class OrderController extends Controller
 
         return response()->json($nearby);
     }
-
 
     private function haversine($lat1, $lon1, $lat2, $lon2)
     {

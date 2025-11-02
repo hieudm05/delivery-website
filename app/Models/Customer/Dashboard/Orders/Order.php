@@ -10,6 +10,8 @@ class Order extends Model
     use HasFactory;
 
     protected $fillable = [
+        'order_group_id', //
+        'user_id',        // 
         'sender_id',
         'sender_name',
         'sender_phone',
@@ -31,10 +33,10 @@ class Order extends Model
         'item_type',
         'services',
         'cod_amount',
-        'cod_fee',          
-        'shipping_fee',     
-        'sender_total',     
-        'recipient_total',  
+        'cod_fee',
+        'shipping_fee',
+        'sender_total',
+        'recipient_total',
         'payer',
         'note',
         'products_json',
@@ -60,9 +62,9 @@ class Order extends Model
     protected $casts = [
         'services' => 'array',
         'products_json' => 'array',
-        'cod_fee' => 'decimal:2',       
-        'shipping_fee' => 'decimal:2',  
-        'sender_total' => 'decimal:2',  
+        'cod_fee' => 'decimal:2',
+        'shipping_fee' => 'decimal:2',
+        'sender_total' => 'decimal:2',
         'recipient_total' => 'decimal:2',
         'pickup_time' => 'datetime',
         'delivery_time' => 'datetime',
@@ -73,6 +75,42 @@ class Order extends Model
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
+
+    /**
+     * ✅ Relationship: Order belongs to OrderGroup
+     */
+    public function orderGroup()
+    {
+        return $this->belongsTo(OrderGroup::class, 'order_group_id');
+    }
+
+    /**
+     * ✅ Check if this order is part of a group
+     */
+    public function isPartOfGroup()
+    {
+        return !is_null($this->order_group_id);
+    }
+
+    /**
+     * ✅ Check if this is a standalone order
+     */
+    public function isStandalone()
+    {
+        return is_null($this->order_group_id);
+    }
+
+    /**
+     * ✅ Get sibling orders (orders in the same group)
+     */
+    public function siblings()
+    {
+        if (!$this->isPartOfGroup()) {
+            return collect([]);
+        }
+        
+        return $this->orderGroup->orders()->where('id', '!=', $this->id)->get();
+    }
 
     public function products()
     {
@@ -95,16 +133,7 @@ class Order extends Model
     }
 
     /**
-     * ✅ LOGIC TÍNH PHÍ DỰA TRÊN NGƯỜI TRẢ CƯỚC & COD
-     * 
-     * Quy tắc:
-     * 1. Người gửi trả: 
-     *    - Không COD: Người gửi trả = tiền ship
-     *    - Có COD: Người gửi trả = 0đ
-     * 
-     * 2. Người nhận trả:
-     *    - Không COD: Người nhận trả = tiền ship
-     *    - Có COD: Người nhận trả = tiền hàng + tiền ship
+     * LOGIC TÍNH PHÍ DỰA TRÊN NGƯỜI TRẢ CƯỚC & COD
      */
     public function getPaymentDetailsAttribute()
     {
@@ -121,21 +150,17 @@ class Order extends Model
         ];
     }
 
-    /**
-     * ✅ Tính tiền người gửi trả
-     */
-   private function calculateSenderPays($hasCOD, $shippingFee)
+    private function calculateSenderPays($hasCOD, $shippingFee)
     {
         $codFee = $hasCOD ? $this->calculateCODFee() : 0;
         
         if ($this->payer === 'sender') {
-            // Người gửi trả: ship + phí COD (nếu có)
             return $shippingFee + $codFee;
         }
         
-        // Người nhận trả ship, nhưng người gửi vẫn chịu phí COD
         return $codFee;
     }
+
     private function calculateCODFee()
     {
         if ($this->cod_amount > 0) {
@@ -144,23 +169,15 @@ class Order extends Model
         return 0;
     }
 
-    /**
-     * ✅ Tính tiền người nhận trả
-     */
     private function calculateRecipientPays($hasCOD, $shippingFee)
     {
         if ($this->payer === 'recipient') {
-            // Người nhận trả: ship + tiền hàng (nếu COD)
             return $shippingFee + ($hasCOD ? $this->cod_amount : 0);
         }
         
-        // Người gửi trả ship, người nhận chỉ trả tiền hàng (nếu COD)
         return $hasCOD ? $this->cod_amount : 0;
     }
 
-    /**
-     * ✅ Tính phí ship (logic cũ, giữ nguyên)
-     */
     private function calculateShippingFee()
     {
         $products = $this->products_json ?? [];
@@ -173,13 +190,11 @@ class Order extends Model
             $totalValue += ($product['value'] ?? 0) * $qty;
         }
 
-        // Cước chính
         $base = 20000;
         if ($totalWeight > 1000) {
             $base += ($totalWeight - 1000) * 5;
         }
 
-        // Phụ phí
         $extra = 0;
         $services = $this->services ?? [];
         
