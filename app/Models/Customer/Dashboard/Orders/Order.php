@@ -9,8 +9,29 @@ class Order extends Model
 {
     use HasFactory;
 
+    // ✅ Định nghĩa các trạng thái hợp lệ
+    public const STATUS_PENDING = 'pending';
+    public const STATUS_CONFIRMED = 'confirmed';
+    public const STATUS_PICKING_UP = 'picking_up';
+    public const STATUS_PICKED_UP = 'picked_up';
+    public const STATUS_AT_HUB = 'at_hub';
+    public const STATUS_SHIPPING = 'shipping';
+    public const STATUS_DELIVERED = 'delivered';
+    public const STATUS_CANCELLED = 'cancelled';
+
+    public const STATUSES = [
+        self::STATUS_PENDING,
+        self::STATUS_CONFIRMED,
+        self::STATUS_PICKING_UP,
+        self::STATUS_PICKED_UP,
+        self::STATUS_AT_HUB,
+        self::STATUS_SHIPPING,
+        self::STATUS_DELIVERED,
+        self::STATUS_CANCELLED,
+    ];
+
     protected $fillable = [
-        'order_group_id', //
+        'order_group_id',
         'sender_id',
         'sender_name',
         'sender_phone',
@@ -61,6 +82,7 @@ class Order extends Model
     protected $casts = [
         'services' => 'array',
         'products_json' => 'array',
+        'cod_amount' => 'decimal:2',
         'cod_fee' => 'decimal:2',
         'shipping_fee' => 'decimal:2',
         'sender_total' => 'decimal:2',
@@ -132,17 +154,55 @@ class Order extends Model
     }
 
     /**
+     * ✅ Check if order can be edited
+     */
+    public function canEdit()
+    {
+        return in_array($this->status, [self::STATUS_PENDING, self::STATUS_CONFIRMED]);
+    }
+
+    /**
+     * ✅ Check if order can be cancelled
+     */
+    public function canCancel()
+    {
+        return !in_array($this->status, [self::STATUS_DELIVERED, self::STATUS_CANCELLED]);
+    }
+
+    /**
+     * ✅ Check if order is in transit
+     */
+    public function isInTransit()
+    {
+        return in_array($this->status, [
+            self::STATUS_PICKING_UP,
+            self::STATUS_PICKED_UP,
+            self::STATUS_AT_HUB,
+            self::STATUS_SHIPPING
+        ]);
+    }
+
+    /**
+     * ✅ Check if order is completed
+     */
+    public function isCompleted()
+    {
+        return $this->status === self::STATUS_DELIVERED;
+    }
+
+    /**
      * LOGIC TÍNH PHÍ DỰA TRÊN NGƯỜI TRẢ CƯỚC & COD
      */
     public function getPaymentDetailsAttribute()
     {
         $hasCOD = in_array('cod', $this->services ?? []) && $this->cod_amount > 0;
-        $shippingFee = $this->calculateShippingFee();
+        $shippingFee = $this->shipping_fee ?? $this->calculateShippingFee();
         
         return [
             'payer' => $this->payer,
             'has_cod' => $hasCOD,
             'cod_amount' => $hasCOD ? $this->cod_amount : 0,
+            'cod_fee' => $hasCOD ? $this->calculateCODFee() : 0,
             'shipping_fee' => $shippingFee,
             'sender_pays' => $this->calculateSenderPays($hasCOD, $shippingFee),
             'recipient_pays' => $this->calculateRecipientPays($hasCOD, $shippingFee),
@@ -209,14 +269,20 @@ class Order extends Model
         return round($base + $extra);
     }
 
+    /**
+     * ✅ Scope: Filter by status
+     */
     public function scopeWithStatus($query, $status)
     {
-        if ($status && $status !== 'all') {
+        if ($status && $status !== 'all' && in_array($status, self::STATUSES)) {
             return $query->where('status', $status);
         }
         return $query;
     }
 
+    /**
+     * ✅ Scope: Search orders
+     */
     public function scopeSearch($query, $search)
     {
         if ($search) {
@@ -231,31 +297,57 @@ class Order extends Model
         return $query;
     }
 
+    /**
+     * ✅ Get status label in Vietnamese
+     */
     public function getStatusLabelAttribute()
     {
         return match($this->status) {
-            'pending' => 'Chờ xác nhận',
-            'confirmed' => 'Đã xác nhận',
-            'picking_up' => 'Đang lấy hàng',
-            'picked_up' => 'Đã lấy hàng',
-            'shipping' => 'Đang giao',
-            'delivered' => 'Đã giao',
-            'cancelled' => 'Đã hủy',
+            self::STATUS_PENDING => 'Chờ xác nhận',
+            self::STATUS_CONFIRMED => 'Đã xác nhận',
+            self::STATUS_PICKING_UP => 'Đang lấy hàng',
+            self::STATUS_PICKED_UP => 'Đã lấy hàng',
+            self::STATUS_AT_HUB => 'Tại bưu cục',
+            self::STATUS_SHIPPING => 'Đang giao',
+            self::STATUS_DELIVERED => 'Đã giao',
+            self::STATUS_CANCELLED => 'Đã hủy',
             default => 'Không xác định'
         };
     }
 
+    /**
+     * ✅ Get status badge color
+     */
     public function getStatusBadgeAttribute()
     {
         return match($this->status) {
-            'pending' => 'warning',
-            'confirmed' => 'info',
-            'picking_up' => 'primary',
-            'picked_up' => 'secondary',
-            'shipping' => 'primary',
-            'delivered' => 'success',
-            'cancelled' => 'danger',
-            default => 'dark'
+            self::STATUS_PENDING => 'warning',
+            self::STATUS_CONFIRMED => 'info',
+            self::STATUS_PICKING_UP => 'primary',
+            self::STATUS_PICKED_UP => 'secondary',
+            self::STATUS_AT_HUB => 'dark',
+            self::STATUS_SHIPPING => 'primary',
+            self::STATUS_DELIVERED => 'success',
+            self::STATUS_CANCELLED => 'danger',
+            default => 'secondary'
+        };
+    }
+
+    /**
+     * ✅ Get status icon
+     */
+    public function getStatusIconAttribute()
+    {
+        return match($this->status) {
+            self::STATUS_PENDING => 'clock-history',
+            self::STATUS_CONFIRMED => 'check-circle',
+            self::STATUS_PICKING_UP => 'box-arrow-up',
+            self::STATUS_PICKED_UP => 'box-seam',
+            self::STATUS_AT_HUB => 'building',
+            self::STATUS_SHIPPING => 'truck',
+            self::STATUS_DELIVERED => 'check-circle-fill',
+            self::STATUS_CANCELLED => 'x-circle',
+            default => 'question-circle'
         };
     }
 }

@@ -135,6 +135,8 @@ Route::prefix('customer')
         Route::get('show/{id}',[OrderManagentController::class, 'show'])->name('show');
         Route::get('edit/{id}',[OrderManagentController::class, 'edit'])->name('edit');
         Route::get('destroy/{id}',[OrderManagentController::class, 'destroy'])->name('destroy');
+        Route::patch('/{id}/cancel', [OrderManagentController::class, 'cancel'])->name('cancel');
+        Route::get('/{id}/delivery-images', [OrderManagentController::class, 'getDeliveryImages'])->name('delivery-images');
     });
     });
 

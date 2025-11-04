@@ -10,6 +10,27 @@ class OrderGroup extends Model
 {
     use HasFactory;
 
+    // ✅ Định nghĩa các trạng thái của OrderGroup
+    public const STATUS_PENDING = 'pending';
+    public const STATUS_CONFIRMED = 'confirmed';
+    public const STATUS_PICKING_UP = 'picking_up';
+    public const STATUS_PICKED_UP = 'picked_up';
+    public const STATUS_IN_TRANSIT = 'in_transit';
+    public const STATUS_PARTIALLY_DELIVERED = 'partially_delivered';
+    public const STATUS_COMPLETED = 'completed';
+    public const STATUS_CANCELLED = 'cancelled';
+
+    public const STATUSES = [
+        self::STATUS_PENDING,
+        self::STATUS_CONFIRMED,
+        self::STATUS_PICKING_UP,
+        self::STATUS_PICKED_UP,
+        self::STATUS_IN_TRANSIT,
+        self::STATUS_PARTIALLY_DELIVERED,
+        self::STATUS_COMPLETED,
+        self::STATUS_CANCELLED,
+    ];
+
     protected $fillable = [
         'user_id',
         'sender_name',
@@ -85,7 +106,7 @@ class OrderGroup extends Model
     }
 
     /**
-     * Recalculate totals from child orders
+     * ✅ Recalculate totals from child orders
      */
     public function recalculateTotals()
     {
@@ -98,31 +119,55 @@ class OrderGroup extends Model
     }
 
     /**
-     * Update group status based on child orders
+     * ✅ Update group status based on child orders - CẢI TIẾN
      */
     public function updateGroupStatus()
     {
         $orderStatuses = $this->orders()->pluck('status')->toArray();
         
         if (empty($orderStatuses)) {
-            $this->status = 'cancelled';
-        } elseif (in_array('picking_up', $orderStatuses)) {
-            $this->status = 'picking_up';
-        } elseif (all_match($orderStatuses, 'picked_up')) {
-            $this->status = 'picked_up';
-        } elseif (in_array('shipping', $orderStatuses)) {
-            $this->status = 'in_transit';
-        } elseif (all_match($orderStatuses, 'delivered')) {
-            $this->status = 'completed';
-        } elseif (some_match($orderStatuses, 'delivered')) {
-            $this->status = 'partially_delivered';
-        } elseif (all_match($orderStatuses, 'cancelled')) {
-            $this->status = 'cancelled';
+            $this->status = self::STATUS_CANCELLED;
+        } elseif ($this->allMatch($orderStatuses, Order::STATUS_CANCELLED)) {
+            // Tất cả đơn đều bị hủy
+            $this->status = self::STATUS_CANCELLED;
+        } elseif ($this->allMatch($orderStatuses, Order::STATUS_DELIVERED)) {
+            // Tất cả đơn đều đã giao
+            $this->status = self::STATUS_COMPLETED;
+        } elseif ($this->someMatch($orderStatuses, Order::STATUS_DELIVERED)) {
+            // Một số đơn đã giao
+            $this->status = self::STATUS_PARTIALLY_DELIVERED;
+        } elseif ($this->someMatch($orderStatuses, Order::STATUS_SHIPPING) || 
+                  $this->someMatch($orderStatuses, Order::STATUS_AT_HUB)) {
+            // Có đơn đang giao hoặc tại hub
+            $this->status = self::STATUS_IN_TRANSIT;
+        } elseif ($this->someMatch($orderStatuses, Order::STATUS_PICKING_UP)) {
+            // Có đơn đang lấy hàng
+            $this->status = self::STATUS_PICKING_UP;
+        } elseif ($this->allMatch($orderStatuses, Order::STATUS_PICKED_UP)) {
+            // Tất cả đơn đã lấy hàng
+            $this->status = self::STATUS_PICKED_UP;
         } else {
-            $this->status = 'confirmed';
+            // Mặc định: confirmed
+            $this->status = self::STATUS_CONFIRMED;
         }
         
         $this->save();
+    }
+
+    /**
+     * ✅ Check if all items in array match a value
+     */
+    private function allMatch($array, $value)
+    {
+        return count($array) === count(array_filter($array, fn($v) => $v === $value));
+    }
+
+    /**
+     * ✅ Check if some items in array match a value
+     */
+    private function someMatch($array, $value)
+    {
+        return in_array($value, $array);
     }
 
     /**
@@ -130,7 +175,7 @@ class OrderGroup extends Model
      */
     public function scopeWithStatus($query, $status)
     {
-        if ($status && $status !== 'all') {
+        if ($status && $status !== 'all' && in_array($status, self::STATUSES)) {
             return $query->where('status', $status);
         }
         return $query;
@@ -161,14 +206,14 @@ class OrderGroup extends Model
     public function getStatusLabelAttribute()
     {
         return match($this->status) {
-            'pending' => 'Chờ xác nhận',
-            'confirmed' => 'Đã xác nhận',
-            'picking_up' => 'Đang lấy hàng',
-            'picked_up' => 'Đã lấy hàng',
-            'in_transit' => 'Đang vận chuyển',
-            'partially_delivered' => 'Giao một phần',
-            'completed' => 'Hoàn thành',
-            'cancelled' => 'Đã hủy',
+            self::STATUS_PENDING => 'Chờ xác nhận',
+            self::STATUS_CONFIRMED => 'Đã xác nhận',
+            self::STATUS_PICKING_UP => 'Đang lấy hàng',
+            self::STATUS_PICKED_UP => 'Đã lấy hàng',
+            self::STATUS_IN_TRANSIT => 'Đang vận chuyển',
+            self::STATUS_PARTIALLY_DELIVERED => 'Giao một phần',
+            self::STATUS_COMPLETED => 'Hoàn thành',
+            self::STATUS_CANCELLED => 'Đã hủy',
             default => 'Không xác định'
         };
     }
@@ -179,15 +224,33 @@ class OrderGroup extends Model
     public function getStatusBadgeAttribute()
     {
         return match($this->status) {
-            'pending' => 'warning',
-            'confirmed' => 'info',
-            'picking_up' => 'primary',
-            'picked_up' => 'secondary',
-            'in_transit' => 'primary',
-            'partially_delivered' => 'info',
-            'completed' => 'success',
-            'cancelled' => 'danger',
-            default => 'dark'
+            self::STATUS_PENDING => 'warning',
+            self::STATUS_CONFIRMED => 'info',
+            self::STATUS_PICKING_UP => 'primary',
+            self::STATUS_PICKED_UP => 'secondary',
+            self::STATUS_IN_TRANSIT => 'primary',
+            self::STATUS_PARTIALLY_DELIVERED => 'info',
+            self::STATUS_COMPLETED => 'success',
+            self::STATUS_CANCELLED => 'danger',
+            default => 'secondary'
+        };
+    }
+
+    /**
+     * Get status icon
+     */
+    public function getStatusIconAttribute()
+    {
+        return match($this->status) {
+            self::STATUS_PENDING => 'clock-history',
+            self::STATUS_CONFIRMED => 'check-circle',
+            self::STATUS_PICKING_UP => 'box-arrow-up',
+            self::STATUS_PICKED_UP => 'box-seam',
+            self::STATUS_IN_TRANSIT => 'truck',
+            self::STATUS_PARTIALLY_DELIVERED => 'pie-chart',
+            self::STATUS_COMPLETED => 'check-circle-fill',
+            self::STATUS_CANCELLED => 'x-circle',
+            default => 'question-circle'
         };
     }
 
@@ -198,17 +261,28 @@ class OrderGroup extends Model
     {
         return $this->total_recipients > 1;
     }
-}
 
-// Helper functions
-if (!function_exists('all_match')) {
-    function all_match($array, $value) {
-        return count($array) === count(array_filter($array, fn($v) => $v === $value));
+    /**
+     * ✅ Get completion percentage
+     */
+    public function getCompletionPercentageAttribute()
+    {
+        $total = $this->orders()->count();
+        if ($total === 0) return 0;
+        
+        $delivered = $this->orders()->where('status', Order::STATUS_DELIVERED)->count();
+        return round(($delivered / $total) * 100);
     }
-}
 
-if (!function_exists('some_match')) {
-    function some_match($array, $value) {
-        return in_array($value, $array);
+    /**
+     * ✅ Check if group can be cancelled
+     */
+    public function canCancel()
+    {
+        return !in_array($this->status, [
+            self::STATUS_COMPLETED,
+            self::STATUS_CANCELLED,
+            self::STATUS_PARTIALLY_DELIVERED
+        ]);
     }
 }
