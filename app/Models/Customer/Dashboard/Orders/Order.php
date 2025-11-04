@@ -77,6 +77,11 @@ class Order extends Model
         'current_hub_id',
         'hub_transfer_time',
         'hub_transfer_note',
+        'auto_approved',
+        'approved_by',
+        'approved_at',
+        'approval_note',
+        'risk_score',
     ];
 
     protected $casts = [
@@ -95,6 +100,9 @@ class Order extends Model
         'hub_transfer_time' => 'datetime',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
+        'approved_at' => 'datetime',
+        'auto_approved' => 'boolean',
+        'risk_score' => 'integer',
     ];
 
     /**
@@ -349,5 +357,261 @@ class Order extends Model
             self::STATUS_CANCELLED => 'x-circle',
             default => 'question-circle'
         };
+    }
+     /**
+     * ✅ Relationship với Admin đã duyệt
+     */
+    public function approvedBy()
+    {
+        return $this->belongsTo(\App\Models\User::class, 'approved_by');
+    }
+
+    /**
+     * ✅ Check xem đơn đã được duyệt chưa
+     */
+    public function isApproved()
+    {
+        return $this->status !== self::STATUS_PENDING;
+    }
+
+    /**
+     * ✅ Check xem đơn có thể duyệt tự động không
+     */
+    public function canAutoApprove()
+    {
+        if ($this->status !== self::STATUS_PENDING) {
+            return false;
+        }
+
+        $riskScore = $this->calculateRiskScore();
+        
+        // Ngưỡng điểm rủi ro: <= 30 điểm thì auto approve
+        return $riskScore <= 30;
+    }
+
+    /**
+     * ✅ Tính điểm rủi ro của đơn hàng (0-100)
+     * Điểm càng cao = rủi ro càng cao = cần duyệt thủ công
+     */
+    public function calculateRiskScore()
+    {
+        $score = 0;
+
+        // 1. Kiểm tra COD amount (20 điểm max)
+        $codAmount = $this->cod_amount ?? 0;
+        if ($codAmount > 10000000) { // > 10 triệu
+            $score += 20;
+        } elseif ($codAmount > 5000000) { // 5-10 triệu
+            $score += 15;
+        } elseif ($codAmount > 2000000) { // 2-5 triệu
+            $score += 10;
+        } elseif ($codAmount > 1000000) { // 1-2 triệu
+            $score += 5;
+        }
+
+        // 2. Kiểm tra dịch vụ FAST (15 điểm)
+        if (in_array('fast', $this->services ?? [])) {
+            $score += 15;
+        }
+
+        // 3. Kiểm tra thời gian giao hàng gấp (20 điểm max)
+        if ($this->delivery_time) {
+            $hoursUntilDelivery = now()->diffInHours($this->delivery_time, false);
+            
+            if ($hoursUntilDelivery < 0) {
+                // Thời gian đã qua
+                $score += 20;
+            } elseif ($hoursUntilDelivery < 4) {
+                // Giao trong 4 giờ
+                $score += 20;
+            } elseif ($hoursUntilDelivery < 12) {
+                // Giao trong 12 giờ
+                $score += 10;
+            }
+        }
+
+        // 4. Kiểm tra giá trị hàng hóa (15 điểm max)
+        $totalValue = 0;
+        foreach ($this->products_json ?? [] as $product) {
+            $totalValue += ($product['value'] ?? 0) * ($product['quantity'] ?? 1);
+        }
+
+        if ($totalValue > 50000000) { // > 50 triệu
+            $score += 15;
+        } elseif ($totalValue > 20000000) { // 20-50 triệu
+            $score += 10;
+        } elseif ($totalValue > 10000000) { // 10-20 triệu
+            $score += 5;
+        }
+
+        // 5. Kiểm tra khách hàng mới (10 điểm)
+        if ($this->sender_id) {
+            $senderOrderCount = self::where('sender_id', $this->sender_id)
+                ->where('status', self::STATUS_DELIVERED)
+                ->count();
+            
+            if ($senderOrderCount === 0) {
+                $score += 10; // Khách hàng mới
+            } elseif ($senderOrderCount < 3) {
+                $score += 5; // Khách hàng ít giao dịch
+            }
+        } else {
+            $score += 10; // Không có sender_id
+        }
+
+        // 6. Kiểm tra khoảng cách (10 điểm)
+        if ($this->sender_latitude && $this->recipient_latitude) {
+            $distance = $this->calculateDistance();
+            if ($distance > 500) { // > 500km
+                $score += 10;
+            } elseif ($distance > 200) { // 200-500km
+                $score += 5;
+            }
+        }
+
+        // 7. Kiểm tra địa chỉ vùng xa (10 điểm)
+        $remoteProvinces = ['87', '89', '91', '93', '95']; // Các tỉnh vùng sâu vùng xa
+        if (in_array($this->province_code, $remoteProvinces)) {
+            $score += 10;
+        }
+
+        return min($score, 100); // Tối đa 100 điểm
+    }
+
+    /**
+     * ✅ Tính khoảng cách giữa sender và recipient (km)
+     */
+    private function calculateDistance()
+    {
+        if (!$this->sender_latitude || !$this->recipient_latitude) {
+            return 0;
+        }
+
+        $earthRadius = 6371; // km
+
+        $latFrom = deg2rad($this->sender_latitude);
+        $lonFrom = deg2rad($this->sender_longitude);
+        $latTo = deg2rad($this->recipient_latitude);
+        $lonTo = deg2rad($this->recipient_longitude);
+
+        $latDelta = $latTo - $latFrom;
+        $lonDelta = $lonTo - $lonFrom;
+
+        $angle = 2 * asin(sqrt(pow(sin($latDelta / 2), 2) +
+            cos($latFrom) * cos($latTo) * pow(sin($lonDelta / 2), 2)));
+
+        return $angle * $earthRadius;
+    }
+
+    /**
+     * ✅ Duyệt đơn tự động
+     */
+    public function autoApprove()
+    {
+        if (!$this->canAutoApprove()) {
+            return false;
+        }
+
+        $this->status = self::STATUS_CONFIRMED;
+        $this->auto_approved = true;
+        $this->approved_at = now();
+        $this->risk_score = $this->calculateRiskScore();
+        $this->save();
+
+        // Nếu là đơn trong group, cập nhật status của group
+        if ($this->isPartOfGroup()) {
+            $this->orderGroup->updateGroupStatus();
+        }
+
+        return true;
+    }
+
+    /**
+     * ✅ Duyệt đơn thủ công
+     */
+    public function manualApprove($adminId, $note = null)
+    {
+        if ($this->status !== self::STATUS_PENDING) {
+            return false;
+        }
+
+        $this->status = self::STATUS_CONFIRMED;
+        $this->auto_approved = false;
+        $this->approved_by = $adminId;
+        $this->approved_at = now();
+        $this->approval_note = $note;
+        $this->risk_score = $this->calculateRiskScore();
+        $this->save();
+
+        // Nếu là đơn trong group, cập nhật status của group
+        if ($this->isPartOfGroup()) {
+            $this->orderGroup->updateGroupStatus();
+        }
+
+        return true;
+    }
+
+    /**
+     * ✅ Từ chối đơn hàng
+     */
+    public function reject($adminId, $note)
+    {
+        if ($this->status !== self::STATUS_PENDING) {
+            return false;
+        }
+
+        $this->status = self::STATUS_CANCELLED;
+        $this->approved_by = $adminId;
+        $this->approved_at = now();
+        $this->approval_note = $note;
+        $this->risk_score = $this->calculateRiskScore();
+        $this->save();
+
+        // Nếu là đơn trong group, cập nhật status của group
+        if ($this->isPartOfGroup()) {
+            $this->orderGroup->updateGroupStatus();
+        }
+
+        return true;
+    }
+
+    /**
+     * ✅ Get risk level label
+     */
+    public function getRiskLevelAttribute()
+    {
+        $score = $this->risk_score ?? $this->calculateRiskScore();
+
+        return match(true) {
+            $score >= 70 => ['level' => 'high', 'label' => 'Cao', 'color' => 'danger'],
+            $score >= 40 => ['level' => 'medium', 'label' => 'Trung bình', 'color' => 'warning'],
+            default => ['level' => 'low', 'label' => 'Thấp', 'color' => 'success'],
+        };
+    }
+
+    /**
+     * ✅ Scope: Lọc đơn chưa duyệt
+     */
+    public function scopePendingApproval($query)
+    {
+        return $query->where('status', self::STATUS_PENDING);
+    }
+
+    /**
+     * ✅ Scope: Lọc đơn có thể auto approve
+     */
+    public function scopeCanAutoApprove($query)
+    {
+        return $query->where('status', self::STATUS_PENDING)
+            ->whereRaw('(risk_score IS NULL OR risk_score <= 30)');
+    }
+
+    /**
+     * ✅ Scope: Lọc đơn có rủi ro cao
+     */
+    public function scopeHighRisk($query)
+    {
+        return $query->where('status', self::STATUS_PENDING)
+            ->where('risk_score', '>=', 70);
     }
 }
