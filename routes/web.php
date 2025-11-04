@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\AdminController;
 use App\Http\Controllers\Admin\CodManagent\CodManagementController;
 use App\Http\Controllers\Admin\Driver\AdminDriverController;
+use App\Http\Controllers\Admin\Orders\OrderApprovalController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Customer\Dashboard\Accounts\AccountController;
 use App\Http\Controllers\Customer\Dashboard\DashboardCustomerController;
@@ -58,6 +59,24 @@ Route::prefix('admin')
             Route::post('{id}/confirm', [CodManagementController::class, 'confirmReceived'])->name('confirm');
             Route::post('{id}/transfer-sender', [CodManagementController::class, 'transferToSender'])->name('transfer');
             Route::post('{id}/dispute', [CodManagementController::class, 'dispute'])->name('dispute');
+        });
+        Route::prefix('orders/approval')->name('orders.approval.')->group(function () {
+            // Danh sách đơn chờ duyệt
+            Route::get('/', [OrderApprovalController::class, 'index'])->name('index');
+            // Chi tiết đơn hàng
+            Route::get('/{id}', [OrderApprovalController::class, 'show'])->name('show');
+            // Duyệt đơn lẻ
+            Route::post('/{id}/approve', [OrderApprovalController::class, 'approve'])->name('approve');
+            // Từ chối đơn
+            Route::post('/{id}/reject', [OrderApprovalController::class, 'reject'])->name('reject');
+            // Duyệt hàng loạt
+            Route::post('/batch', [OrderApprovalController::class, 'batchApprove'])->name('batch');
+            // Duyệt tự động
+            Route::post('/auto-approve', [OrderApprovalController::class, 'autoApproveOrders'])->name('auto-approve');
+            // Cập nhật risk score
+            Route::post('/update-risk-scores', [OrderApprovalController::class, 'updateRiskScores'])->name('update-risk-scores');
+            // Thống kê
+            Route::get('/statistics', [OrderApprovalController::class, 'statistics'])->name('statistics');
         });
     });
 

@@ -90,9 +90,9 @@ public function store(Request $request)
             'shared_product_json' => 'nullable|string',
         ]);
 
-        \Log::info('=== ORDER CREATION START ===');
-        \Log::info('Order mode: ' . $request->order_mode);
-        \Log::info('Recipients count: ' . count($request->recipients));
+        // \Log::info('=== ORDER CREATION START ===');
+        // \Log::info('Order mode: ' . $request->order_mode);
+        // \Log::info('Recipients count: ' . count($request->recipients));
 
         DB::beginTransaction();
         
@@ -112,7 +112,7 @@ public function store(Request $request)
             $order = $this->createStandaloneOrder($request, $recipientData);
             
             DB::commit();
-            \Log::info("✅ Standalone order created: #{$order->id}");
+            // \Log::info("✅ Standalone order created: #{$order->id}");
             
             return response()->json([
                 'success' => true,
@@ -133,7 +133,7 @@ public function store(Request $request)
             }
             
             $orderGroup = $this->createOrderGroup($request);
-            \Log::info("Order group created: #{$orderGroup->id}");
+            // \Log::info("Order group created: #{$orderGroup->id}");
             
             $createdOrders = [];
             foreach ($recipients as $index => $recipientData) {
@@ -145,14 +145,14 @@ public function store(Request $request)
                 
                 $order = $this->createGroupOrder($orderGroup, $request, $recipientData);
                 $createdOrders[] = $order;
-                \Log::info("Group order #{$order->id} created for recipient #{$index}");
+                // \Log::info("Group order #{$order->id} created for recipient #{$index}");
             }
             
             // Cập nhật tổng kết cho order group
             $orderGroup->recalculateTotals();
             
             DB::commit();
-            \Log::info("✅ Order group completed: #{$orderGroup->id}");
+            // \Log::info("✅ Order group completed: #{$orderGroup->id}");
             
             return response()->json([
                 'success' => true,
@@ -168,7 +168,7 @@ public function store(Request $request)
         
     } catch (\Illuminate\Validation\ValidationException $e) {
         DB::rollBack();
-        \Log::error('❌ Validation failed:', $e->errors());
+        // \Log::error('❌ Validation failed:', $e->errors());
         
         return response()->json([
             'success' => false,
@@ -178,8 +178,8 @@ public function store(Request $request)
         
     } catch (\Exception $e) {
         DB::rollBack();
-        \Log::error('❌ Order creation failed: ' . $e->getMessage());
-        \Log::error($e->getTraceAsString());
+        // \Log::error('❌ Order creation failed: ' . $e->getMessage());
+        // \Log::error($e->getTraceAsString());
         
         return response()->json([
             'success' => false,
@@ -193,7 +193,6 @@ public function store(Request $request)
  */
 private function createStandaloneOrder($request, $recipientData)
 {
-    \Log::info('Creating standalone order...');
     
     // Parse products
     $products = json_decode($recipientData['products_json'], true);
@@ -237,7 +236,7 @@ private function createStandaloneOrder($request, $recipientData)
         'status' => 'pending',
     ]);
     
-    \Log::info("Order created: #{$order->id}");
+    // \Log::info("Order created: #{$order->id}");
     
     // Lưu products vào bảng order_products
     foreach ($products as $product) {
@@ -263,6 +262,13 @@ private function createStandaloneOrder($request, $recipientData)
     if (!empty($recipientData['save_address'])) {
         $this->saveRecipientAddress($recipientData);
     }
+
+     try {
+            $this->processOrderApproval($order);
+        } catch (\Exception $e) {
+            // \Log::warning("Failed to process order approval: " . $e->getMessage());
+            // Không throw error, vì đơn đã tạo thành công
+        }
     
     return $order;
 }
@@ -355,9 +361,30 @@ private function createGroupOrder($orderGroup, $request, $recipientData)
     if (!empty($recipientData['save_address'])) {
         $this->saveRecipientAddress($recipientData);
     }
+     try {
+            $this->processOrderApproval($order);
+        } catch (\Exception $e) {
+           
+        }
     
     return $order;
 }
+
+     private function processOrderApproval(Order $order)
+    {
+        // Tính risk score
+        $riskScore = $order->calculateRiskScore();
+        $order->risk_score = $riskScore;
+        
+        // Nếu đủ điều kiện, tự động duyệt luôn
+        if ($order->canAutoApprove()) {
+            $order->autoApprove();
+            // \Log::info("✅ Order #{$order->id} auto-approved (risk score: {$riskScore})");
+        } else {
+            $order->save(); // Chỉ lưu risk score
+            // \Log::info("⚠️ Order #{$order->id} needs manual approval (risk score: {$riskScore})");
+        }
+    }
 
 /**
  * ✅ Lưu địa chỉ người nhận vào saved_addresses
@@ -387,10 +414,10 @@ private function saveRecipientAddress($recipientData)
                 'updated_at' => now(),
             ]);
             
-            \Log::info("✅ Saved address for: {$recipientData['recipient_name']}");
+            // \Log::info("✅ Saved address for: {$recipientData['recipient_name']}");
         }
     } catch (\Exception $e) {
-        \Log::error("❌ Failed to save address: " . $e->getMessage());
+        // \Log::error("❌ Failed to save address: " . $e->getMessage());
         // Don't throw error, just log it
     }
 }
