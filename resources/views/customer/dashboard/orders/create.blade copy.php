@@ -554,8 +554,6 @@
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
   const GOONG_API_KEY = '{{ config("services.goong.api_key") }}';
-  console.log(GOONG_API_KEY, '🔑 Goong API Key loaded');
-  
 
 let vietnamData = [];
 let recipientsList = [];
@@ -564,165 +562,49 @@ let geocodeTimeout = null;
 let autocompleteTimeout = null;
 let orderMode = 'single'; // 'single' or 'multi'
 let sharedProductData = null; // Store shared product data
-let provincesLoaded = false; // Flag để track trạng thái load
 
 $(document).ready(function() {
-    console.log('🚀 Bắt đầu khởi tạo...');
-    
-    loadProvinces()
-        .then(() => {
-            console.log('✅ Provinces loaded, initializing app...');
-            provincesLoaded = true;
-            setupEventHandlers();
-            setDefaultDateTime();
-            setupGoongAutocomplete();
-            setupToggleForms();
-            setupModeSelector();
-            setupSharedProductForm();
-            addRecipient(); // Sẽ tự động populate provinces
-        })
-        .catch((error) => { 
-            console.error('❌ Load provinces failed:', error);
-            alert('⚠️ Không thể tải dữ liệu tỉnh thành. Vui lòng tải lại trang!');
-            vietnamData = [];
-            provincesLoaded = false;
-        });
+   loadProvinces()
+   .then(() => {
+        setupEventHandlers();
+        setDefaultDateTime();
+        setupGoongAutocomplete();
+        setupToggleForms();
+        setupModeSelector();
+        setupSharedProductForm();
+        addRecipient();
+    });
 });
 
-function loadProvinces() {
-    return new Promise((resolve, reject) => {
-        console.log('🌍 Đang tải dữ liệu tỉnh thành...');
-        
-        // Thử load từ local file trước (nếu có)
-        $.ajax({
-            url: '/data/provinces.json',
-            dataType: 'json',
-            timeout: 3000,
-            success: function(data) {
-                vietnamData = data;
-                console.log('✅ Loaded', data.length, 'provinces from LOCAL file');
-                console.log('📋 Sample province:', data[0]); // DEBUG: Xem cấu trúc
-                resolve(data);
-            },
-            error: function() {
-                console.warn('⚠️ Local file not found, trying API...');
-                
-                // Fallback: Load từ API (dùng HTTPS)
-                $.ajax({
-                    url: "https://provinces.open-api.vn/api/?depth=3",
-                    dataType: 'json',
-                    timeout: 10000,
-                    success: function(data) {
-                        vietnamData = data;
-                        console.log('✅ Loaded', data.length, 'provinces from API');
-                        console.log('📋 Sample province:', data[0]); // DEBUG: Xem cấu trúc
-                        resolve(data);
-                    },
-                    error: function(xhr, status, error) {
-                        console.error('❌ API failed:', status, error);
-                        reject(new Error('Cannot load provinces from API'));
-                    }
-                });
-            }
-        });
-    });
-}
-
-// NEW: central applyMode function (use for initial set + clicks)
-function applyMode(newMode, init = false) {
-    orderMode = newMode;
-    $('#order_mode').val(orderMode);
-
-    if (orderMode === 'multi') {
-        $('#recipients-summary').show();
-        $('#addRecipientBtn').show();
-        $('#shared-products-section').show();
-
-        recipientsList.forEach(recipient => {
-            $(`.recipient-card[data-recipient-id="${recipient.id}"] .product-section-title`).text('Dịch vụ & Chi phí');
-
-            $(`.form-package-${recipient.id}`).hide();
-            $(`.form-document-${recipient.id}`).hide();
-            $(`.products-list-${recipient.id}`).hide();
-            $(`.item-type[data-recipient-id="${recipient.id}"]`).closest('.mb-2').hide();
-        });
-
-        console.log('📋 Chuyển sang chế độ: ĐƠN NHIỀU NGƯỜI');
-    } else {
-        $('#recipients-summary').hide();
-        $('#addRecipientBtn').hide();
-        $('#shared-products-section').hide();
-
-        // If init and we have multiple recipients keep them but show single UI for first only
-        if (recipientsList.length > 1 && init === true) {
-            // do not prompt on initial load; keep all recipients but make product UI visible for first
-        }
-
-        recipientsList.forEach((recipient, idx) => {
-            // For single mode, show product inputs for the first recipient, hide for others
-            if (idx === 0) {
-                $(`.form-package-${recipient.id}`).show();
-                $(`.form-document-${recipient.id}`).hide();
-                $(`.products-list-${recipient.id}`).show();
-                $(`.item-type[data-recipient-id="${recipient.id}"]`).closest('.mb-2').show();
-
-                // Ensure correct form shown based on checked item type
-                const itemType = $(`.item-type[data-recipient-id="${recipient.id}"]:checked`).val() || 'package';
-                if (itemType === 'document') {
-                    $(`.form-package-${recipient.id}`).hide();
-                    $(`.form-document-${recipient.id}`).show();
-                } else {
-                    $(`.form-package-${recipient.id}`).show();
-                    $(`.form-document-${recipient.id}`).hide();
-                }
-            } else {
-                // hide product inputs for other recipients
-                $(`.form-package-${recipient.id}`).hide();
-                $(`.form-document-${recipient.id}`).hide();
-                $(`.products-list-${recipient.id}`).hide();
-                $(`.item-type[data-recipient-id="${recipient.id}"]`).closest('.mb-2').hide();
-            }
-        });
-
-        console.log('📋 Chuyển sang chế độ: ĐƠN ĐƠN GIẢN');
-    }
-
-    // Recalculate costs and update UI
-    recipientsList.forEach(recipient => {
-        calculateCost(recipient.id);
-    });
-    updateSummary();
-}
-
-// update setupModeSelector to call applyMode
+// ============ MODE SELECTOR ============
 function setupModeSelector() {
-    $('.mode-option').off('click').on('click', function() {
-        const newMode = $(this).data('mode');
-
-        // Prevent re-clicking the same mode
-        if (newMode === orderMode) return;
-
-        // If switching from multi -> single and there are multiple recipients, confirm
-        if (newMode === 'single' && orderMode === 'multi' && recipientsList.length > 1) {
-            if (!confirm('⚠️ Chuyển về chế độ đơn giản sẽ xóa tất cả người nhận (trừ người đầu tiên). Tiếp tục?')) {
-                // revert active class
-                $('.mode-option').removeClass('active');
-                $(`.mode-option[data-mode="${orderMode}"]`).addClass('active');
-                return;
-            }
-            // remove other recipients keeping first
-            recipientsList = [recipientsList[0]];
-            renderRecipients();
-        }
-
-        // Update active class
+    $('.mode-option').on('click', function() {
         $('.mode-option').removeClass('active');
         $(this).addClass('active');
-
-        // Apply mode
-        applyMode(newMode, false);
+        
+        orderMode = $(this).data('mode');
+        $('#order_mode').val(orderMode);
+        
+        if (orderMode === 'multi') {
+            $('#recipients-summary').show();
+            $('#addRecipientBtn').show();
+            $('#shared-products-section').show();
+        } else {
+            $('#recipients-summary').hide();
+            $('#addRecipientBtn').hide();
+            $('#shared-products-section').hide();
+            
+            // Keep only first recipient in single mode
+            if (recipientsList.length > 1) {
+                recipientsList = [recipientsList[0]];
+                renderRecipients();
+            }
+        }
+        
+        console.log('📋 Chế độ:', orderMode);
     });
 }
+
 // ============ SHARED PRODUCT FORM ============
 function setupSharedProductForm() {
     // Toggle between package and document
@@ -739,10 +621,11 @@ function setupSharedProductForm() {
     });
     
     // Update shared product data when any field changes
-    $('#shared-products-section input, #shared-products-section .shared-special-checkbox, #shared-products-section .shared-doc-special-checkbox').on('change input', function() {
+    $('#shared-products-section input').on('change input', function() {
         updateSharedProductData();
     });
 }
+
 function updateSharedProductData() {
     if (orderMode !== 'multi') return;
     
@@ -833,13 +716,16 @@ function renderRecipients() {
         const existingCard = $(`.recipient-card[data-recipient-id="${recipient.id}"]`);
         
         if (existingCard.length > 0) {
+            // Update existing card's header
             existingCard.find('.recipient-number').text(`Người nhận #${index + 1}`);
         } else {
+            // Create new card
             const html = createRecipientCard(recipient, index);
             container.append(html);
         }
     });
     
+    // Remove cards that no longer exist
     $('.recipient-card').each(function() {
         const cardId = $(this).data('recipient-id');
         if (!recipientsList.find(r => r.id === cardId)) {
@@ -847,49 +733,15 @@ function renderRecipients() {
         }
     });
     
+    // Re-setup event handlers for new elements
     setupRecipientEventHandlers();
-    
-   if (vietnamData.length > 0) {
-    console.log('🔄 Force populate provinces...');
-    recipientsList.forEach(recipient => {
-        populateProvinceSelect(recipient.id);
-    });
-} else {
-    console.warn('⚠️ vietnamData chưa có, bỏ qua populate');
-}
-    
-    recipientsList.forEach(recipient => {
-        if (orderMode === 'multi') {
-            $(`.form-package-${recipient.id}`).hide();
-            $(`.form-document-${recipient.id}`).hide();
-            $(`.products-list-${recipient.id}`).hide();
-            $(`.item-type[data-recipient-id="${recipient.id}"]`).closest('.mb-2').hide();
-        } else {
-            $(`.form-package-${recipient.id}`).show();
-            $(`.form-document-${recipient.id}`).hide();
-            $(`.products-list-${recipient.id}`).show();
-            $(`.item-type[data-recipient-id="${recipient.id}"]`).closest('.mb-2').show();
-        }
-    });
-    
     updateSummary();
 }
 
-// ...existing code...
 function createRecipientCard(recipient, index) {
     const canRemove = recipientsList.length > 1 && orderMode === 'multi';
     const showProductSection = orderMode === 'single';
-
-    // ------- FIX: define missing variables and prefill data -------
-    const itemType = recipient.data?.item_type || 'package';
-    const itemTypeDisplay = orderMode === 'single' ? '' : 'style="display:none;"';
-    const productFormDisplay = orderMode === 'single' ? '' : 'style="display:none;"';
-    const productSectionTitle = showProductSection ? 'Hàng hóa' : 'Dịch vụ & Chi phí';
-    const d = recipient.data || {};
-
-    // escape helper for values used inside template
-    const esc = v => (v === undefined || v === null) ? '' : String(v).replace(/"/g, '&quot;');
-
+    
     return `
         <div class="recipient-card" data-recipient-id="${recipient.id}">
             <div class="recipient-card-header">
@@ -920,15 +772,13 @@ function createRecipientCard(recipient, index) {
                     <div class="mb-2">
                         <label class="form-label">Tên người nhận <span class="text-danger">*</span></label>
                         <input type="text" class="form-control recipient-name" data-recipient-id="${recipient.id}" 
-                               name="recipients[${recipient.id}][recipient_name]" placeholder="Nhập tên người nhận" required
-                               value="${esc(d.recipient_name)}">
+                               name="recipients[${recipient.id}][recipient_name]" placeholder="Nhập tên người nhận" required>
                     </div>
                     
                     <div class="mb-2">
                         <label class="form-label">Số điện thoại <span class="text-danger">*</span></label>
                         <input type="text" class="form-control recipient-phone" data-recipient-id="${recipient.id}"
-                               name="recipients[${recipient.id}][recipient_phone]" placeholder="Nhập số điện thoại" required
-                               value="${esc(d.recipient_phone)}">
+                               name="recipients[${recipient.id}][recipient_phone]" placeholder="Nhập số điện thoại" required>
                     </div>
                     
                     <div class="mb-2">
@@ -942,20 +792,19 @@ function createRecipientCard(recipient, index) {
                             </div>
                             <div class="col-12">
                                 <select class="form-select district-select" data-recipient-id="${recipient.id}"
-                                        name="recipients[${recipient.id}][district_code]" required ${d.province_code ? '' : 'disabled'}>
+                                        name="recipients[${recipient.id}][district_code]" required disabled>
                                     <option value="">Quận/Huyện</option>
                                 </select>
                             </div>
                             <div class="col-12">
                                 <select class="form-select ward-select" data-recipient-id="${recipient.id}"
-                                        name="recipients[${recipient.id}][ward_code]" required ${d.district_code ? '' : 'disabled'}>
+                                        name="recipients[${recipient.id}][ward_code]" required disabled>
                                     <option value="">Phường/Xã</option>
                                 </select>
                             </div>
                             <div class="col-12 address-input-wrapper">
                                 <input type="text" class="form-control address-detail" data-recipient-id="${recipient.id}"
-                                       name="recipients[${recipient.id}][address_detail]" placeholder="Số nhà, tên đường..." required autocomplete="off"
-                                       value="${esc(d.address_detail)}">
+                                       name="recipients[${recipient.id}][address_detail]" placeholder="Số nhà, tên đường..." required autocomplete="off">
                                 <div class="address-suggestions-${recipient.id} list-group position-absolute w-100" style="z-index: 1000; display: none; max-height: 200px; overflow-y: auto;"></div>
                             </div>
                         </div>
@@ -964,20 +813,20 @@ function createRecipientCard(recipient, index) {
                     <div class="mb-2">
                         <label class="form-label">Địa chỉ đầy đủ</label>
                         <div class="p-2 bg-light rounded">
-                            <small class="full-address-${recipient.id} text-muted">${esc(d.recipient_full_address) || 'Chưa có địa chỉ đầy đủ'}</small>
+                            <small class="full-address-${recipient.id} text-muted">Chưa có địa chỉ đầy đủ</small>
                         </div>
-                        <input type="hidden" name="recipients[${recipient.id}][recipient_latitude]" class="recipient-lat-${recipient.id}" value="${esc(d.recipient_latitude)}">
-                        <input type="hidden" name="recipients[${recipient.id}][recipient_longitude]" class="recipient-lng-${recipient.id}" value="${esc(d.recipient_longitude)}">
-                        <input type="hidden" name="recipients[${recipient.id}][recipient_full_address]" class="recipient-full-address-${recipient.id}" value="${esc(d.recipient_full_address)}">
+                        <input type="hidden" name="recipients[${recipient.id}][recipient_latitude]" class="recipient-lat-${recipient.id}">
+                        <input type="hidden" name="recipients[${recipient.id}][recipient_longitude]" class="recipient-lng-${recipient.id}">
+                        <input type="hidden" name="recipients[${recipient.id}][recipient_full_address]" class="recipient-full-address-${recipient.id}">
                         <div class="geocode-status-${recipient.id} mt-1">
-                            <small class="text-muted">${d.recipient_latitude && d.recipient_longitude ? 'Đã tìm tọa độ' : 'Chưa tìm tọa độ'}</small>
+                            <small class="text-muted">Chưa tìm tọa độ</small>
                         </div>
                     </div>
                     
                     <div class="mb-2">
                         <label class="form-label">Thời gian giao <span class="text-danger">*</span></label>
                         <input type="datetime-local" class="form-control delivery-time" data-recipient-id="${recipient.id}"
-                               name="recipients[${recipient.id}][delivery_time_formatted]" required value="${esc(d.delivery_time_formatted)}">
+                               name="recipients[${recipient.id}][delivery_time_formatted]" required>
                     </div>
                     
                     <div class="form-check">
@@ -988,38 +837,39 @@ function createRecipientCard(recipient, index) {
                 
                 <!-- HÀNG HÓA & DỊCH VỤ -->
                 <div class="col-md-6">
-                    <h6 class="fw-bold mb-3"><i class="bi bi-box"></i> <span class="product-section-title">${productSectionTitle}</span></h6>
+                    <h6 class="fw-bold mb-3"><i class="bi bi-box"></i> ${showProductSection ? 'Hàng hóa' : 'Dịch vụ & Chi phí'}</h6>
                     
-                    <div class="mb-2" ${itemTypeDisplay}>
+                    ${showProductSection ? `
+                    <div class="mb-2">
                         <div class="form-check form-check-inline">
-                            <input class="form-check-input item-type" type="radio" name="recipients[${recipient.id}][item_type]" value="package" data-recipient-id="${recipient.id}" ${itemType === 'package' ? 'checked' : ''}>
-                            <label class="form-check-label text-danger fw-bold">Bưu kiện</label>
+                            <input class="form-check-input item-type" type="radio" name="recipients[${recipient.id}][item_type]" value="package" data-recipient-id="${recipient.id}" checked>
+                            <label class="form-check-label text-danger">Bưu kiện</label>
                         </div>
                         <div class="form-check form-check-inline">
-                            <input class="form-check-input item-type" type="radio" name="recipients[${recipient.id}][item_type]" value="document" data-recipient-id="${recipient.id}" ${itemType === 'document' ? 'checked' : ''}>
-                            <label class="form-check-label text-danger fw-bold">Tài liệu</label>
+                            <input class="form-check-input item-type" type="radio" name="recipients[${recipient.id}][item_type]" value="document" data-recipient-id="${recipient.id}">
+                            <label class="form-check-label text-danger">Tài liệu</label>
                         </div>
                     </div>
                     
                     <!-- FORM BƯU KIỆN -->
-                    <div class="product-input-section form-package-${recipient.id}" style="${itemType === 'package' ? '' : 'display:none;'}">
+                    <div class="product-input-section form-package-${recipient.id}">
                         <h6 class="fw-bold mb-3">Thêm bưu kiện</h6>
                         <div class="row g-2">
                             <div class="col-12">
                                 <label class="form-label">Tên hàng <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control product-name-${recipient.id}" data-recipient-id="${recipient.id}" placeholder="VD: Áo thun, Sách, Điện thoại..." value="${esc(d.product_name)}">
+                                <input type="text" class="form-control product-name-${recipient.id}" placeholder="VD: Áo thun, Sách, Điện thoại...">
                             </div>
                             <div class="col-4">
                                 <label class="form-label">Số lượng <span class="text-danger">*</span></label>
-                                <input type="number" class="form-control product-quantity-${recipient.id}" data-recipient-id="${recipient.id}" value="${d.product_quantity || 1}" min="1">
+                                <input type="number" class="form-control product-quantity-${recipient.id}" value="1" min="1">
                             </div>
                             <div class="col-4">
                                 <label class="form-label">Khối lượng (g) <span class="text-danger">*</span></label>
-                                <input type="number" class="form-control product-weight-${recipient.id}" data-recipient-id="${recipient.id}" value="${d.product_weight || 10}" min="1">
+                                <input type="number" class="form-control product-weight-${recipient.id}" value="10" min="1">
                             </div>
                             <div class="col-4">
                                 <label class="form-label">Giá trị (VNĐ) <span class="text-danger">*</span></label>
-                                <input type="number" class="form-control product-value-${recipient.id}" data-recipient-id="${recipient.id}" value="${d.product_value || 10000}" min="0">
+                                <input type="number" class="form-control product-value-${recipient.id}" value="10000" min="0">
                             </div>
                         </div>
                         
@@ -1028,13 +878,13 @@ function createRecipientCard(recipient, index) {
                                 <label class="form-label">Kích thước (không bắt buộc)</label>
                             </div>
                             <div class="col-4">
-                                <input type="number" class="form-control product-length-${recipient.id}" data-recipient-id="${recipient.id}" placeholder="Dài (cm)" min="0" value="${esc(d.product_length)}">
+                                <input type="number" class="form-control product-length-${recipient.id}" placeholder="Dài (cm)" min="0">
                             </div>
                             <div class="col-4">
-                                <input type="number" class="form-control product-width-${recipient.id}" data-recipient-id="${recipient.id}" placeholder="Rộng (cm)" min="0" value="${esc(d.product_width)}">
+                                <input type="number" class="form-control product-width-${recipient.id}" placeholder="Rộng (cm)" min="0">
                             </div>
                             <div class="col-4">
-                                <input type="number" class="form-control product-height-${recipient.id}" data-recipient-id="${recipient.id}" placeholder="Cao (cm)" min="0" value="${esc(d.product_height)}">
+                                <input type="number" class="form-control product-height-${recipient.id}" placeholder="Cao (cm)" min="0">
                             </div>
                         </div>
                         
@@ -1043,61 +893,61 @@ function createRecipientCard(recipient, index) {
                             <div class="row">
                                 <div class="col-md-4">
                                     <div class="form-check">
-                                        <input class="form-check-input special-checkbox-${recipient.id}" type="checkbox" id="high-value-${recipient.id}" value="high_value" data-recipient-id="${recipient.id}">
-                                        <label class="form-check-label" for="high-value-${recipient.id}">Giá trị cao</label>
+                                        <input class="form-check-input special-checkbox-${recipient.id}" type="checkbox" id="giaTriCao-${recipient.id}" value="high_value">
+                                        <label class="form-check-label" for="giaTriCao-${recipient.id}">Giá trị cao</label>
                                     </div>
                                     <div class="form-check">
-                                        <input class="form-check-input special-checkbox-${recipient.id}" type="checkbox" id="oversized-${recipient.id}" value="oversized" data-recipient-id="${recipient.id}">
-                                        <label class="form-check-label" for="oversized-${recipient.id}">Quá khổ</label>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="form-check">
-                                        <input class="form-check-input special-checkbox-${recipient.id}" type="checkbox" id="fragile-${recipient.id}" value="fragile" data-recipient-id="${recipient.id}">
-                                        <label class="form-check-label" for="fragile-${recipient.id}">Dễ vỡ</label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input special-checkbox-${recipient.id}" type="checkbox" id="liquid-${recipient.id}" value="liquid" data-recipient-id="${recipient.id}">
-                                        <label class="form-check-label" for="liquid-${recipient.id}">Chất lỏng</label>
+                                        <input class="form-check-input special-checkbox-${recipient.id}" type="checkbox" id="quaKho-${recipient.id}" value="oversized">
+                                        <label class="form-check-label" for="quaKho-${recipient.id}">Quá khổ</label>
                                     </div>
                                 </div>
                                 <div class="col-md-4">
                                     <div class="form-check">
-                                        <input class="form-check-input special-checkbox-${recipient.id}" type="checkbox" id="bulk-${recipient.id}" value="bulk" data-recipient-id="${recipient.id}">
-                                        <label class="form-check-label" for="bulk-${recipient.id}">Nguyên khối</label>
+                                        <input class="form-check-input special-checkbox-${recipient.id}" type="checkbox" id="deVo-${recipient.id}" value="fragile">
+                                        <label class="form-check-label" for="deVo-${recipient.id}">Dễ vỡ</label>
                                     </div>
                                     <div class="form-check">
-                                        <input class="form-check-input special-checkbox-${recipient.id}" type="checkbox" id="battery-${recipient.id}" value="battery" data-recipient-id="${recipient.id}">
-                                        <label class="form-check-label" for="battery-${recipient.id}">Từ tính, Pin</label>
+                                        <input class="form-check-input special-checkbox-${recipient.id}" type="checkbox" id="chatLong-${recipient.id}" value="liquid">
+                                        <label class="form-check-label" for="chatLong-${recipient.id}">Chất lỏng</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-check">
+                                        <input class="form-check-input special-checkbox-${recipient.id}" type="checkbox" id="nguyenKhoi-${recipient.id}" value="bulk">
+                                        <label class="form-check-label" for="nguyenKhoi-${recipient.id}">Nguyên khối</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input special-checkbox-${recipient.id}" type="checkbox" id="pin-${recipient.id}" value="battery">
+                                        <label class="form-check-label" for="pin-${recipient.id}">Từ tính, Pin</label>
                                     </div>
                                 </div>
                             </div>
                         </div>
                         
-                        <button type="button" class="btn btn-danger w-100 mt-3 add-product-btn" data-recipient-id="${recipient.id}">
-                            <i class="bi bi-plus-circle"></i> Thêm bưu kiện
+                        <button type="button" class="btn btn-sm btn-primary mt-3 add-product-btn" data-recipient-id="${recipient.id}">
+                            <i class="bi bi-plus-circle"></i> Thêm hàng
                         </button>
                     </div>
                     
                     <!-- FORM TÀI LIỆU -->
-                    <div class="product-input-section form-document-${recipient.id}" style="${itemType === 'document' ? '' : 'display:none;'}">
+                    <div class="product-input-section form-document-${recipient.id} d-none">
                         <h6 class="fw-bold mb-3">Thêm tài liệu</h6>
                         <div class="row g-2">
                             <div class="col-12">
                                 <label class="form-label">Tên tài liệu <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control document-name-${recipient.id}" data-recipient-id="${recipient.id}" placeholder="VD: Hóa đơn, Giấy chứng chỉ..." value="${esc(d.document_name)}">
+                                <input type="text" class="form-control document-name-${recipient.id}" placeholder="VD: Hóa đơn, Giấy chứng chỉ...">
                             </div>
                             <div class="col-4">
                                 <label class="form-label">Số lượng <span class="text-danger">*</span></label>
-                                <input type="number" class="form-control document-quantity-${recipient.id}" data-recipient-id="${recipient.id}" value="${d.document_quantity || 1}" min="1">
+                                <input type="number" class="form-control document-quantity-${recipient.id}" value="1" min="1">
                             </div>
                             <div class="col-4">
                                 <label class="form-label">Khối lượng (g) <span class="text-danger">*</span></label>
-                                <input type="number" class="form-control document-weight-${recipient.id}" data-recipient-id="${recipient.id}" value="${d.document_weight || 10}" min="1">
+                                <input type="number" class="form-control document-weight-${recipient.id}" value="10" min="1">
                             </div>
                             <div class="col-4">
                                 <label class="form-label">Giá trị (VNĐ) <span class="text-danger">*</span></label>
-                                <input type="number" class="form-control document-value-${recipient.id}" data-recipient-id="${recipient.id}" value="${d.document_value || 10000}" min="0">
+                                <input type="number" class="form-control document-value-${recipient.id}" value="10000" min="0">
                             </div>
                         </div>
                         
@@ -1106,13 +956,13 @@ function createRecipientCard(recipient, index) {
                                 <label class="form-label">Kích thước (không bắt buộc)</label>
                             </div>
                             <div class="col-4">
-                                <input type="number" class="form-control document-length-${recipient.id}" data-recipient-id="${recipient.id}" placeholder="Dài (cm)" min="0" value="${esc(d.document_length)}">
+                                <input type="number" class="form-control document-length-${recipient.id}" placeholder="Dài (cm)" min="0">
                             </div>
                             <div class="col-4">
-                                <input type="number" class="form-control document-width-${recipient.id}" data-recipient-id="${recipient.id}" placeholder="Rộng (cm)" min="0" value="${esc(d.document_width)}">
+                                <input type="number" class="form-control document-width-${recipient.id}" placeholder="Rộng (cm)" min="0">
                             </div>
                             <div class="col-4">
-                                <input type="number" class="form-control document-height-${recipient.id}" data-recipient-id="${recipient.id}" placeholder="Cao (cm)" min="0" value="${esc(d.document_height)}">
+                                <input type="number" class="form-control document-height-${recipient.id}" placeholder="Cao (cm)" min="0">
                             </div>
                         </div>
                         
@@ -1121,121 +971,119 @@ function createRecipientCard(recipient, index) {
                             <div class="row">
                                 <div class="col-md-6">
                                     <div class="form-check">
-                                        <input class="form-check-input doc-special-checkbox-${recipient.id}" type="checkbox" id="doc-high-value-${recipient.id}" value="high_value" data-recipient-id="${recipient.id}">
-                                        <label class="form-check-label" for="doc-high-value-${recipient.id}">Giá trị cao</label>
+                                        <input class="form-check-input doc-special-checkbox-${recipient.id}" type="checkbox" id="taiLieuGiaTri-${recipient.id}" value="high_value">
+                                        <label class="form-check-label" for="taiLieuGiaTri-${recipient.id}">Giá trị cao</label>
                                     </div>
                                 </div>
                                 <div class="col-md-6">
                                     <div class="form-check">
-                                        <input class="form-check-input doc-special-checkbox-${recipient.id}" type="checkbox" id="doc-certificate-${recipient.id}" value="certificate" data-recipient-id="${recipient.id}">
-                                        <label class="form-check-label" for="doc-certificate-${recipient.id}">Hóa đơn, Giấy chứng nhận</label>
+                                        <input class="form-check-input doc-special-checkbox-${recipient.id}" type="checkbox" id="hoaDon-${recipient.id}" value="certificate">
+                                        <label class="form-check-label" for="hoaDon-${recipient.id}">Hóa đơn, Giấy chứng nhận</label>
                                     </div>
                                 </div>
                             </div>
                         </div>
                         
-                        <button type="button" class="btn btn-danger w-100 mt-3 add-document-btn" data-recipient-id="${recipient.id}">
+                        <button type="button" class="btn btn-sm btn-primary mt-3 add-document-btn" data-recipient-id="${recipient.id}">
                             <i class="bi bi-plus-circle"></i> Thêm tài liệu
                         </button>
                     </div>
                     
-                    <div class="products-list-${recipient.id} mb-3" ${productFormDisplay}></div>
-                    <input type="hidden" name="recipients[${recipient.id}][products_json]" class="products-json-${recipient.id}">
+                    <div class="products-list-${recipient.id} mb-3"></div>
+                    ` : ''}
                     
-                    <!-- DỊCH VỤ BỔ SUNG -->
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Dịch vụ bổ sung</label>
+                    <h6 class="fw-bold mb-2"><i class="bi bi-truck"></i> Dịch vụ</h6>
+                    <div class="mb-2">
                         <div class="form-check">
-                            <input class="form-check-input service-checkbox" type="checkbox" id="priority-${recipient.id}" value="priority" data-recipient-id="${recipient.id}">
-                            <label class="form-check-label" for="priority-${recipient.id}">Giao ưu tiên</label>
+                            <input class="form-check-input service-checkbox" type="checkbox" value="fast" data-recipient-id="${recipient.id}" name="recipients[${recipient.id}][services][]">
+                            <label class="form-check-label">Giao nhanh <span class="text-muted">(+15%)</span></label>
                         </div>
                         <div class="form-check">
-                            <input class="form-check-input service-checkbox" type="checkbox" id="insurance-${recipient.id}" value="insurance" data-recipient-id="${recipient.id}">
-                            <label class="form-check-label" for="insurance-${recipient.id}">Bảo hiểm</label>
+                            <input class="form-check-input service-checkbox" type="checkbox" value="insurance" data-recipient-id="${recipient.id}" name="recipients[${recipient.id}][services][]">
+                            <label class="form-check-label">Bảo hiểm <span class="text-muted">(1%)</span></label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input service-checkbox cod-checkbox" type="checkbox" value="cod" data-recipient-id="${recipient.id}" name="recipients[${recipient.id}][services][]">
+                            <label class="form-check-label">COD <span class="text-muted">(1.000đ + 1%)</span></label>
                         </div>
                     </div>
                     
-                    <!-- COD -->
-                    <div class="mb-3">
-                        <div class="form-check">
-                            <input class="form-check-input cod-checkbox" type="checkbox" id="cod-${recipient.id}" data-recipient-id="${recipient.id}" ${d.cod_amount ? 'checked' : ''}>
-                            <label class="form-check-label" for="cod-${recipient.id}">Thu hộ COD</label>
-                        </div>
-                        <div class="cod-amount-container-${recipient.id} ${d.cod_amount ? '' : 'd-none'} mt-2">
-                            <label class="form-label">Số tiền thu hộ (VNĐ)</label>
-                            <input type="number" class="form-control cod-amount" data-recipient-id="${recipient.id}" name="recipients[${recipient.id}][cod_amount]" min="0" placeholder="Nhập số tiền" value="${esc(d.cod_amount)}">
+                    <div class="cod-amount-container-${recipient.id} d-none mb-2">
+                        <label class="form-label">Số tiền COD (VNĐ)</label>
+                        <input type="number" class="form-control cod-amount" data-recipient-id="${recipient.id}" name="recipients[${recipient.id}][cod_amount]" min="0" placeholder="Nhập số tiền">
+                    </div>
+                    
+                    <div class="mb-2 p-2 bg-light border rounded">
+                        <label class="form-label fw-bold">Người trả cước <span class="text-danger">*</span></label>
+                        <div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input payer-radio" type="radio" name="recipients[${recipient.id}][payer]" value="sender" data-recipient-id="${recipient.id}" checked>
+                                <label class="form-check-label">Người gửi</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input payer-radio" type="radio" name="recipients[${recipient.id}][payer]" value="recipient" data-recipient-id="${recipient.id}">
+                                <label class="form-check-label">Người nhận</label>
+                            </div>
                         </div>
                     </div>
                     
-                    <!-- NGƯỜI THANH TOÁN -->
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Người thanh toán cước phí</label>
-                        <div class="form-check">
-                            <input class="form-check-input payer-radio" type="radio" name="recipients[${recipient.id}][payer]" id="payer-sender-${recipient.id}" value="sender" data-recipient-id="${recipient.id}" ${!d.payer || d.payer === 'sender' ? 'checked' : ''}>
-                            <label class="form-check-label" for="payer-sender-${recipient.id}">Người gửi</label>
-                        </div>
-                        <div class="form-check">
-                            <input class="form-check-input payer-radio" type="radio" name="recipients[${recipient.id}][payer]" id="payer-recipient-${recipient.id}" value="recipient" data-recipient-id="${recipient.id}" ${d.payer === 'recipient' ? 'checked' : ''}>
-                            <label class="form-check-label" for="payer-recipient-${recipient.id}">Người nhận</label>
-                        </div>
-                    </div>
-                    
-                    <!-- CHI PHÍ -->
-                    <div class="cost-breakdown mb-3">
-                        <h6 class="fw-bold mb-2"><i class="bi bi-calculator"></i> Chi phí dự kiến</h6>
+                    <div class="cost-breakdown">
                         <div class="cost-item">
-                            <span>Cước cơ bản:</span>
-                            <strong class="base-cost-${recipient.id}">0 đ</strong>
+                            <span>Cước chính:</span>
+                            <span class="base-cost-${recipient.id}">0 đ</span>
                         </div>
                         <div class="cost-item">
                             <span>Phụ phí:</span>
-                            <strong class="extra-cost-${recipient.id}">0 đ</strong>
+                            <span class="extra-cost-${recipient.id}">0 đ</span>
                         </div>
                         <div class="cost-item cod-fee-row-${recipient.id}" style="display:none;">
                             <span>Phí COD:</span>
-                            <strong class="cod-fee-${recipient.id}">0 đ</strong>
+                            <span class="cod-fee-${recipient.id} text-warning">0 đ</span>
                         </div>
                         <div class="cost-item">
-                            <span>Tổng cộng:</span>
-                            <strong class="total-cost-${recipient.id}">0 đ</strong>
+                            <span>Tổng cước:</span>
+                            <span class="total-cost-${recipient.id} text-danger fw-bold">0 đ</span>
                         </div>
-                        <div class="cost-item" style="border-top: 2px solid #dee2e6; margin-top: 10px; padding-top: 10px;">
-                            <span>Người gửi trả:</span>
-                            <strong class="sender-pays-${recipient.id} text-success">0 đ</strong>
+                        <hr>
+                        <div class="cost-item">
+                            <span><strong>Người gửi trả:</strong></span>
+                            <span class="sender-pays-${recipient.id} text-primary fw-bold">0 đ</span>
                         </div>
                         <div class="cost-item">
-                            <span>Người nhận trả:</span>
-                            <strong class="recipient-pays-${recipient.id} text-warning">0 đ</strong>
+                            <span><strong>Người nhận trả:</strong></span>
+                            <span class="recipient-pays-${recipient.id} text-success fw-bold">0 đ</span>
                         </div>
                     </div>
                     
-                    <!-- HÌNH ẢNH -->
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Hình ảnh đơn hàng (tối đa 5 ảnh)</label>
+                    <div class="mt-3">
+                        <label class="form-label">Hình ảnh (tối đa 5)</label>
                         <input type="file" class="form-control order-images" data-recipient-id="${recipient.id}" accept="image/*" multiple>
-                        <small class="text-muted">JPG, PNG, tối đa 5MB/ảnh</small>
-                        <div class="row mt-3 image-preview-container-${recipient.id}"></div>
+                        <small class="text-muted">JPG, PNG, GIF - Max 5MB/ảnh</small>
                     </div>
                     
-                    <!-- GHI CHÚ -->
-                    <div class="mb-3">
-                        <label class="form-label">Ghi chú riêng cho người nhận này</label>
-                        <textarea class="form-control" name="recipients[${recipient.id}][note]" rows="2" placeholder="Ghi chú đặc biệt...">${esc(d.note)}</textarea>
+                    <div class="image-preview-container-${recipient.id} row g-2 mt-2"></div>
+                    
+                    <div class="mt-2">
+                        <label class="form-label">Ghi chú riêng</label>
+                        <textarea class="form-control" name="recipients[${recipient.id}][note]" rows="2" placeholder="Ghi chú cho người nhận này..."></textarea>
                     </div>
+                    
+                    <input type="hidden" name="recipients[${recipient.id}][products_json]" class="products-json-${recipient.id}">
                 </div>
             </div>
         </div>
     `;
 }
+
 // ============ SETUP EVENT HANDLERS FOR RECIPIENTS ============
 function setupRecipientEventHandlers() {
     // Province/District/Ward selects
-    // $('.province-select').each(function() {
-    //     const recipientId = $(this).data('recipient-id');
-    //     if ($(this).find('option').length <= 1) {
-    //         populateProvinceSelect(recipientId);
-    //     }
-    // });
+    $('.province-select').each(function() {
+        const recipientId = $(this).data('recipient-id');
+        if ($(this).find('option').length <= 1) {
+            populateProvinceSelect(recipientId);
+        }
+    });
     
     $('.province-select').off('change').on('change', function() {
         const recipientId = $(this).data('recipient-id');
@@ -1331,114 +1179,75 @@ function setupRecipientEventHandlers() {
         }
     });
     
-    // Item type toggle - FIX: Use .show() and .hide() consistently
+    // Item type toggle (only in single mode)
     $('.item-type').off('change').on('change', function() {
         const recipientId = $(this).data('recipient-id');
         const itemType = $(this).val();
         
         if (itemType === 'package') {
-            $(`.form-package-${recipientId}`).show();
-            $(`.form-document-${recipientId}`).hide();
+            $(`.form-package-${recipientId}`).removeClass('d-none');
+            $(`.form-document-${recipientId}`).addClass('d-none');
         } else {
-            $(`.form-package-${recipientId}`).hide();
-            $(`.form-document-${recipientId}`).show();
+            $(`.form-package-${recipientId}`).addClass('d-none');
+            $(`.form-document-${recipientId}`).removeClass('d-none');
         }
     });
 }
 
 // ============ PROVINCE/DISTRICT/WARD ============
-
-// ...existing code...
 function populateProvinceSelect(recipientId) {
-    console.log('🔍 Attempting to populate provinces for recipient:', recipientId);
-    console.log('📊 vietnamData length:', vietnamData.length);
-
     if (vietnamData.length > 0) {
         let html = '<option value="">Tỉnh/Thành phố</option>';
         vietnamData.forEach(province => {
-            // ensure value is string to avoid type mismatch later
-            const code = String(province.code ?? province.province_code ?? province.id ?? '');
-            html += `<option value="${code}">${province.name}</option>`;
+            html += `<option value="${province.code}">${province.name}</option>`;
         });
         $(`.province-select[data-recipient-id="${recipientId}"]`).html(html);
-
-        // If recipient has preselected province, set it
-        const d = recipientsList.find(r => r.id === recipientId)?.data || {};
-        if (d.province_code) {
-            $(`.province-select[data-recipient-id="${recipientId}"]`).val(String(d.province_code)).trigger('change');
-        }
-
-        console.log(`✅ Đã populate ${vietnamData.length} tỉnh thành cho recipient #${recipientId}`);
-    } else {
-        console.error('❌ vietnamData rỗng!');
     }
 }
 
 function handleProvinceChange(recipientId) {
-    // keep codes as strings
-    const provinceCode = String($(`.province-select[data-recipient-id="${recipientId}"]`).val() || '');
-
+    const provinceCode = parseInt($(`.province-select[data-recipient-id="${recipientId}"]`).val());
+    
     $(`.district-select[data-recipient-id="${recipientId}"]`).html('<option value="">Quận/Huyện</option>').prop('disabled', true);
     $(`.ward-select[data-recipient-id="${recipientId}"]`).html('<option value="">Phường/Xã</option>').prop('disabled', true);
-
+    
     if (!provinceCode) {
         updateFullAddress(recipientId);
         return;
     }
-
-    // find province by converting both to string
-    const province = vietnamData.find(p => String(p.code ?? p.province_code ?? p.id) === provinceCode);
-    if (province?.districts && Array.isArray(province.districts)) {
+    
+    const province = vietnamData.find(p => p.code === provinceCode);
+    if (province?.districts) {
         let html = '<option value="">Quận/Huyện</option>';
         province.districts.forEach(district => {
-            const dcode = String(district.code ?? district.district_code ?? district.id ?? '');
-            html += `<option value="${dcode}">${district.name}</option>`;
+            html += `<option value="${district.code}">${district.name}</option>`;
         });
         $(`.district-select[data-recipient-id="${recipientId}"]`).html(html).prop('disabled', false);
-
-        // try to preselect if recipient has district_code
-        const d = recipientsList.find(r => r.id === recipientId)?.data || {};
-        if (d.district_code) {
-            // use setTimeout to ensure options rendered
-            setTimeout(() => {
-                $(`.district-select[data-recipient-id="${recipientId}"]`).val(String(d.district_code)).trigger('change');
-            }, 50);
-        }
     }
     updateFullAddress(recipientId);
 }
 
 function handleDistrictChange(recipientId) {
-    const districtCode = String($(`.district-select[data-recipient-id="${recipientId}"]`).val() || '');
-    const provinceCode = String($(`.province-select[data-recipient-id="${recipientId}"]`).val() || '');
-
+    const districtCode = parseInt($(`.district-select[data-recipient-id="${recipientId}"]`).val());
+    const provinceCode = parseInt($(`.province-select[data-recipient-id="${recipientId}"]`).val());
+    
     $(`.ward-select[data-recipient-id="${recipientId}"]`).html('<option value="">Phường/Xã</option>').prop('disabled', true);
-
+    
     if (!districtCode) {
         updateFullAddress(recipientId);
         return;
     }
-
-    const province = vietnamData.find(p => String(p.code ?? p.province_code ?? p.id) === provinceCode);
-    const district = province?.districts?.find(d => String(d.code ?? d.district_code ?? d.id) === districtCode);
-
-    if (district?.wards && Array.isArray(district.wards)) {
+    
+    const province = vietnamData.find(p => p.code === provinceCode);
+    const district = province?.districts.find(d => d.code === districtCode);
+    
+    if (district?.wards) {
         let html = '<option value="">Phường/Xã</option>';
         district.wards.forEach(ward => {
-            const wcode = String(ward.code ?? ward.ward_code ?? ward.id ?? '');
-            html += `<option value="${wcode}">${ward.name}</option>`;
+            html += `<option value="${ward.code}">${ward.name}</option>`;
         });
         $(`.ward-select[data-recipient-id="${recipientId}"]`).html(html).prop('disabled', false);
-
-        // preselect ward if exists in recipient data
-        const d = recipientsList.find(r => r.id === recipientId)?.data || {};
-        if (d.ward_code) {
-            setTimeout(() => {
-                $(`.ward-select[data-recipient-id="${recipientId}"]`).val(String(d.ward_code)).trigger('change');
-            }, 50);
-        }
     }
-
     updateFullAddress(recipientId);
 }
 
@@ -2081,36 +1890,14 @@ function validateDatetimes() {
 
 // ============ LOAD PROVINCES ============
 function loadProvinces() {
-    return new Promise((resolve) => {
-        console.log('🌍 Loading provinces from local...');
-        
-        // Ưu tiên load từ local trước
-        $.get('/data/provinces.json')
-            .done(function(data) {
-                vietnamData = data;
-                console.log('✅ Loaded', data.length, 'provinces from local file');
-                resolve(data);
-            })
-            .fail(function(err) {
-                console.warn('⚠️ Local file not found, trying API...');
-                
-                // Fallback sang API nếu local không có
-                $.get("http://provinces.open-api.vn/api/?depth=3")
-                    .done(function(data) {
-                        vietnamData = data;
-                        console.log('✅ Loaded', data.length, 'provinces from API');
-                        resolve(data);
-                    })
-                    .fail(function() {
-                        console.error('❌ Cannot load provinces from anywhere');
-                        alert('⚠️ Không thể tải dữ liệu tỉnh thành. Vui lòng thử lại sau!');
-                        vietnamData = [];
-                        resolve([]);
-                    });
-            });
+    return new Promise((resolve, reject) => {
+        $.get("https://provinces.open-api.vn/api/?depth=3", function(data) {
+            vietnamData = data;
+            console.log('✅ Đã tải', data.length, 'tỉnh thành');
+            resolve(data);
+        }).fail(reject);
     });
 }
-
 
 // ============ SENDER INFO ============
 $('#sender-select').on('change', function() {
@@ -2248,43 +2035,55 @@ $('#orderForm').on('submit', function(e) {
         return false;
     }
     
-    // Format pickup time
+    // 1. XÓA TẤT CẢ CÁC TRƯỜNG delivery_time_formatted CŨ
+    $('input[name*="delivery_time_formatted"]').remove();
+    
+    // 2. Format pickup time
     const pickupValue = $('#pickup-time').val();
     $('#pickup_time_formatted').val(formatDatetimeForDatabase(pickupValue));
     
-    // Format delivery times for each recipient
+    // 3. Format delivery times - TẠO MỚI ĐÚNG CÁCH
     recipientsList.forEach(recipient => {
         const deliveryValue = $(`.delivery-time[data-recipient-id="${recipient.id}"]`).val();
-        const hiddenInput = $(`<input type="hidden" name="recipients[${recipient.id}][delivery_time_formatted]">`);
-        hiddenInput.val(formatDatetimeForDatabase(deliveryValue));
-        $(this).append(hiddenInput);
+        const formattedDate = formatDatetimeForDatabase(deliveryValue);
+        
+        // Tạo input mới với giá trị đã format
+        $(`<input type="hidden" 
+                   name="recipients[${recipient.id}][delivery_time_formatted]" 
+                   value="${formattedDate}">`).appendTo(this);
     });
     
-    // Handle images for each recipient
+    // 4. Tạo FormData
     const formData = new FormData(this);
     
-    // Add shared product data in multi mode
+    // 5. Xử lý shared product trong multi mode
     if (orderMode === 'multi' && sharedProductData) {
         formData.append('shared_product_json', JSON.stringify(sharedProductData));
         
-        // For each recipient, add the shared product as their product
+        // GHI ĐÈ products_json cho mỗi recipient
         recipientsList.forEach(recipient => {
-            formData.set(`recipients[${recipient.id}][products_json]`, JSON.stringify([sharedProductData]));
+            // XÓA giá trị cũ
+            formData.delete(`recipients[${recipient.id}][products_json]`);
+            // SET giá trị mới
+            formData.set(`recipients[${recipient.id}][products_json]`, 
+                         JSON.stringify([sharedProductData]));
         });
     }
     
+    // 6. Xử lý images
     recipientsList.forEach(recipient => {
         if (recipient.selectedImages && recipient.selectedImages.length > 0) {
-            recipient.selectedImages.forEach((file, index) => {
+            recipient.selectedImages.forEach((file) => {
                 formData.append(`recipients[${recipient.id}][images][]`, file);
             });
         }
     });
     
+    // 7. Disable button
     $('#submitOrder').prop('disabled', true)
         .html('<span class="spinner-border spinner-border-sm me-2"></span>Đang xử lý...');
     
-    // Submit with FormData
+    // 8. Submit
     $.ajax({
         url: $(this).attr('action'),
         type: 'POST',
@@ -2292,7 +2091,7 @@ $('#orderForm').on('submit', function(e) {
         processData: false,
         contentType: false,
         success: function(response) {
-            console.log('✅ Tạo đơn thành công');
+            console.log('✅ Tạo đơn thành công', response);
             if (response.success) {
                 alert('✅ Tạo đơn hàng thành công!');
                 window.location.href = response.redirect || '{{ route("customer.orders.create") }}';
@@ -2303,14 +2102,16 @@ $('#orderForm').on('submit', function(e) {
             }
         },
         error: function(xhr) {
-            console.error('❌ Lỗi tạo đơn:', xhr.responseText);
+            console.error('❌ Lỗi tạo đơn:', xhr);
             let errorMsg = 'Có lỗi xảy ra khi tạo đơn hàng. Vui lòng thử lại.';
             
-            if (xhr.responseJSON && xhr.responseJSON.message) {
-                errorMsg = xhr.responseJSON.message;
-            } else if (xhr.responseJSON && xhr.responseJSON.errors) {
-                const errors = Object.values(xhr.responseJSON.errors).flat();
-                errorMsg = errors.join('\n');
+            if (xhr.responseJSON) {
+                if (xhr.responseJSON.message) {
+                    errorMsg = xhr.responseJSON.message;
+                } else if (xhr.responseJSON.errors) {
+                    const errors = Object.values(xhr.responseJSON.errors).flat();
+                    errorMsg = errors.join('\n');
+                }
             }
             
             alert('❌ ' + errorMsg);
