@@ -11,7 +11,6 @@ class Order extends Model
 
     protected $fillable = [
         'order_group_id', //
-        'user_id',        // 
         'sender_id',
         'sender_name',
         'sender_phone',

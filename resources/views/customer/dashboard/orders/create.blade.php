@@ -833,13 +833,21 @@ function renderRecipients() {
         const existingCard = $(`.recipient-card[data-recipient-id="${recipient.id}"]`);
         
         if (existingCard.length > 0) {
+            // ✅ Card đã tồn tại, chỉ cập nhật số thứ tự
             existingCard.find('.recipient-number').text(`Người nhận #${index + 1}`);
         } else {
+            // ✅ Card mới, thêm vào DOM
             const html = createRecipientCard(recipient, index);
             container.append(html);
+            
+            // ✅ CHỈ populate provinces cho card MỚI
+            if (vietnamData.length > 0) {
+                populateProvinceSelect(recipient.id);
+            }
         }
     });
     
+    // Remove cards that no longer exist
     $('.recipient-card').each(function() {
         const cardId = $(this).data('recipient-id');
         if (!recipientsList.find(r => r.id === cardId)) {
@@ -849,14 +857,13 @@ function renderRecipients() {
     
     setupRecipientEventHandlers();
     
-   if (vietnamData.length > 0) {
-    console.log('🔄 Force populate provinces...');
-    recipientsList.forEach(recipient => {
-        populateProvinceSelect(recipient.id);
-    });
-} else {
-    console.warn('⚠️ vietnamData chưa có, bỏ qua populate');
-}
+    // ❌ XÓA ĐOẠN NÀY (đã di chuyển lên trên)
+    // if (vietnamData.length > 0) {
+    //     console.log('🔄 Force populate provinces...');
+    //     recipientsList.forEach(recipient => {
+    //         populateProvinceSelect(recipient.id);
+    //     });
+    // }
     
     recipientsList.forEach(recipient => {
         if (orderMode === 'multi') {
@@ -976,9 +983,20 @@ function createRecipientCard(recipient, index) {
                     
                     <div class="mb-2">
                         <label class="form-label">Thời gian giao <span class="text-danger">*</span></label>
-                        <input type="datetime-local" class="form-control delivery-time" data-recipient-id="${recipient.id}"
-                               name="recipients[${recipient.id}][delivery_time_formatted]" required value="${esc(d.delivery_time_formatted)}">
-                    </div>
+                       <!-- Input hiển thị (datetime-local) -->
+                            <input type="datetime-local" 
+                                class="form-control delivery-time-input" 
+                                data-recipient-id="${recipient.id}"
+                                required 
+                                value="${d.delivery_time_formatted ? d.delivery_time_formatted.replace(' ', 'T').slice(0, 16) : ''}">
+
+                            <!-- Hidden input để submit (format Y-m-d H:i:s) -->
+                            <input type="hidden" 
+                                class="delivery-time-formatted" 
+                                data-recipient-id="${recipient.id}"
+                                name="recipients[${recipient.id}][delivery_time_formatted]" 
+                                value="${esc(d.delivery_time_formatted)}">
+                         </div>
                     
                     <div class="form-check">
                         <input type="checkbox" class="form-check-input" name="recipients[${recipient.id}][save_address]">
@@ -1323,12 +1341,31 @@ function setupRecipientEventHandlers() {
     });
     
     // Set default delivery time
-    $('.delivery-time').each(function() {
+    // $('.delivery-time').each(function() {
+    //     if (!$(this).val()) {
+    //         const now = new Date();
+    //         const deliveryTime = new Date(now.getTime() + 3 * 60 * 60 * 1000);
+    //         $(this).val(toDatetimeLocalString(deliveryTime));
+    //     }
+    // });
+    // Set default delivery time
+    $('.delivery-time-input').each(function() {
+        const recipientId = $(this).data('recipient-id');
+        
         if (!$(this).val()) {
             const now = new Date();
             const deliveryTime = new Date(now.getTime() + 3 * 60 * 60 * 1000);
             $(this).val(toDatetimeLocalString(deliveryTime));
         }
+        
+        // ✅ Format ngay khi load
+        updateDeliveryTimeFormatted(recipientId);
+    });
+
+    // ✅ Update khi user thay đổi
+    $('.delivery-time-input').off('change').on('change', function() {
+        const recipientId = $(this).data('recipient-id');
+        updateDeliveryTimeFormatted(recipientId);
     });
     
     // Item type toggle - FIX: Use .show() and .hide() consistently
@@ -1344,6 +1381,14 @@ function setupRecipientEventHandlers() {
             $(`.form-document-${recipientId}`).show();
         }
     });
+}
+
+// ✅ Format datetime-local → Y-m-d H:i:s
+function updateDeliveryTimeFormatted(recipientId) {
+    const inputVal = $(`.delivery-time-input[data-recipient-id="${recipientId}"]`).val();
+    const formatted = formatDatetimeForDatabase(inputVal);
+    $(`.delivery-time-formatted[data-recipient-id="${recipientId}"]`).val(formatted);
+    console.log(`📅 Formatted delivery time for #${recipientId}:`, formatted);
 }
 
 // ============ PROVINCE/DISTRICT/WARD ============
@@ -1873,49 +1918,54 @@ function calculateCost(recipientId) {
     let productsData;
     
     if (orderMode === 'multi') {
-        // Use shared product data
         if (!sharedProductData || !sharedProductData.name) {
-            $(`.base-cost-${recipientId}`).text('0 đ');
-            $(`.extra-cost-${recipientId}`).text('0 đ');
-            $(`.total-cost-${recipientId}`).text('0 đ');
-            $(`.sender-pays-${recipientId}`).text('0 đ');
-            $(`.recipient-pays-${recipientId}`).text('0 đ');
+            resetCostDisplay(recipientId);
             return;
         }
         productsData = [sharedProductData];
     } else {
-        // Use recipient's own products
         const recipient = recipientsList.find(r => r.id === recipientId);
         if (!recipient.products || recipient.products.length === 0) {
-            $(`.base-cost-${recipientId}`).text('0 đ');
-            $(`.extra-cost-${recipientId}`).text('0 đ');
-            $(`.total-cost-${recipientId}`).text('0 đ');
-            $(`.sender-pays-${recipientId}`).text('0 đ');
-            $(`.recipient-pays-${recipientId}`).text('0 đ');
+            resetCostDisplay(recipientId);
             return;
         }
         productsData = recipient.products;
     }
     
+    // ✅ FIX: Thu thập services + COD
     const services = [];
     $(`.service-checkbox[data-recipient-id="${recipientId}"]:checked`).each(function() {
         services.push($(this).val());
     });
     
-    const codAmount = parseFloat($(`.cod-amount[data-recipient-id="${recipientId}"]`).val()) || 0;
+    // ✅ THÊM: Kiểm tra COD checkbox
+    const hasCOD = $(`.cod-checkbox[data-recipient-id="${recipientId}"]`).is(':checked');
+    const codAmount = hasCOD ? (parseFloat($(`.cod-amount[data-recipient-id="${recipientId}"]`).val()) || 0) : 0;
+    
+    // ✅ THÊM 'cod' vào services nếu có COD
+    if (hasCOD && codAmount > 0) {
+        if (!services.includes('cod')) {
+            services.push('cod');
+        }
+    }
+    
     const payer = $(`input[name="recipients[${recipientId}][payer]"]:checked`).val();
     
     const data = {
         products_json: JSON.stringify(productsData),
-        services: services,
+        services: services, // ✅ Đã bao gồm 'cod'
         cod_amount: codAmount,
         payer: payer,
         item_type: productsData[0]?.type || 'package',
         _token: $('meta[name="csrf-token"]').attr('content') || '{{ csrf_token() }}'
     };
     
+    console.log('📤 Sending to calculate:', data); // DEBUG
+    
     $.post('{{ route("customer.orders.calculate") }}', data)
         .done(function(res) {
+            console.log('📥 Response from calculate:', res); // DEBUG
+            
             if (res && res.success === true) {
                 $(`.base-cost-${recipientId}`).text((res.base_cost || 0).toLocaleString('vi-VN') + ' đ');
                 $(`.extra-cost-${recipientId}`).text((res.extra_cost || 0).toLocaleString('vi-VN') + ' đ');
@@ -1928,6 +1978,8 @@ function calculateCost(recipientId) {
                 }
                 
                 $(`.total-cost-${recipientId}`).text((res.total || 0).toLocaleString('vi-VN') + ' đ');
+                
+                // ✅ QUAN TRỌNG: Hiển thị đúng COD amount
                 $(`.sender-pays-${recipientId}`).text((res.sender_pays || 0).toLocaleString('vi-VN') + ' đ');
                 $(`.recipient-pays-${recipientId}`).text((res.recipient_pays || 0).toLocaleString('vi-VN') + ' đ');
                 
@@ -1937,6 +1989,16 @@ function calculateCost(recipientId) {
         .fail(function(xhr) {
             console.error('❌ Lỗi tính cước:', xhr.responseText);
         });
+}
+
+// ✅ Hàm helper reset display
+function resetCostDisplay(recipientId) {
+    $(`.base-cost-${recipientId}`).text('0 đ');
+    $(`.extra-cost-${recipientId}`).text('0 đ');
+    $(`.total-cost-${recipientId}`).text('0 đ');
+    $(`.sender-pays-${recipientId}`).text('0 đ');
+    $(`.recipient-pays-${recipientId}`).text('0 đ');
+    $(`.cod-fee-row-${recipientId}`).hide();
 }
 
 // ============ UPDATE SUMMARY ============
@@ -2055,18 +2117,19 @@ function validateDatetimes() {
     return false;
   }
   
-  // Validate each recipient's delivery time
   let allValid = true;
   recipientsList.forEach(recipient => {
-    const deliveryValue = $(`.delivery-time[data-recipient-id="${recipient.id}"]`).val();
+    const deliveryFormatted = $(`.delivery-time-formatted[data-recipient-id="${recipient.id}"]`).val();
     
-    if (!deliveryValue) {
-      alert(`⚠️ Vui lòng chọn thời gian giao cho người nhận #${recipientsList.indexOf(recipient) + 1}`);
+    // ✅ Kiểm tra format
+    if (!deliveryFormatted || !/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(deliveryFormatted)) {
+      alert(`⚠️ Thời gian giao cho người nhận #${recipientsList.indexOf(recipient) + 1} không hợp lệ`);
+      console.error('❌ Invalid format:', deliveryFormatted);
       allValid = false;
       return false;
     }
     
-    const delivery = new Date(deliveryValue);
+    const delivery = new Date(deliveryFormatted.replace(' ', 'T'));
     const minDeliveryTime = new Date(pickup.getTime() + 60 * 60 * 1000);
     
     if (delivery < minDeliveryTime) {
@@ -2248,43 +2311,44 @@ $('#orderForm').on('submit', function(e) {
         return false;
     }
     
-    // Format pickup time
+    // ✅ Update products_json cho mỗi recipient
+    recipientsList.forEach(recipient => {
+        if (orderMode === 'single') {
+            $(`.products-json-${recipient.id}`).val(JSON.stringify(recipient.products || []));
+        } else {
+            $(`.products-json-${recipient.id}`).val(JSON.stringify(sharedProductData ? [sharedProductData] : []));
+        }
+    });
+    
+    // ✅ Format pickup time
     const pickupValue = $('#pickup-time').val();
     $('#pickup_time_formatted').val(formatDatetimeForDatabase(pickupValue));
     
-    // Format delivery times for each recipient
-    recipientsList.forEach(recipient => {
-        const deliveryValue = $(`.delivery-time[data-recipient-id="${recipient.id}"]`).val();
-        const hiddenInput = $(`<input type="hidden" name="recipients[${recipient.id}][delivery_time_formatted]">`);
-        hiddenInput.val(formatDatetimeForDatabase(deliveryValue));
-        $(this).append(hiddenInput);
-    });
     
-    // Handle images for each recipient
     const formData = new FormData(this);
     
-    // Add shared product data in multi mode
-    if (orderMode === 'multi' && sharedProductData) {
-        formData.append('shared_product_json', JSON.stringify(sharedProductData));
-        
-        // For each recipient, add the shared product as their product
-        recipientsList.forEach(recipient => {
-            formData.set(`recipients[${recipient.id}][products_json]`, JSON.stringify([sharedProductData]));
-        });
-    }
-    
+    // ✅ Add images
     recipientsList.forEach(recipient => {
         if (recipient.selectedImages && recipient.selectedImages.length > 0) {
-            recipient.selectedImages.forEach((file, index) => {
+            recipient.selectedImages.forEach((file) => {
                 formData.append(`recipients[${recipient.id}][images][]`, file);
             });
         }
     });
     
+    // 🐛 DEBUG: Log form data
+    console.log('📦 Data being sent:');
+    for (let pair of formData.entries()) {
+        if (pair[1] instanceof File) {
+            console.log(pair[0] + ': [File] ' + pair[1].name);
+        } else {
+            console.log(pair[0] + ': ' + pair[1]);
+        }
+    }
+    
     $('#submitOrder').prop('disabled', true)
         .html('<span class="spinner-border spinner-border-sm me-2"></span>Đang xử lý...');
     
-    // Submit with FormData
     $.ajax({
         url: $(this).attr('action'),
         type: 'POST',
@@ -2292,7 +2356,7 @@ $('#orderForm').on('submit', function(e) {
         processData: false,
         contentType: false,
         success: function(response) {
-            console.log('✅ Tạo đơn thành công');
+            console.log('✅ Response:', response);
             if (response.success) {
                 alert('✅ Tạo đơn hàng thành công!');
                 window.location.href = response.redirect || '{{ route("customer.orders.create") }}';
@@ -2303,14 +2367,21 @@ $('#orderForm').on('submit', function(e) {
             }
         },
         error: function(xhr) {
-            console.error('❌ Lỗi tạo đơn:', xhr.responseText);
-            let errorMsg = 'Có lỗi xảy ra khi tạo đơn hàng. Vui lòng thử lại.';
+            console.error('❌ Full Error:', xhr);
+            console.error('❌ Response Text:', xhr.responseText);
             
-            if (xhr.responseJSON && xhr.responseJSON.message) {
-                errorMsg = xhr.responseJSON.message;
-            } else if (xhr.responseJSON && xhr.responseJSON.errors) {
-                const errors = Object.values(xhr.responseJSON.errors).flat();
-                errorMsg = errors.join('\n');
+            let errorMsg = 'Có lỗi xảy ra khi tạo đơn hàng.';
+            
+            try {
+                const response = JSON.parse(xhr.responseText);
+                if (response.message) {
+                    errorMsg = response.message;
+                } else if (response.errors) {
+                    errorMsg = Object.values(response.errors).flat().join('\n');
+                }
+            } catch (e) {
+                // Response không phải JSON (như trường hợp Symfony dump)
+                errorMsg = 'Lỗi server. Vui lòng kiểm tra console và Laravel log.';
             }
             
             alert('❌ ' + errorMsg);
@@ -2321,7 +2392,6 @@ $('#orderForm').on('submit', function(e) {
     
     return false;
 });
-
 // ============ POST OFFICE ============
 function fetchNearbyPostOffices(lat, lng) {
     $.get('{{ route("customer.orders.getNearby") }}', {
