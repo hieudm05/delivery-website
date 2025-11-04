@@ -1,279 +1,267 @@
-@extends('customer.dashboard.layouts.app')
+<?php
 
-@section('title', 'Quản lý vận đơn')
+namespace App\Http\Controllers\Customer\Dashboard\OrderManagent;
 
-@section('content')
-<div class="container py-4">
+use App\Http\Controllers\Controller;
+use App\Models\Customer\Dashboard\Orders\Order;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 
-    <!-- Header với Search & Filter -->
-    <div class="card shadow-sm border-0 rounded-4 mb-4">
-        <div class="card-body">
-            <div class="row align-items-center">
-                <div class="col-md-3">
-                    <h4 class="fw-bold text-primary mb-0">
-                        <i class="bi bi-truck me-2"></i> Quản lý vận đơn
-                    </h4>
-                </div>
-                
-                <div class="col-md-6">
-                    <div class="input-group">
-                        <span class="input-group-text bg-white border-end-0">
-                            <i class="bi bi-search"></i>
-                        </span>
-                        <input type="text" 
-                               id="searchInput" 
-                               class="form-control border-start-0" 
-                               placeholder="Tìm theo mã đơn, tên, SĐT..."
-                               value="{{ request('search') }}">
-                    </div>
-                </div>
-
-                <div class="col-md-3 text-end">
-                    <a href="{{ route('customer.orders.create') }}" class="btn btn-primary">
-                        <i class="bi bi-plus-lg"></i> Tạo đơn mới
-                    </a>
-                </div>
-            </div>
-
-            <!-- Tabs Filter Status -->
-            <ul class="nav nav-pills mt-3 flex-wrap" id="statusTabs" role="tablist">
-                <li class="nav-item mb-2">
-                    <button class="nav-link {{ request('status', 'all') === 'all' ? 'active' : '' }}" 
-                            data-status="all">
-                        Tất cả <span class="badge bg-secondary ms-1">{{ array_sum($statusCounts) }}</span>
-                    </button>
-                </li>
-                <li class="nav-item mb-2">
-                    <button class="nav-link {{ request('status') === 'pending' ? 'active' : '' }}" 
-                            data-status="pending">
-                        Chờ xác nhận <span class="badge bg-warning ms-1">{{ $statusCounts['pending'] }}</span>
-                    </button>
-                </li>
-                <li class="nav-item mb-2">
-                    <button class="nav-link {{ request('status') === 'confirmed' ? 'active' : '' }}" 
-                            data-status="confirmed">
-                        Đã xác nhận <span class="badge bg-info ms-1">{{ $statusCounts['confirmed'] }}</span>
-                    </button>
-                </li>
-                <li class="nav-item mb-2">
-                    <button class="nav-link {{ request('status') === 'picking_up' ? 'active' : '' }}" 
-                            data-status="picking_up">
-                        Đang lấy hàng <span class="badge bg-primary ms-1">{{ $statusCounts['picking_up'] }}</span>
-                    </button>
-                </li>
-                <li class="nav-item mb-2">
-                    <button class="nav-link {{ request('status') === 'picked_up' ? 'active' : '' }}" 
-                            data-status="picked_up">
-                        Đã lấy hàng <span class="badge bg-secondary ms-1">{{ $statusCounts['picked_up'] }}</span>
-                    </button>
-                </li>
-                <li class="nav-item mb-2">
-                    <button class="nav-link {{ request('status') === 'at_hub' ? 'active' : '' }}" 
-                            data-status="at_hub">
-                        Tại bưu cục <span class="badge bg-dark ms-1">{{ $statusCounts['at_hub'] }}</span>
-                    </button>
-                </li>
-                <li class="nav-item mb-2">
-                    <button class="nav-link {{ request('status') === 'shipping' ? 'active' : '' }}" 
-                            data-status="shipping">
-                        Đang giao <span class="badge bg-primary ms-1">{{ $statusCounts['shipping'] }}</span>
-                    </button>
-                </li>
-                <li class="nav-item mb-2">
-                    <button class="nav-link {{ request('status') === 'delivered' ? 'active' : '' }}" 
-                            data-status="delivered">
-                        Đã giao <span class="badge bg-success ms-1">{{ $statusCounts['delivered'] }}</span>
-                    </button>
-                </li>
-                <li class="nav-item mb-2">
-                    <button class="nav-link {{ request('status') === 'cancelled' ? 'active' : '' }}" 
-                            data-status="cancelled">
-                        Đã hủy <span class="badge bg-danger ms-1">{{ $statusCounts['cancelled'] }}</span>
-                    </button>
-                </li>
-            </ul>
-        </div>
-    </div>
-
-    <!-- Loading Spinner -->
-    <div id="loadingSpinner" class="text-center d-none py-5">
-        <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">Đang tải...</span>
-        </div>
-        <p class="mt-2 text-muted">Đang tải dữ liệu...</p>
-    </div>
-
-    <!-- Order Cards Container -->
-    <div class="row" id="ordersContainer">
-        @include('customer.dashboard.orderManagent._orders_list', ['orders' => $orders])
-    </div>
-
-    <!-- Pagination Container -->
-    <div id="paginationContainer" class="mt-4 d-flex justify-content-center">
-        {{ $orders->links() }}
-    </div>
-
-</div>
-
-<style>
-.nav-pills .nav-link {
-    border-radius: 20px;
-    margin-right: 8px;
-    transition: all 0.3s;
-    font-size: 0.9rem;
-}
-
-.nav-pills .nav-link:hover {
-    background-color: #f0f0f0;
-}
-
-.nav-pills .nav-link.active {
-    background-color: #0d6efd;
-    color: white;
-}
-
-#ordersContainer {
-    transition: opacity 0.3s ease;
-}
-</style>
-
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script>
-let filterTimeout = null;
-
-$(document).ready(function() {
-    setupFilterHandlers();
-});
-
-function setupFilterHandlers() {
-    // ✅ Filter theo status
-    $('#statusTabs button').on('click', function() {
-        const status = $(this).data('status');
-        
-        $('#statusTabs button').removeClass('active');
-        $(this).addClass('active');
-        
-        loadOrders({ status: status });
-    });
-
-    // ✅ Search với debounce
-    $('#searchInput').on('input', function() {
-        clearTimeout(filterTimeout);
-        
-        filterTimeout = setTimeout(() => {
-            const search = $(this).val();
-            const status = $('#statusTabs button.active').data('status');
+class OrderManagentController extends Controller
+{
+    /**
+     * ✅ Danh sách đơn hàng với phân trang và filter
+     */
+    public function index(Request $request)
+    {
+        try {
+            $status = $request->query('status', 'all');
+            $search = $request->query('search', '');
             
-            loadOrders({ status: status, search: search });
-        }, 500);
-    });
-
-    // ✅ Pagination links
-    $(document).on('click', '.pagination a', function(e) {
-        e.preventDefault();
-        const url = $(this).attr('href');
-        
-        if (url) {
-            const status = $('#statusTabs button.active').data('status');
-            const search = $('#searchInput').val();
-            
-            loadOrders({ status: status, search: search }, url);
-        }
-    });
-}
-
-function loadOrders(params = {}, url = null) {
-    const targetUrl = url || '{{ route("customer.orderManagent.index") }}';
-    
-    $('#loadingSpinner').removeClass('d-none');
-    $('#ordersContainer').css('opacity', '0.5');
-    
-    $.ajax({
-        url: targetUrl,
-        method: 'GET',
-        data: params,
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest'
-        },
-        success: function(response) {
-            if (response.success) {
-                $('#ordersContainer').html(response.html);
-                $('#paginationContainer').html(response.pagination);
-                
-                // Scroll to top
-                $('html, body').animate({ scrollTop: 0 }, 300);
-            }
-        },
-        error: function(xhr) {
-            console.error('Error loading orders:', xhr);
-            
-            let errorMsg = 'Có lỗi xảy ra khi tải dữ liệu';
-            if (xhr.responseJSON && xhr.responseJSON.error) {
-                errorMsg = xhr.responseJSON.error;
+            // Validate status
+            if ($status !== 'all' && !in_array($status, Order::STATUSES)) {
+                $status = 'all';
             }
             
-            $('#ordersContainer').html(`
-                <div class="col-12">
-                    <div class="alert alert-danger">
-                        <i class="bi bi-exclamation-triangle me-2"></i>
-                        ${errorMsg}
-                    </div>
-                </div>
-            `);
-        },
-        complete: function() {
-            $('#loadingSpinner').addClass('d-none');
-            $('#ordersContainer').css('opacity', '1');
+            $query = Order::where('sender_id', Auth::id())
+                ->with(['products', 'images', 'orderGroup'])
+                ->withStatus($status)
+                ->search($search)
+                ->latest();
+
+            $orders = $query->paginate(12)->appends([
+                'status' => $status,
+                'search' => $search
+            ]);
+
+            // ✅ Xử lý AJAX request
+            if ($request->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'html' => view('customer.dashboard.orderManagent._orders_list', compact('orders'))->render(),
+                    'pagination' => $orders->links()->render()
+                ]);
+            }
+            
+            // ✅ Đếm số lượng theo từng trạng thái
+            $statusCounts = $this->getStatusCounts();
+
+            return view('customer.dashboard.orderManagent.index', compact('orders', 'statusCounts'));
+            
+        } catch (\Exception $e) {
+            Log::error('Lỗi trong OrderManagentController::index: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            if ($request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Có lỗi xảy ra, vui lòng thử lại sau.'
+                ], 500);
+            }
+            
+            return back()->with('error', 'Có lỗi xảy ra, vui lòng thử lại sau.');
         }
-    });
+    }
+
+    /**
+     * ✅ Chi tiết đơn hàng
+     */
+    public function show($id)
+    {
+        try {
+            $order = Order::where('sender_id', Auth::id())
+                ->with(['products', 'images', 'deliveryImages', 'orderGroup'])
+                ->findOrFail($id);
+
+            return view('customer.dashboard.orderManagent.show', compact('order'));
+            
+        } catch (\Exception $e) {
+            Log::error('Lỗi trong OrderManagentController::show: ' . $e->getMessage());
+            return back()->with('error', 'Không tìm thấy đơn hàng.');
+        }
+    }
+
+    /**
+     * ✅ Sửa đơn hàng (chỉ khi có thể edit)
+     */
+    public function edit($id)
+    {
+        try {
+            $order = Order::where('sender_id', Auth::id())
+                ->findOrFail($id);
+
+            if (!$order->canEdit()) {
+                return back()->with('error', 'Không thể chỉnh sửa đơn hàng ở trạng thái hiện tại.');
+            }
+
+            return view('customer.dashboard.orderManagent.edit', compact('order'));
+            
+        } catch (\Exception $e) {
+            Log::error('Lỗi trong OrderManagentController::edit: ' . $e->getMessage());
+            return back()->with('error', 'Không tìm thấy đơn hàng.');
+        }
+    }
+
+    /**
+     * ✅ Update đơn hàng
+     */
+    public function update(Request $request, $id)
+    {
+        try {
+            $order = Order::where('sender_id', Auth::id())
+                ->findOrFail($id);
+
+            if (!$order->canEdit()) {
+                return back()->with('error', 'Không thể chỉnh sửa đơn hàng ở trạng thái hiện tại.');
+            }
+
+            $validated = $request->validate([
+                'recipient_name' => 'required|string|max:255',
+                'recipient_phone' => 'required|string|regex:/^(0|\+84)[0-9]{9,10}$/',
+                'recipient_full_address' => 'required|string|max:500',
+                'delivery_time' => 'required|date|after:now',
+                'note' => 'nullable|string|max:1000',
+            ], [
+                'recipient_name.required' => 'Vui lòng nhập tên người nhận',
+                'recipient_phone.required' => 'Vui lòng nhập số điện thoại người nhận',
+                'recipient_phone.regex' => 'Số điện thoại không hợp lệ',
+                'recipient_full_address.required' => 'Vui lòng nhập địa chỉ đầy đủ',
+                'delivery_time.required' => 'Vui lòng chọn thời gian giao hàng',
+                'delivery_time.after' => 'Thời gian giao hàng phải sau thời điểm hiện tại',
+            ]);
+
+            $order->update($validated);
+
+            return redirect()->route('customer.orderManagent.show', $order->id)
+                ->with('success', 'Cập nhật đơn hàng thành công!');
+                
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return back()->withErrors($e->validator)->withInput();
+        } catch (\Exception $e) {
+            Log::error('Lỗi trong OrderManagentController::update: ' . $e->getMessage());
+            return back()->with('error', 'Có lỗi xảy ra, vui lòng thử lại sau.');
+        }
+    }
+
+    /**
+     * ✅ Hủy đơn hàng
+     */
+    public function cancel($id)
+    {
+        try {
+            $order = Order::where('sender_id', Auth::id())
+                ->findOrFail($id);
+
+            if (!$order->canCancel()) {
+                return back()->with('error', 'Không thể hủy đơn hàng ở trạng thái hiện tại.');
+            }
+
+            $order->update(['status' => Order::STATUS_CANCELLED]);
+
+            // Cập nhật trạng thái order group nếu có
+            if ($order->isPartOfGroup()) {
+                $order->orderGroup->updateGroupStatus();
+            }
+
+            return back()->with('success', 'Đã hủy đơn hàng thành công!');
+            
+        } catch (\Exception $e) {
+            Log::error('Lỗi trong OrderManagentController::cancel: ' . $e->getMessage());
+            return back()->with('error', 'Có lỗi xảy ra, vui lòng thử lại sau.');
+        }
+    }
+
+    /**
+     * ✅ Xóa đơn hàng (chỉ khi status = pending)
+     */
+    public function destroy($id)
+    {
+        try {
+            $order = Order::where('sender_id', Auth::id())
+                ->where('status', Order::STATUS_PENDING)
+                ->findOrFail($id);
+
+            // Xóa ảnh liên quan
+            foreach ($order->images as $image) {
+                if (\Storage::disk('public')->exists($image->image_path)) {
+                    \Storage::disk('public')->delete($image->image_path);
+                }
+                $image->delete();
+            }
+
+            // Xóa sản phẩm
+            $order->products()->delete();
+
+            $order->delete();
+
+            return redirect()->route('customer.orderManagent.index')
+                ->with('success', 'Đã xóa đơn hàng thành công!');
+                
+        } catch (\Exception $e) {
+            Log::error('Lỗi trong OrderManagentController::destroy: ' . $e->getMessage());
+            return back()->with('error', 'Không thể xóa đơn hàng này.');
+        }
+    }
+
+    /**
+     * ✅ API lấy ảnh giao hàng theo trạng thái (AJAX)
+     */
+    public function getDeliveryImages(Request $request, $orderId)
+    {
+        try {
+            $order = Order::where('sender_id', Auth::id())->findOrFail($orderId);
+            
+            $images = $order->deliveryImages()
+                ->when($request->status, function($q) use ($request) {
+                    return $q->where('status', $request->status);
+                })
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'images' => $images->map(function($img) {
+                    return [
+                        'id' => $img->id,
+                        'url' => asset('storage/' . $img->image_path),
+                        'note' => $img->note,
+                        'location' => $img->location,
+                        'created_at' => $img->created_at->format('H:i d/m/Y')
+                    ];
+                })
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Lỗi trong OrderManagentController::getDeliveryImages: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'error' => 'Không thể tải ảnh giao hàng.'
+            ], 500);
+        }
+    }
+
+    /**
+     * ✅ Đếm số lượng đơn hàng theo trạng thái
+     */
+    private function getStatusCounts()
+    {
+        $counts = Order::where('sender_id', Auth::id())
+            ->selectRaw('status, COUNT(*) as count')
+            ->groupBy('status')
+            ->pluck('count', 'status')
+            ->toArray();
+
+        // ✅ Đảm bảo TẤT CẢ trạng thái đều có giá trị, tránh lỗi undefined key
+        return [
+            'pending' => $counts['pending'] ?? 0,
+            'confirmed' => $counts['confirmed'] ?? 0,
+            'picking_up' => $counts['picking_up'] ?? 0,
+            'picked_up' => $counts['picked_up'] ?? 0,
+            'at_hub' => $counts['at_hub'] ?? 0,
+            'shipping' => $counts['shipping'] ?? 0,
+            'delivered' => $counts['delivered'] ?? 0,
+            'cancelled' => $counts['cancelled'] ?? 0,
+        ];
+    }
 }
-</script>
-
-@if(session('success'))
-<script>
-    $(document).ready(function() {
-        // Toast notification đẹp hơn
-        const toast = `
-            <div class="position-fixed top-0 end-0 p-3" style="z-index: 9999">
-                <div class="toast show" role="alert">
-                    <div class="toast-header bg-success text-white">
-                        <i class="bi bi-check-circle me-2"></i>
-                        <strong class="me-auto">Thành công</strong>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
-                    </div>
-                    <div class="toast-body">
-                        {{ session("success") }}
-                    </div>
-                </div>
-            </div>
-        `;
-        $('body').append(toast);
-        setTimeout(() => $('.toast').fadeOut(), 3000);
-    });
-</script>
-@endif
-
-@if(session('error'))
-<script>
-    $(document).ready(function() {
-        const toast = `
-            <div class="position-fixed top-0 end-0 p-3" style="z-index: 9999">
-                <div class="toast show" role="alert">
-                    <div class="toast-header bg-danger text-white">
-                        <i class="bi bi-exclamation-triangle me-2"></i>
-                        <strong class="me-auto">Lỗi</strong>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
-                    </div>
-                    <div class="toast-body">
-                        {{ session("error") }}
-                    </div>
-                </div>
-            </div>
-        `;
-        $('body').append(toast);
-        setTimeout(() => $('.toast').fadeOut(), 3000);
-    });
-</script>
-@endif
-
-@endsection
