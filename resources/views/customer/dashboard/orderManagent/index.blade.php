@@ -23,7 +23,8 @@
                         <input type="text" 
                                id="searchInput" 
                                class="form-control border-start-0" 
-                               placeholder="Tìm theo mã đơn, tên, SĐT...">
+                               placeholder="Tìm theo mã đơn, tên, SĐT..."
+                               value="{{ request('search') }}">
                     </div>
                 </div>
 
@@ -35,35 +36,59 @@
             </div>
 
             <!-- Tabs Filter Status -->
-            <ul class="nav nav-pills mt-3" id="statusTabs" role="tablist">
-                <li class="nav-item">
-                    <button class="nav-link active" data-status="all">
+            <ul class="nav nav-pills mt-3 flex-wrap" id="statusTabs" role="tablist">
+                <li class="nav-item mb-2">
+                    <button class="nav-link {{ request('status', 'all') === 'all' ? 'active' : '' }}" 
+                            data-status="all">
                         Tất cả <span class="badge bg-secondary ms-1">{{ array_sum($statusCounts) }}</span>
                     </button>
                 </li>
-                <li class="nav-item">
-                    <button class="nav-link" data-status="pending">
-                        Chờ xác nhận <span class="badge bg-warning ms-1">{{ $statusCounts['pending'] ?? 0 }}</span>
+                <li class="nav-item mb-2">
+                    <button class="nav-link {{ request('status') === 'pending' ? 'active' : '' }}" 
+                            data-status="pending">
+                        Chờ xác nhận <span class="badge bg-warning ms-1">{{ $statusCounts['pending'] }}</span>
                     </button>
                 </li>
-                <li class="nav-item">
-                    <button class="nav-link" data-status="confirmed">
-                        Đã xác nhận <span class="badge bg-info ms-1">{{ $statusCounts['confirmed'] ?? 0 }}</span>
+                <li class="nav-item mb-2">
+                    <button class="nav-link {{ request('status') === 'confirmed' ? 'active' : '' }}" 
+                            data-status="confirmed">
+                        Đã xác nhận <span class="badge bg-info ms-1">{{ $statusCounts['confirmed'] }}</span>
                     </button>
                 </li>
-                <li class="nav-item">
-                    <button class="nav-link" data-status="shipping">
-                        Đang giao <span class="badge bg-primary ms-1">{{ $statusCounts['shipping'] ?? 0 }}</span>
+                <li class="nav-item mb-2">
+                    <button class="nav-link {{ request('status') === 'picking_up' ? 'active' : '' }}" 
+                            data-status="picking_up">
+                        Đang lấy hàng <span class="badge bg-primary ms-1">{{ $statusCounts['picking_up'] }}</span>
                     </button>
                 </li>
-                <li class="nav-item">
-                    <button class="nav-link" data-status="delivered">
-                        Đã giao <span class="badge bg-success ms-1">{{ $statusCounts['delivered'] ?? 0 }}</span>
+                <li class="nav-item mb-2">
+                    <button class="nav-link {{ request('status') === 'picked_up' ? 'active' : '' }}" 
+                            data-status="picked_up">
+                        Đã lấy hàng <span class="badge bg-secondary ms-1">{{ $statusCounts['picked_up'] }}</span>
                     </button>
                 </li>
-                <li class="nav-item">
-                    <button class="nav-link" data-status="cancelled">
-                        Đã hủy <span class="badge bg-danger ms-1">{{ $statusCounts['cancelled'] ?? 0 }}</span>
+                <li class="nav-item mb-2">
+                    <button class="nav-link {{ request('status') === 'at_hub' ? 'active' : '' }}" 
+                            data-status="at_hub">
+                        Tại bưu cục <span class="badge bg-dark ms-1">{{ $statusCounts['at_hub'] }}</span>
+                    </button>
+                </li>
+                <li class="nav-item mb-2">
+                    <button class="nav-link {{ request('status') === 'shipping' ? 'active' : '' }}" 
+                            data-status="shipping">
+                        Đang giao <span class="badge bg-primary ms-1">{{ $statusCounts['shipping'] }}</span>
+                    </button>
+                </li>
+                <li class="nav-item mb-2">
+                    <button class="nav-link {{ request('status') === 'delivered' ? 'active' : '' }}" 
+                            data-status="delivered">
+                        Đã giao <span class="badge bg-success ms-1">{{ $statusCounts['delivered'] }}</span>
+                    </button>
+                </li>
+                <li class="nav-item mb-2">
+                    <button class="nav-link {{ request('status') === 'cancelled' ? 'active' : '' }}" 
+                            data-status="cancelled">
+                        Đã hủy <span class="badge bg-danger ms-1">{{ $statusCounts['cancelled'] }}</span>
                     </button>
                 </li>
             </ul>
@@ -71,10 +96,11 @@
     </div>
 
     <!-- Loading Spinner -->
-    <div id="loadingSpinner" class="text-center d-none">
+    <div id="loadingSpinner" class="text-center d-none py-5">
         <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">Loading...</span>
+            <span class="visually-hidden">Đang tải...</span>
         </div>
+        <p class="mt-2 text-muted">Đang tải dữ liệu...</p>
     </div>
 
     <!-- Order Cards Container -->
@@ -94,6 +120,7 @@
     border-radius: 20px;
     margin-right: 8px;
     transition: all 0.3s;
+    font-size: 0.9rem;
 }
 
 .nav-pills .nav-link:hover {
@@ -103,6 +130,10 @@
 .nav-pills .nav-link.active {
     background-color: #0d6efd;
     color: white;
+}
+
+#ordersContainer {
+    transition: opacity 0.3s ease;
 }
 </style>
 
@@ -168,11 +199,27 @@ function loadOrders(params = {}, url = null) {
             if (response.success) {
                 $('#ordersContainer').html(response.html);
                 $('#paginationContainer').html(response.pagination);
+                
+                // Scroll to top
+                $('html, body').animate({ scrollTop: 0 }, 300);
             }
         },
         error: function(xhr) {
             console.error('Error loading orders:', xhr);
-            alert('Có lỗi xảy ra khi tải dữ liệu');
+            
+            let errorMsg = 'Có lỗi xảy ra khi tải dữ liệu';
+            if (xhr.responseJSON && xhr.responseJSON.error) {
+                errorMsg = xhr.responseJSON.error;
+            }
+            
+            $('#ordersContainer').html(`
+                <div class="col-12">
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        ${errorMsg}
+                    </div>
+                </div>
+            `);
         },
         complete: function() {
             $('#loadingSpinner').addClass('d-none');
@@ -185,7 +232,46 @@ function loadOrders(params = {}, url = null) {
 @if(session('success'))
 <script>
     $(document).ready(function() {
-        alert('✅ {{ session("success") }}');
+        // Toast notification đẹp hơn
+        const toast = `
+            <div class="position-fixed top-0 end-0 p-3" style="z-index: 9999">
+                <div class="toast show" role="alert">
+                    <div class="toast-header bg-success text-white">
+                        <i class="bi bi-check-circle me-2"></i>
+                        <strong class="me-auto">Thành công</strong>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+                    </div>
+                    <div class="toast-body">
+                        {{ session("success") }}
+                    </div>
+                </div>
+            </div>
+        `;
+        $('body').append(toast);
+        setTimeout(() => $('.toast').fadeOut(), 3000);
+    });
+</script>
+@endif
+
+@if(session('error'))
+<script>
+    $(document).ready(function() {
+        const toast = `
+            <div class="position-fixed top-0 end-0 p-3" style="z-index: 9999">
+                <div class="toast show" role="alert">
+                    <div class="toast-header bg-danger text-white">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        <strong class="me-auto">Lỗi</strong>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+                    </div>
+                    <div class="toast-body">
+                        {{ session("error") }}
+                    </div>
+                </div>
+            </div>
+        `;
+        $('body').append(toast);
+        setTimeout(() => $('.toast').fadeOut(), 3000);
     });
 </script>
 @endif
