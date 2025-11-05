@@ -78,7 +78,7 @@
                         <div class="mb-3">
                             <p class="mb-0">
                                 <i class="fas fa-clock text-warning"></i> 
-                                <strong>Lấy lúc:</strong> 
+                                <strong>Thời gian lấy hàng:</strong> 
                                 {{ $order->pickup_time ? $order->pickup_time->format('H:i - d/m/Y') : 'Chưa xác định' }}
                             </p>
                         </div>

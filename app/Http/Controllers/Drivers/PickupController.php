@@ -20,9 +20,16 @@ class PickupController extends Controller
     {
         $status = $request->get('status', 'confirmed');
         $search = $request->get('search');
-
+        $hubId = DriverProfile::where('user_id', Auth::id())->value('post_office_id');
+        if(!$hubId){
+            return redirect()->back()->with('error', 'Chưa có thông tin bưu cục. Vui lòng cập nhật hồ sơ tài xế.');
+        }
         $orders = Order::query()
             ->whereIn('status', ['confirmed', 'picking_up'])
+            ->where(function($q) use ($hubId) {
+                $q->where('current_hub_id', $hubId)
+                  ->orWhere('post_office_id', $hubId);
+            })
             ->when($search, function($q) use ($search) {
                 $q->where(function($query) use ($search) {
                     $query->where('id', 'like', "%{$search}%")
@@ -222,7 +229,6 @@ class PickupController extends Controller
 {
     // ✅ Xử lý đầu vào: chấp nhận 1 ID, mảng, hoặc JSON string
     $orderIds = $request->order_ids;
-    dd($orderIds);
     // Nếu là JSON (ví dụ: "[1,2,3]") → decode thành mảng
     if (is_string($orderIds)) {
         $decoded = json_decode($orderIds, true);
@@ -267,7 +273,7 @@ class PickupController extends Controller
         foreach ($orders as $order) {
             $order->update([
                 'status'             => 'at_hub',
-                'current_hub_id'     =>  $request->hub_id ? $request->hub_id : $order->current_hub_id,
+                'current_hub_id'     =>  $request->post_office_id ? $request->post_office_id : $order->current_hub_id,
                 'hub_transfer_time'  => now(),
                 'hub_transfer_note'  => $request->note,
             ]);
