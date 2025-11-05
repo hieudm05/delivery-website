@@ -9,6 +9,8 @@ use App\Http\Controllers\Customer\Dashboard\Accounts\AccountController;
 use App\Http\Controllers\Customer\Dashboard\DashboardCustomerController;
 use App\Http\Controllers\Customer\Dashboard\OrderManagent\OrderManagentController;
 use App\Http\Controllers\Customer\Dashboard\Orders\OrderController;
+use App\Http\Controllers\Drivers\DriverDeliveryController;
+use App\Http\Controllers\Drivers\DriverTrackingController;
 use App\Http\Controllers\Drivers\CodPaymentController;
 use App\Http\Controllers\Drivers\DriverController;
 use App\Http\Controllers\Drivers\PickupController;
@@ -78,6 +80,9 @@ Route::prefix('admin')
             // Thống kê
             Route::get('/statistics', [OrderApprovalController::class, 'statistics'])->name('statistics');
         });
+        // ADMIN TRACKING ROUTES
+        Route::get('/drivers/active', [DriverTrackingController::class, 'getActiveDrivers'])
+        ->name('drivers.active');
     });
 
 // Driver
@@ -116,6 +121,34 @@ Route::prefix('driver')
             Route::get('/{id}', [CodPaymentController::class, 'show'])->name('show');
             Route::post('/{id}/transfer', [CodPaymentController::class, 'transfer'])->name('transfer');
         });
+        // DELIVERY - Giao hàng 
+        Route::prefix('delivery')
+            ->name('delivery.')
+            ->group(function () {
+                // Danh sách đơn cần giao
+                Route::get('/', [DriverDeliveryController::class, 'index'])->name('index');
+                // Chi tiết đơn hàng
+                Route::get('/{id}', [DriverDeliveryController::class, 'show'])->name('show');
+                // Bắt đầu giao hàng
+                Route::post('/{id}/start', [DriverDeliveryController::class, 'startDelivery'])->name('start');
+                // Form giao hàng thành công
+                Route::get('/{id}/complete', [DriverDeliveryController::class, 'deliveryForm'])->name('form');
+                // Xử lý giao hàng thành công
+                Route::post('/{id}/complete', [DriverDeliveryController::class, 'completeDelivery'])->name('complete');
+                // Form báo cáo thất bại
+                Route::get('/{id}/failure', [DriverDeliveryController::class, 'failureForm'])->name('failure.form');
+                // Xử lý giao hàng thất bại
+                Route::post('/{id}/failure', [DriverDeliveryController::class, 'reportFailure'])->name('failure');
+            });
+        // TRACKING ROUTES - Cập nhật vị trí
+        Route::prefix('tracking')
+            ->name('tracking.')
+            ->group(function () {
+                // Cập nhật vị trí real-time
+                Route::post('/update', [DriverTrackingController::class, 'updateLocation'])->name('update');
+                // Lấy vị trí hiện tại
+                Route::get('/location', [DriverTrackingController::class, 'getLocation'])->name('location');
+            });
     });
 
 // Customer
@@ -158,4 +191,10 @@ Route::prefix('customer')
         Route::get('/{id}/delivery-images', [OrderManagentController::class, 'getDeliveryImages'])->name('delivery-images');
     });
     });
+    // PUBLIC TRACKING ROUTES - Không cần auth
+    Route::get('/tracking/{order_id}', [DriverTrackingController::class, 'trackingMap'])
+    ->name('tracking.map');
+
+    Route::get('/api/tracking/{order_id}', [DriverTrackingController::class, 'trackOrder'])
+    ->name('api.tracking.order');
 

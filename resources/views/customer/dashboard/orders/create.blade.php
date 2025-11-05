@@ -726,7 +726,7 @@ function setupModeSelector() {
 // ============ SHARED PRODUCT FORM ============
 function setupSharedProductForm() {
     // Toggle between package and document
-    $('input[name="shared_item_type"]').on('change', function() {
+    $('input[name="shared_item_type"]').on('change', function() { 
         const itemType = $(this).val();
         if (itemType === 'package') {
             $('#shared-package-form').show();

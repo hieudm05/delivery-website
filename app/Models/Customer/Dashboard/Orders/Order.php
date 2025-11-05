@@ -1,9 +1,13 @@
 <?php
 namespace App\Models\Customer\Dashboard\Orders;
 
+use App\Models\Driver\Orders\OrderDelivery;
 use App\Models\Driver\Orders\OrderDeliveryImage;
+use App\Models\Driver\Orders\OrderDeliveryIssue;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Order extends Model
 {
@@ -151,10 +155,6 @@ class Order extends Model
         return $this->hasMany(OrderImage::class);
     }
 
-    public function deliveryImages()
-    {
-        return $this->hasMany(OrderDeliveryImage::class);
-    }
 
     public function images()
     {
@@ -613,5 +613,67 @@ class Order extends Model
     {
         return $query->where('status', self::STATUS_PENDING)
             ->where('risk_score', '>=', 70);
+    }
+     public function delivery()
+    {
+        return $this->hasOne(OrderDelivery::class, 'order_id');
+    }
+
+    /**
+     * Relationship với bảng order_delivery_images
+     * 1 đơn hàng có nhiều ảnh giao hàng
+     */
+    public function deliveryImages()
+    {
+        return $this->hasMany(OrderDeliveryImage::class, 'order_id');
+    }
+
+    /**
+     * Relationship với bảng order_delivery_issues
+     * 1 đơn hàng có thể có nhiều vấn đề giao hàng (nhiều lần thất bại)
+     */
+    public function deliveryIssues()
+    {
+        return $this->hasMany(OrderDeliveryIssue::class, 'order_id');
+    }
+
+    /**
+     * Helper: Kiểm tra đơn hàng đã được giao thành công chưa
+     */
+    public function isDelivered()
+    {
+        return $this->delivery && $this->delivery->is_delivered;
+    }
+
+    /**
+     * Helper: Lấy thông tin người giao hàng
+     */
+    public function getDeliveryDriverAttribute()
+    {
+        return $this->delivery?->driver;
+    }
+
+    /**
+     * Helper: Lấy số tiền COD đã thu
+     */
+    public function getCodCollectedAmountAttribute()
+    {
+        return $this->delivery?->cod_collected_amount ?? 0;
+    }
+
+    /**
+     * Helper: Kiểm tra có vấn đề giao hàng không
+     */
+    public function hasDeliveryIssues()
+    {
+        return $this->deliveryIssues()->exists();
+    }
+
+    /**
+     * Helper: Lấy vấn đề giao hàng gần nhất
+     */
+    public function getLatestDeliveryIssue()
+    {
+        return $this->deliveryIssues()->latest('issue_time')->first();
     }
 }
