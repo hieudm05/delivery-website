@@ -26,7 +26,7 @@
         @yield('content')
     </main>
   </div>
-
+  @include('driver.blocks.alert')
   @include('driver.blocks.script')
 </body>
 </html>

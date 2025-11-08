@@ -131,7 +131,9 @@ class DriverDeliveryController extends Controller
 
         // Validate trạng thái
         if ($order->status !== Order::STATUS_SHIPPING) {
-            return back()->with('error', 'Đơn hàng không ở trạng thái đang giao.');
+            return back()
+                ->with('error', 'Đơn hàng không ở trạng thái đang giao.')
+                ->with('alert_type', 'error');
         }
 
         // Validate dữ liệu
@@ -150,33 +152,51 @@ class DriverDeliveryController extends Controller
             'image_notes' => 'nullable|array',
             'image_notes.*' => 'nullable|string|max:500',
         ], [
+            'delivery_latitude.required' => 'Vui lòng lấy vị trí GPS hiện tại',
+            'delivery_longitude.required' => 'Vui lòng lấy vị trí GPS hiện tại',
+            'received_by_name.required' => 'Vui lòng nhập tên người nhận hàng',
+            'received_by_phone.required' => 'Vui lòng nhập số điện thoại người nhận',
+            'received_by_relation.required' => 'Vui lòng chọn mối quan hệ với người nhận',
             'images.required' => 'Vui lòng chụp ít nhất 1 ảnh chứng từ giao hàng',
-            'images.min' => 'Vui lòng chụp ít nhất 1 ảnh',
-            'images.*.image' => 'File phải là ảnh',
+            'images.min' => 'Vui lòng chụp ít nhất 1 ảnh chứng từ',
+            'images.*.image' => 'File phải là ảnh (JPG, PNG)',
             'images.*.max' => 'Kích thước ảnh tối đa 5MB',
         ]);
 
         if ($validator->fails()) {
-            return back()->withErrors($validator)->withInput();
+            return back()
+                ->withErrors($validator)
+                ->withInput()
+                ->with('error', 'Vui lòng kiểm tra lại thông tin!')
+                ->with('alert_type', 'error');
         }
 
         try {
             DB::beginTransaction();
 
-            // Tính toán khoảng cách giao hàng
-            $distance = $this->calculateDistance(
-                $order->recipient_latitude,
-                $order->recipient_longitude,
-                $request->delivery_latitude,
-                $request->delivery_longitude
-            );
+            // Kiểm tra tọa độ và tính khoảng cách
+            $distanceWarning = null;
+            if ($order->recipient_latitude && $order->recipient_longitude) {
+                $distance = $this->calculateDistance(
+                    $order->recipient_latitude,
+                    $order->recipient_longitude,
+                    $request->delivery_latitude,
+                    $request->delivery_longitude
+                );
 
-            // Cảnh báo nếu giao hàng quá xa địa chỉ người nhận (> 500m)
-            if ($distance > 0.5) {
-                DB::rollBack();
-                return back()
-                    ->withInput()
-                    ->with('warning', 'Vị trí giao hàng cách địa chỉ người nhận ' . round($distance, 2) . ' km. Vui lòng kiểm tra lại.');
+                // Cảnh báo nếu > 2km
+                if ($distance > 2) {
+                    $distanceWarning = 'Vị trí giao hàng cách địa chỉ người nhận ' . round($distance, 2) . ' km';
+                }
+
+                // Chặn nếu > 10km (rõ ràng sai)
+                if ($distance > 10) {
+                    DB::rollBack();
+                    return back()
+                        ->withInput()
+                        ->with('error', 'Vị trí giao hàng quá xa địa chỉ người nhận (' . round($distance, 2) . ' km). Vui lòng kiểm tra lại GPS!')
+                        ->with('alert_type', 'error');
+                }
             }
 
             // Xử lý COD nếu có
@@ -237,13 +257,33 @@ class DriverDeliveryController extends Controller
 
             DB::commit();
 
+            // Tạo thông báo thành công
+            $successMessage = 'Đã giao hàng thành công đơn #' . $order->id;
+            if ($codCollected > 0) {
+                $successMessage .= '<br><strong>Đã thu COD: ' . number_format($codCollected) . ' đ</strong>';
+            }
+            if ($distanceWarning) {
+                $successMessage .= '<br><small class="text-warning">⚠️ ' . $distanceWarning . '</small>';
+            }
+
             return redirect()->route('driver.delivery.index')
-                ->with('success', 'Đã giao hàng thành công đơn #' . $order->id . 
-                    ($codCollected > 0 ? ' - Đã thu COD: ' . number_format($codCollected) . ' đ' : ''));
+                ->with('success', $successMessage)
+                ->with('alert_type', 'success')
+                ->with('alert_title', '✅ Giao hàng thành công!');
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Có lỗi xảy ra: ' . $e->getMessage());
+            \Log::error('Delivery completion error', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return back()
+                ->withInput()
+                ->with('error', 'Có lỗi xảy ra khi lưu thông tin giao hàng. Vui lòng thử lại!')
+                ->with('alert_type', 'error')
+                ->with('alert_title', '❌ Lỗi hệ thống');
         }
     }
 
@@ -257,7 +297,8 @@ class DriverDeliveryController extends Controller
 
         if ($order->status !== Order::STATUS_SHIPPING) {
             return redirect()->route('driver.delivery.index')
-                ->with('error', 'Đơn hàng này không ở trạng thái đang giao.');
+                ->with('error', 'Đơn hàng này không ở trạng thái đang giao.')
+                ->with('alert_type', 'error');
         }
 
         // Danh sách lý do giao hàng thất bại
@@ -293,10 +334,16 @@ class DriverDeliveryController extends Controller
         ], [
             'issue_type.required' => 'Vui lòng chọn lý do giao hàng thất bại',
             'issue_note.required' => 'Vui lòng mô tả chi tiết lý do',
+            'issue_latitude.required' => 'Vui lòng lấy vị trí GPS hiện tại',
+            'issue_longitude.required' => 'Vui lòng lấy vị trí GPS hiện tại',
         ]);
 
         if ($validator->fails()) {
-            return back()->withErrors($validator)->withInput();
+            return back()
+                ->withErrors($validator)
+                ->withInput()
+                ->with('error', 'Vui lòng kiểm tra lại thông tin!')
+                ->with('alert_type', 'error');
         }
 
         try {
@@ -339,12 +386,33 @@ class DriverDeliveryController extends Controller
 
             DB::commit();
 
+            // Lấy label lý do
+            $issueLabels = [
+                'recipient_not_home' => 'Người nhận không có nhà',
+                'wrong_address' => 'Địa chỉ sai/không tìm thấy',
+                'refused_package' => 'Người nhận từ chối nhận hàng',
+                'unable_to_contact' => 'Không liên lạc được',
+                'address_too_far' => 'Địa chỉ quá xa',
+                'dangerous_area' => 'Khu vực nguy hiểm',
+                'other' => 'Lý do khác',
+            ];
+
             return redirect()->route('driver.delivery.index')
-                ->with('info', 'Đã ghi nhận giao hàng thất bại đơn #' . $order->id . '. Đơn hàng đã được chuyển về bưu cục.');
+                ->with('warning', 'Đã ghi nhận giao hàng thất bại đơn #' . $order->id . '<br>Lý do: ' . $issueLabels[$request->issue_type] . '<br>Đơn hàng đã được chuyển về bưu cục.')
+                ->with('alert_type', 'warning')
+                ->with('alert_title', '⚠️ Giao hàng thất bại');
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Có lỗi xảy ra: ' . $e->getMessage());
+            \Log::error('Delivery failure report error', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage()
+            ]);
+            
+            return back()
+                ->withInput()
+                ->with('error', 'Có lỗi xảy ra khi ghi nhận thất bại. Vui lòng thử lại!')
+                ->with('alert_type', 'error');
         }
     }
 

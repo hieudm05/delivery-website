@@ -366,9 +366,8 @@ private function createGroupOrder($orderGroup, $request, $recipientData)
         } catch (\Exception $e) {
            
         }
-    
     return $order;
-}
+    }
 
      private function processOrderApproval(Order $order)
     {
@@ -376,13 +375,12 @@ private function createGroupOrder($orderGroup, $request, $recipientData)
         $riskScore = $order->calculateRiskScore();
         $order->risk_score = $riskScore;
         
-        // Nếu đủ điều kiện, tự động duyệt luôn
-        if ($order->canAutoApprove()) {
+       // Kiểm tra biến môi trường ORDER_AUTO_APPROVE (true/false)
+        if (env('ORDER_AUTO_APPROVE', false) && $order->canAutoApprove()) {
             $order->autoApprove();
-            // \Log::info("✅ Order #{$order->id} auto-approved (risk score: {$riskScore})");
         } else {
-            $order->save(); // Chỉ lưu risk score
-            // \Log::info("⚠️ Order #{$order->id} needs manual approval (risk score: {$riskScore})");
+            $order->status = $order->status ?? 'pending';
+            $order->save();
         }
     }
 
