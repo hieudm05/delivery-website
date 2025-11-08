@@ -9,7 +9,7 @@
             <div class="card">
                 <div class="card-header pb-0">
                     <div class="d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">✅ Xác nhận giao hàng thành công</h5>
+                        <h5 class="mb-0">Xác nhận giao hàng thành công</h5>
                         <a href="{{ route('driver.delivery.index') }}" class="btn btn-sm btn-secondary">
                             <i class="fas fa-arrow-left"></i> Quay lại
                         </a>
@@ -121,9 +121,9 @@
                             @enderror
                         </div>
 
-                        <!-- Submit -->
+                        <!-- Submit Buttons -->
                         <div class="d-grid gap-2">
-                            <button type="submit" class="btn btn-success btn-lg" id="submitBtn" disabled>
+                            <button type="button" class="btn btn-success btn-lg" id="submitBtn" onclick="confirmDelivery('deliveryForm')" disabled>
                                 <i class="fas fa-check-circle"></i> Xác nhận giao hàng thành công
                             </button>
                             <a href="{{ route('driver.delivery.failure.form', $order->id) }}" class="btn btn-danger btn-lg">
@@ -144,11 +144,17 @@ function getLocation() {
     const submitBtn = document.getElementById('submitBtn');
     
     if (!navigator.geolocation) {
-        alert('Trình duyệt không hỗ trợ định vị!');
+        Swal.fire({
+            icon: 'error',
+            title: 'Lỗi GPS',
+            text: 'Trình duyệt không hỗ trợ định vị!',
+            confirmButtonColor: '#dc3545'
+        });
         return;
     }
     
     status.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang lấy vị trí...';
+    submitBtn.disabled = true;
     
     navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -158,8 +164,28 @@ function getLocation() {
             submitBtn.disabled = false;
         },
         (error) => {
-            status.innerHTML = '<i class="fas fa-exclamation-circle text-danger"></i> Không thể lấy vị trí: ' + error.message;
-            alert('Vui lòng bật GPS và cho phép truy cập vị trí!');
+            status.innerHTML = '<i class="fas fa-exclamation-circle text-danger"></i> Không thể lấy vị trí';
+            submitBtn.disabled = true;
+            
+            let errorMessage = 'Không thể lấy vị trí GPS';
+            switch(error.code) {
+                case error.PERMISSION_DENIED:
+                    errorMessage = 'Vui lòng cho phép truy cập vị trí trong cài đặt trình duyệt';
+                    break;
+                case error.POSITION_UNAVAILABLE:
+                    errorMessage = 'Thông tin vị trí không khả dụng';
+                    break;
+                case error.TIMEOUT:
+                    errorMessage = 'Hết thời gian chờ lấy vị trí';
+                    break;
+            }
+            
+            Swal.fire({
+                icon: 'error',
+                title: 'Lỗi GPS',
+                html: errorMessage + '<br><br><small>Vui lòng:</small><ul style="text-align: left;"><li>Bật GPS trên thiết bị</li><li>Cho phép truy cập vị trí</li><li>Thử lại</li></ul>',
+                confirmButtonColor: '#dc3545'
+            });
         },
         {
             enableHighAccuracy: true,
@@ -173,7 +199,12 @@ function getLocation() {
 let imageCount = 1;
 function addImageField() {
     if (imageCount >= 5) {
-        alert('Tối đa 5 ảnh!');
+        Swal.fire({
+            icon: 'warning',
+            title: 'Giới hạn ảnh',
+            text: 'Tối đa 5 ảnh!',
+            confirmButtonColor: '#ffc107'
+        });
         return;
     }
     
@@ -193,7 +224,7 @@ function addImageField() {
                     </select>
                 </div>
                 <div class="col-md-2">
-                    <button type="button" class="btn btn-danger" onclick="this.closest('.image-upload-item').remove(); imageCount--;">
+                    <button type="button" class="btn btn-danger" onclick="removeImageField(this)">
                         <i class="fas fa-trash"></i>
                     </button>
                 </div>
@@ -203,11 +234,25 @@ function addImageField() {
     `;
     container.insertAdjacentHTML('beforeend', newField);
     imageCount++;
+    
+    showToast('Đã thêm trường ảnh mới', 'info');
+}
+
+function removeImageField(button) {
+    button.closest('.image-upload-item').remove();
+    imageCount--;
+    showToast('Đã xóa trường ảnh', 'info');
 }
 
 // Auto get location on page load
 window.onload = function() {
     getLocation();
 };
+
+// Prevent accidental form submission
+document.getElementById('deliveryForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    confirmDelivery('deliveryForm');
+});
 </script>
 @endsection
