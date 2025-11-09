@@ -3,6 +3,7 @@
 
 <head>
  @include('customer.dashboard.blocks.head')
+  @stack('styles')
 </head>
 
 <body class="g-sidenav-show  bg-gray-100">
@@ -91,6 +92,7 @@
       </div>
     </div>
   </div>
+  @stack('scripts')
   @include('customer.dashboard.blocks.js')
   @include('customer.dashboard.blocks.alert')
 </body>

@@ -38,7 +38,12 @@ return [
         'api_key' => env('GEOAPIFY_API_KEY'),
     ],
     'goong' => [
-    'api_key' => env('GOONG_API_KEY'),
-],
+        'api_key' => env('GOONG_API_KEY'),
+        'map_tile_url' => 'https://tiles.goong.io/assets/goong_map_web.json',
+        'api_url' => 'https://rsapi.goong.io',
+    ],
+    'goong_map' => [
+        'api_key' => env('GOONG_API_KEY_MAP')
+    ]
 
 ];
