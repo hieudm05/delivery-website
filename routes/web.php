@@ -180,16 +180,25 @@ Route::prefix('customer')
         Route::get('/addresses/list', [OrderController::class, 'list'])->name('addresses.list');
     });
     // Quản lý đơn hàng
-    Route::prefix('orderManagent')
-    ->name('orderManagent.')
-    ->group( function () {
-        Route::get('/',[OrderManagentController::class, 'index'])->name('index');
-        Route::get('show/{id}',[OrderManagentController::class, 'show'])->name('show');
-        Route::get('edit/{id}',[OrderManagentController::class, 'edit'])->name('edit');
-        Route::get('destroy/{id}',[OrderManagentController::class, 'destroy'])->name('destroy');
-        Route::patch('/{id}/cancel', [OrderManagentController::class, 'cancel'])->name('cancel');
-        Route::get('/{id}/delivery-images', [OrderManagentController::class, 'getDeliveryImages'])->name('delivery-images');
-    });
+     Route::prefix('orderManagent')
+        ->name('orderManagent.')
+        ->group(function () {
+            // Danh sách và CRUD
+            Route::get('/', [OrderManagentController::class, 'index'])->name('index');
+            Route::get('/{id}', [OrderManagentController::class, 'show'])->name('show');
+            Route::get('/{id}/edit', [OrderManagentController::class, 'edit'])->name('edit');
+            Route::put('/{id}', [OrderManagentController::class, 'update'])->name('update');
+            Route::delete('/{id}', [OrderManagentController::class, 'destroy'])->name('destroy');
+            Route::patch('/{id}/cancel', [OrderManagentController::class, 'cancel'])->name('cancel');
+            
+            // ✅ API routes - Đặt TRƯỚC các route động {id}
+            Route::get('/{id}/delivery-images', [OrderManagentController::class, 'getDeliveryImages'])
+                ->name('delivery-images');
+            Route::get('/{id}/location', [OrderManagentController::class, 'getOrderLocation'])
+                ->name('location');
+            Route::get('/{id}/tracking-updates', [OrderManagentController::class, 'getTrackingUpdates'])
+                ->name('tracking.updates');
+        });
     });
     // PUBLIC TRACKING ROUTES - Không cần auth
     Route::get('/tracking/{order_id}', [DriverTrackingController::class, 'trackingMap'])

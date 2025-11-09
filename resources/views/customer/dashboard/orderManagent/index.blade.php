@@ -40,7 +40,7 @@
                 <li class="nav-item mb-2">
                     <button class="nav-link {{ request('status', 'all') === 'all' ? 'active' : '' }}" 
                             data-status="all">
-                        Tất cả <span class="badge bg-secondary ms-1">{{ array_sum($statusCounts) }}</span>
+                        Tất cả <span class="badge bg-secondary ms-1">{{ array_sum(array_diff_key($statusCounts, ['failed' => 0])) }}</span>
                     </button>
                 </li>
                 <li class="nav-item mb-2">
@@ -83,6 +83,12 @@
                     <button class="nav-link {{ request('status') === 'delivered' ? 'active' : '' }}" 
                             data-status="delivered">
                         Đã giao <span class="badge bg-success ms-1">{{ $statusCounts['delivered'] }}</span>
+                    </button>
+                </li>
+                <li class="nav-item mb-2">
+                    <button class="nav-link {{ request('status') === 'failed' ? 'active' : '' }}" 
+                            data-status="failed">
+                        Giao thất bại <span class="badge bg-danger ms-1">{{ $statusCounts['failed'] }}</span>
                     </button>
                 </li>
                 <li class="nav-item mb-2">
@@ -232,7 +238,6 @@ function loadOrders(params = {}, url = null) {
 @if(session('success'))
 <script>
     $(document).ready(function() {
-        // Toast notification đẹp hơn
         const toast = `
             <div class="position-fixed top-0 end-0 p-3" style="z-index: 9999">
                 <div class="toast show" role="alert">

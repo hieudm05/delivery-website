@@ -554,9 +554,6 @@
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
   const GOONG_API_KEY = '{{ config("services.goong.api_key") }}';
-  console.log(GOONG_API_KEY, '🔑 Goong API Key loaded');
-  
-
 let vietnamData = [];
 let recipientsList = [];
 let currentRecipientIndex = 0;
