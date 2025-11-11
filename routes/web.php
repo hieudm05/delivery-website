@@ -15,6 +15,7 @@ use App\Http\Controllers\Drivers\CodPaymentController;
 use App\Http\Controllers\Drivers\DriverController;
 use App\Http\Controllers\Drivers\PickupController;
 use App\Http\Controllers\Hub\HubController;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
 // Trang chủ
@@ -22,6 +23,12 @@ Route::get('/', function () {
     return view('customer.index');
 })->name('home');
 
+Route::post('/ping', function () {
+    if (Auth::check()) {
+        Auth::user()->update(['last_seen_at' => now()]);
+    }
+    return response()->noContent();
+})->middleware('auth')->name('ping');
 // Auth
 Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
 Route::post('/login', [AuthController::class, 'login']);

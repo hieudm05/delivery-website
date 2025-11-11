@@ -25,6 +25,7 @@ class User extends Authenticatable
         'status',
         'avatar_url',
         'last_login_at',
+        'last_seen_at'
     ];
 
     /**
@@ -59,5 +60,8 @@ class User extends Authenticatable
     public function userInfo() {
         return $this->hasOne(UserInfo::class);
     }
-    
+    public function isOnline()
+    {
+        return $this->last_seen_at && $this->last_seen_at->gt(now()->subSeconds(90));
+    }
 }
