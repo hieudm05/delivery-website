@@ -14,6 +14,7 @@ use App\Http\Controllers\Drivers\DriverTrackingController;
 use App\Http\Controllers\Drivers\CodPaymentController;
 use App\Http\Controllers\Drivers\DriverController;
 use App\Http\Controllers\Drivers\PickupController;
+use App\Http\Controllers\Hub\HubController;
 use Illuminate\Support\Facades\Route;
 
 // Trang chủ
@@ -191,7 +192,7 @@ Route::prefix('customer')
             Route::delete('/{id}', [OrderManagentController::class, 'destroy'])->name('destroy');
             Route::patch('/{id}/cancel', [OrderManagentController::class, 'cancel'])->name('cancel');
             
-            // ✅ API routes - Đặt TRƯỚC các route động {id}
+            //API routes - Đặt TRƯỚC các route động {id}
             Route::get('/{id}/delivery-images', [OrderManagentController::class, 'getDeliveryImages'])
                 ->name('delivery-images');
             Route::get('/{id}/location', [OrderManagentController::class, 'getOrderLocation'])
@@ -200,6 +201,15 @@ Route::prefix('customer')
                 ->name('tracking.updates');
         });
     });
+
+// Hub
+Route::prefix('hub')
+    ->name('hub.')
+    ->middleware(['auth','role:hub'])
+    ->group(function() {
+        Route::get('/',[HubController::class,'index'])->name('index');
+    });
+
     // PUBLIC TRACKING ROUTES - Không cần auth
     Route::get('/tracking/{order_id}', [DriverTrackingController::class, 'trackingMap'])
     ->name('tracking.map');
