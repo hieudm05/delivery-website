@@ -4,6 +4,7 @@ namespace App\Models\Customer\Dashboard\Orders;
 use App\Models\Driver\Orders\OrderDelivery;
 use App\Models\Driver\Orders\OrderDeliveryImage;
 use App\Models\Driver\Orders\OrderDeliveryIssue;
+use App\Models\Hub\Hub;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -665,187 +666,200 @@ class Order extends Model
         return $this->deliveryIssues()->latest('issue_time')->first();
     }
     public function getTrackingTimeline()
-    {
-        $timeline = [];
+{
+    $timeline = [];
 
-        // 1. ✅ Thời điểm tạo đơn
+    // 1. Thời điểm tạo đơn
+    $timeline[] = [
+        'time' => $this->created_at,
+        'status' => 'pending',
+        'status_label' => 'Đơn hàng đã được tạo',
+        'lat' => $this->sender_latitude ? (float) $this->sender_latitude : null,
+        'lng' => $this->sender_longitude ? (float) $this->sender_longitude : null,
+        'address' => $this->sender_address,
+        'note' => 'Đơn hàng mới được tạo',
+        'icon' => 'plus-circle',
+        'color' => '#6c757d',
+        'type' => 'created',
+    ];
+
+    // 2. Thời điểm xác nhận (nếu có approved_at)
+    if ($this->approved_at && $this->status !== self::STATUS_PENDING) {
         $timeline[] = [
-            'time' => $this->created_at,
-            'status' => 'pending',
-            'status_label' => 'Đơn hàng đã được tạo',
+            'time' => $this->approved_at,
+            'status' => 'confirmed',
+            'status_label' => 'Đơn hàng đã được xác nhận',
             'lat' => $this->sender_latitude ? (float) $this->sender_latitude : null,
             'lng' => $this->sender_longitude ? (float) $this->sender_longitude : null,
             'address' => $this->sender_address,
-            'note' => 'Đơn hàng mới được tạo',
-            'icon' => 'plus-circle',
-            'color' => '#6c757d',
-            'type' => 'created',
+            'note' => $this->auto_approved ? 'Tự động duyệt' : 'Duyệt thủ công',
+            'icon' => 'check-circle',
+            'color' => '#0d6efd',
+            'type' => 'confirmed',
         ];
-
-        // 2. ✅ Thời điểm xác nhận (nếu có approved_at)
-        if ($this->approved_at && $this->status !== self::STATUS_PENDING) {
-            $timeline[] = [
-                'time' => $this->approved_at,
-                'status' => 'confirmed',
-                'status_label' => 'Đơn hàng đã được xác nhận',
-                'lat' => $this->sender_latitude ? (float) $this->sender_latitude : null,
-                'lng' => $this->sender_longitude ? (float) $this->sender_longitude : null,
-                'address' => $this->sender_address,
-                'note' => $this->auto_approved ? 'Tự động duyệt' : 'Duyệt thủ công',
-                'icon' => 'check-circle',
-                'color' => '#0d6efd',
-                'type' => 'confirmed',
-            ];
-        }
-
-        // 3. ✅ Thời điểm bắt đầu lấy hàng
-        if ($this->actual_pickup_start_time) {
-            $timeline[] = [
-                'time' => $this->actual_pickup_start_time,
-                'status' => 'picking_up',
-                'status_label' => 'Tài xế bắt đầu lấy hàng',
-                'lat' => $this->pickup_latitude ? (float) $this->pickup_latitude : ($this->sender_latitude ? (float) $this->sender_latitude : null),
-                'lng' => $this->pickup_longitude ? (float) $this->pickup_longitude : ($this->sender_longitude ? (float) $this->sender_longitude : null),
-                'address' => $this->sender_address,
-                'note' => 'Tài xế đang trên đường đến lấy hàng',
-                'icon' => 'box-arrow-up',
-                'color' => '#fd7e14',
-                'type' => 'pickup_start',
-            ];
-        }
-
-        // 4. ✅ Thời điểm lấy hàng thành công
-        if ($this->actual_pickup_time) {
-            $timeline[] = [
-                'time' => $this->actual_pickup_time,
-                'status' => 'picked_up',
-                'status_label' => 'Đã lấy hàng thành công',
-                'lat' => $this->pickup_latitude ? (float) $this->pickup_latitude : null,
-                'lng' => $this->pickup_longitude ? (float) $this->pickup_longitude : null,
-                'address' => $this->sender_address,
-                'note' => $this->pickup_note ?: 'Lấy hàng thành công',
-                'icon' => 'box-seam',
-                'color' => '#20c997',
-                'type' => 'picked_up',
-                'details' => [
-                    'packages' => $this->actual_packages,
-                    'weight' => $this->actual_weight,
-                ]
-            ];
-        }
-
-        // 5. ✅ Sự cố lấy hàng (nếu có)
-        if ($this->pickup_issue_time) {
-            $timeline[] = [
-                'time' => $this->pickup_issue_time,
-                'status' => 'issue',
-                'status_label' => 'Sự cố khi lấy hàng',
-                'lat' => $this->pickup_latitude ? (float) $this->pickup_latitude : null,
-                'lng' => $this->pickup_longitude ? (float) $this->pickup_longitude : null,
-                'address' => $this->sender_address,
-                'note' => $this->pickup_issue_note,
-                'icon' => 'exclamation-triangle',
-                'color' => '#dc3545',
-                'type' => 'pickup_issue',
-                'issue_type' => $this->pickup_issue_type,
-            ];
-        }
-
-        // 6. ✅ Thời điểm chuyển về hub
-        if ($this->hub_transfer_time) {
-            $timeline[] = [
-                'time' => $this->hub_transfer_time,
-                'status' => 'at_hub',
-                'status_label' => 'Đã về bưu cục',
-                'lat' => null, // Có thể thêm tọa độ hub nếu có
-                'lng' => null,
-                'address' => 'Bưu cục trung tâm',
-                'note' => $this->hub_transfer_note ?: 'Hàng đã về bưu cục',
-                'icon' => 'building',
-                'color' => '#6f42c1',
-                'type' => 'at_hub',
-            ];
-        }
-
-        // 7. ✅ Thời điểm bắt đầu giao hàng
-        if ($this->delivery && $this->delivery->actual_delivery_start_time) {
-            $timeline[] = [
-                'time' => $this->delivery->actual_delivery_start_time,
-                'status' => 'shipping',
-                'status_label' => 'Tài xế bắt đầu giao hàng',
-                'lat' => $this->delivery->delivery_latitude ? (float) $this->delivery->delivery_latitude : null,
-                'lng' => $this->delivery->delivery_longitude ? (float) $this->delivery->delivery_longitude : null,
-                'address' => $this->recipient_full_address,
-                'note' => 'Đang trên đường giao hàng',
-                'icon' => 'truck',
-                'color' => '#0dcaf0',
-                'type' => 'delivery_start',
-            ];
-        }
-
-        // 8. ✅ Các sự cố giao hàng (nếu có)
-        foreach ($this->deliveryIssues as $issue) {
-            $timeline[] = [
-                'time' => $issue->issue_time,
-                'status' => 'issue',
-                'status_label' => 'Sự cố giao hàng',
-                'lat' => $issue->issue_latitude ? (float) $issue->issue_latitude : null,
-                'lng' => $issue->issue_longitude ? (float) $issue->issue_longitude : null,
-                'address' => $this->recipient_full_address,
-                'note' => $issue->issue_note,
-                'icon' => 'exclamation-triangle-fill',
-                'color' => '#dc3545',
-                'type' => 'delivery_issue',
-                'issue_type' => $issue->issue_type,
-                'reporter' => $issue->reporter?->name,
-            ];
-        }
-
-        // 9. ✅ Thời điểm giao hàng thành công
-        if ($this->delivery && $this->delivery->actual_delivery_time) {
-            $timeline[] = [
-                'time' => $this->delivery->actual_delivery_time,
-                'status' => 'delivered',
-                'status_label' => 'Giao hàng thành công',
-                'lat' => $this->delivery->delivery_latitude ? (float) $this->delivery->delivery_latitude : null,
-                'lng' => $this->delivery->delivery_longitude ? (float) $this->delivery->delivery_longitude : null,
-                'address' => $this->delivery->delivery_address ?: $this->recipient_full_address,
-                'note' => $this->delivery->delivery_note ?: 'Giao hàng thành công',
-                'icon' => 'check-circle-fill',
-                'color' => '#198754',
-                'type' => 'delivered',
-                'details' => [
-                    'received_by' => $this->delivery->received_by_name,
-                    'relation' => $this->delivery->received_by_relation,
-                    'phone' => $this->delivery->received_by_phone,
-                    'cod_collected' => $this->delivery->cod_collected_amount,
-                ]
-            ];
-        }
-
-        // 10. ✅ Thời điểm hủy đơn (nếu bị hủy)
-        if ($this->status === self::STATUS_CANCELLED) {
-            $timeline[] = [
-                'time' => $this->updated_at, // Hoặc có thể thêm cancelled_at field
-                'status' => 'cancelled',
-                'status_label' => 'Đơn hàng đã bị hủy',
-                'lat' => null,
-                'lng' => null,
-                'address' => null,
-                'note' => $this->approval_note ?: 'Đơn hàng đã bị hủy',
-                'icon' => 'x-circle',
-                'color' => '#dc3545',
-                'type' => 'cancelled',
-            ];
-        }
-
-        // Sắp xếp timeline theo thời gian
-        usort($timeline, function ($a, $b) {
-            return $a['time']->timestamp <=> $b['time']->timestamp;
-        });
-
-        return $timeline;
     }
+
+    // 3. Thời điểm bắt đầu lấy hàng
+    if ($this->actual_pickup_start_time) {
+        $timeline[] = [
+            'time' => $this->actual_pickup_start_time,
+            'status' => 'picking_up',
+            'status_label' => 'Tài xế bắt đầu lấy hàng',
+            'lat' => $this->sender_latitude ? (float) $this->sender_latitude : null,
+            'lng' => $this->sender_longitude ? (float) $this->sender_longitude : null,
+            'address' => $this->sender_address,
+            'note' => 'Tài xế đang trên đường đến lấy hàng',
+            'icon' => 'box-arrow-up',
+            'color' => '#fd7e14',
+            'type' => 'pickup_start',
+        ];
+    }
+
+    // 4. Thời điểm lấy hàng thành công - DÙNG TỌA ĐỘ THỰC TẾ
+    if ($this->actual_pickup_time) {
+        $timeline[] = [
+            'time' => $this->actual_pickup_time,
+            'status' => 'picked_up',
+            'status_label' => 'Đã lấy hàng thành công',
+            'lat' => $this->pickup_latitude ? (float) $this->pickup_latitude : null,
+            'lng' => $this->pickup_longitude ? (float) $this->pickup_longitude : null,
+            'address' => $this->sender_address,
+            'note' => $this->pickup_note ?: 'Lấy hàng thành công',
+            'icon' => 'box-seam',
+            'color' => '#20c997',
+            'type' => 'picked_up',
+            'details' => [
+                'packages' => $this->actual_packages,
+                'weight' => $this->actual_weight,
+            ]
+        ];
+    }
+
+    // 5. Sự cố lấy hàng (nếu có)
+    if ($this->pickup_issue_time) {
+        $timeline[] = [
+            'time' => $this->pickup_issue_time,
+            'status' => 'issue',
+            'status_label' => 'Sự cố khi lấy hàng',
+            'lat' => $this->pickup_latitude ? (float) $this->pickup_latitude : null,
+            'lng' => $this->pickup_longitude ? (float) $this->pickup_longitude : null,
+            'address' => $this->sender_address,
+            'note' => $this->pickup_issue_note,
+            'icon' => 'exclamation-triangle',
+            'color' => '#dc3545',
+            'type' => 'pickup_issue',
+            'issue_type' => $this->pickup_issue_type,
+        ];
+    }
+
+    // 6. Thời điểm chuyển về hub - DÙNG TỌA ĐỘ HUB TỪ post_office_id
+    if ($this->hub_transfer_time && $this->post_office_id) {
+        // Lấy thông tin Hub từ post_office_id trong bảng orders
+       $hub = Hub::where('post_office_id', $this->post_office_id)->first();
+        
+        $hubLat = null;
+        $hubLng = null;
+        $hubAddress = 'Bưu cục trung tâm';
+        
+        if ($hub) {
+            $hubLat = $hub->hub_latitude ? (float) $hub->hub_latitude : null;
+            $hubLng = $hub->hub_longitude ? (float) $hub->hub_longitude : null;
+            $hubAddress = $hub->hub_address ?? $hub->name ?? 'Bưu cục trung tâm';
+        }
+        
+        $timeline[] = [
+            'time' => $this->hub_transfer_time,
+            'status' => 'at_hub',
+            'status_label' => 'Đã về bưu cục',
+            'lat' => $hubLat,
+            'lng' => $hubLng,
+            'address' => $hubAddress,
+            'note' => $this->hub_transfer_note ?: 'Hàng đã về bưu cục',
+            'icon' => 'building',
+            'color' => '#6f42c1',
+            'type' => 'at_hub',
+        ];
+    }
+
+    // 7. Thời điểm bắt đầu giao hàng
+    if ($this->delivery && $this->delivery->actual_delivery_start_time) {
+        $timeline[] = [
+            'time' => $this->delivery->actual_delivery_start_time,
+            'status' => 'shipping',
+            'status_label' => 'Tài xế bắt đầu giao hàng',
+            'lat' => $this->recipient_latitude ? (float) $this->recipient_latitude : null,
+            'lng' => $this->recipient_longitude ? (float) $this->recipient_longitude : null,
+            'address' => $this->recipient_full_address,
+            'note' => 'Đang trên đường giao hàng',
+            'icon' => 'truck',
+            'color' => '#0dcaf0',
+            'type' => 'delivery_start',
+        ];
+    }
+
+    // 8.Các sự cố giao hàng (nếu có)
+    foreach ($this->deliveryIssues as $issue) {
+        $timeline[] = [
+            'time' => $issue->issue_time,
+            'status' => 'issue',
+            'status_label' => 'Sự cố giao hàng',
+            'lat' => $issue->issue_latitude ? (float) $issue->issue_latitude : null,
+            'lng' => $issue->issue_longitude ? (float) $issue->issue_longitude : null,
+            'address' => $this->recipient_full_address,
+            'note' => $issue->issue_note,
+            'icon' => 'exclamation-triangle-fill',
+            'color' => '#dc3545',
+            'type' => 'delivery_issue',
+            'issue_type' => $issue->issue_type,
+            'reporter' => $issue->reporter?->name,
+        ];
+    }
+
+    // 9.Thời điểm giao hàng thành công - DÙNG TỌA ĐỘ THỰC TẾ
+    if ($this->delivery && $this->delivery->actual_delivery_time) {
+        $timeline[] = [
+            'time' => $this->delivery->actual_delivery_time,
+            'status' => 'delivered',
+            'status_label' => 'Giao hàng thành công',
+            'lat' => $this->delivery->delivery_latitude ? (float) $this->delivery->delivery_latitude : null,
+            'lng' => $this->delivery->delivery_longitude ? (float) $this->delivery->delivery_longitude : null,
+            'address' => $this->delivery->delivery_address ?: $this->recipient_full_address,
+            'note' => $this->delivery->delivery_note ?: 'Giao hàng thành công',
+            'icon' => 'check-circle-fill',
+            'color' => '#198754',
+            'type' => 'delivered',
+            'details' => [
+                'received_by' => $this->delivery->received_by_name,
+                'relation' => $this->delivery->received_by_relation,
+                'phone' => $this->delivery->received_by_phone,
+                'cod_collected' => $this->delivery->cod_collected_amount,
+            ]
+        ];
+    }
+
+    // 10.Thời điểm hủy đơn (nếu bị hủy)
+    if ($this->status === self::STATUS_CANCELLED) {
+        $timeline[] = [
+            'time' => $this->updated_at,
+            'status' => 'cancelled',
+            'status_label' => 'Đơn hàng đã bị hủy',
+            'lat' => null,
+            'lng' => null,
+            'address' => null,
+            'note' => $this->approval_note ?: 'Đơn hàng đã bị hủy',
+            'icon' => 'x-circle',
+            'color' => '#dc3545',
+            'type' => 'cancelled',
+        ];
+    }
+
+    // Sắp xếp timeline theo thời gian
+    usort($timeline, function ($a, $b) {
+        return $a['time']->timestamp <=> $b['time']->timestamp;
+    });
+
+    return $timeline;
+}
 
     /**
      * ✅ Lấy tracking points có tọa độ (để hiển thị trên map)

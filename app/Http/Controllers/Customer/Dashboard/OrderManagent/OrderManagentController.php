@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Customer\Dashboard\OrderManagent;
 
 use App\Http\Controllers\Controller;
 use App\Models\Customer\Dashboard\Orders\Order;
+use App\Models\Hub\Hub;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -347,84 +348,107 @@ class OrderManagentController extends Controller
     /**
      * ✅ Chuẩn bị dữ liệu map cho view
      */
-    private function prepareMapData($order)
-    {
-        $locations = [];
+   private function prepareMapData($order)
+{
+    $locations = [];
 
-        // Điểm lấy hàng
-        if ($order->sender_latitude && $order->sender_longitude) {
-            $locations['sender'] = [
-                'lat' => (float) $order->sender_latitude,
-                'lng' => (float) $order->sender_longitude,
-                'address' => $order->sender_address
+    // ✅ 1. Điểm lấy hàng - Ưu tiên tọa độ thực tế nếu đã lấy hàng
+    if ($order->actual_pickup_time && $order->pickup_latitude && $order->pickup_longitude) {
+        // Đã lấy hàng thành công -> dùng tọa độ thực tế
+        $locations['sender'] = [
+            'lat' => (float) $order->pickup_latitude,
+            'lng' => (float) $order->pickup_longitude,
+            'address' => $order->sender_address,
+            'is_actual' => true, // Đánh dấu đây là vị trí thực tế
+        ];
+    } elseif ($order->sender_latitude && $order->sender_longitude) {
+        // Chưa lấy hàng -> dùng tọa độ dự kiến
+        $locations['sender'] = [
+            'lat' => (float) $order->sender_latitude,
+            'lng' => (float) $order->sender_longitude,
+            'address' => $order->sender_address,
+            'is_actual' => false,
+        ];
+    }
+
+    // ✅ 2. Điểm giao hàng
+    if ($order->recipient_latitude && $order->recipient_longitude) {
+        $locations['recipient'] = [
+            'lat' => (float) $order->recipient_latitude,
+            'lng' => (float) $order->recipient_longitude,
+            'address' => $order->recipient_full_address
+        ];
+    }
+
+    // ✅ 3. Vị trí bưu cục (nếu đơn đang ở hub)
+    if ($order->status === Order::STATUS_AT_HUB && $order->post_office_id) {
+        // Lấy thông tin hub từ database
+        $hub = Hub::where('post_office_id', $order->post_office_id)->first();
+        if ($hub && $hub->hub_latitude && $hub->hub_longitude) {
+            $locations['hub'] = [
+                'lat' => (float) $hub->hub_latitude,
+                'lng' => (float) $hub->hub_longitude,
+                'address' => $hub->hub_address ?? 'Bưu cục trung tâm',
             ];
         }
+    }
 
-        // Điểm giao hàng
-        if ($order->recipient_latitude && $order->recipient_longitude) {
-            $locations['recipient'] = [
-                'lat' => (float) $order->recipient_latitude,
-                'lng' => (float) $order->recipient_longitude,
-                'address' => $order->recipient_full_address
+    // ✅ 4. Vị trí giao hàng thực tế
+    if ($order->delivery && $order->delivery->delivery_latitude && $order->delivery->delivery_longitude) {
+        $locations['actual_delivery'] = [
+            'lat' => (float) $order->delivery->delivery_latitude,
+            'lng' => (float) $order->delivery->delivery_longitude,
+            'address' => $order->delivery->delivery_address ?: $order->recipient_full_address,
+            'time' => $order->delivery->actual_delivery_time?->format('H:i d/m/Y')
+        ];
+    }
+
+    // ✅ 5. Vị trí sự cố
+    $issues = [];
+    foreach ($order->deliveryIssues as $issue) {
+        if ($issue->issue_latitude && $issue->issue_longitude) {
+            $issues[] = [
+                'lat' => (float) $issue->issue_latitude,
+                'lng' => (float) $issue->issue_longitude,
+                'type' => $issue->issue_type,
+                'note' => $issue->issue_note,
+                'time' => $issue->issue_time?->format('H:i d/m/Y')
             ];
         }
+    }
 
-        // Vị trí giao hàng thực tế
-        if ($order->delivery && $order->delivery->delivery_latitude) {
-            $locations['actual_delivery'] = [
-                'lat' => (float) $order->delivery->delivery_latitude,
-                'lng' => (float) $order->delivery->delivery_longitude,
-                'address' => $order->delivery->delivery_address,
-                'time' => $order->delivery->actual_delivery_time?->format('H:i d/m/Y')
-            ];
-        }
-
-        // Vị trí sự cố
-        $issues = [];
-        foreach ($order->deliveryIssues as $issue) {
-            if ($issue->issue_latitude && $issue->issue_longitude) {
-                $issues[] = [
-                    'lat' => (float) $issue->issue_latitude,
-                    'lng' => (float) $issue->issue_longitude,
-                    'type' => $issue->issue_type,
-                    'note' => $issue->issue_note,
-                    'time' => $issue->issue_time?->format('H:i d/m/Y')
+    // ✅ 6. Lấy tracking points
+    $trackingPoints = [];
+    if (method_exists($order, 'getTrackingTimeline')) {
+        $timeline = $order->getTrackingTimeline();
+        foreach ($timeline as $item) {
+            if (isset($item['lat']) && isset($item['lng']) && $item['lat'] && $item['lng']) {
+                $trackingPoints[] = [
+                    'lat' => (float) $item['lat'],
+                    'lng' => (float) $item['lng'],
+                    'status' => $item['status'] ?? '',
+                    'status_label' => $item['status_label'] ?? '',
+                    'address' => $item['address'] ?? '',
+                    'note' => $item['note'] ?? '',
+                    'time' => $item['time']->format('H:i d/m/Y'),
+                    'timestamp' => $item['time']->timestamp,
+                    'icon' => $item['icon'] ?? 'circle',
+                    'color' => $item['color'] ?? '#6c757d',
+                    'type' => $item['type'] ?? 'tracking'
                 ];
             }
         }
-
-        // ✅ Lấy tracking points
-        $trackingPoints = [];
-        if (method_exists($order, 'getTrackingTimeline')) {
-            $timeline = $order->getTrackingTimeline();
-            foreach ($timeline as $item) {
-                if (isset($item['lat']) && isset($item['lng']) && $item['lat'] && $item['lng']) {
-                    $trackingPoints[] = [
-                        'lat' => (float) $item['lat'],
-                        'lng' => (float) $item['lng'],
-                        'status' => $item['status'] ?? '',
-                        'status_label' => $item['status_label'] ?? '',
-                        'address' => $item['address'] ?? '',
-                        'note' => $item['note'] ?? '',
-                        'time' => $item['time']->format('H:i d/m/Y'),
-                        'timestamp' => $item['time']->timestamp,
-                        'icon' => $item['icon'] ?? 'circle',
-                        'color' => $item['color'] ?? '#6c757d',
-                        'type' => $item['type'] ?? 'tracking'
-                    ];
-                }
-            }
-        }
-
-        return [
-            'locations' => $locations,
-            'issues' => $issues,
-            'tracking_points' => $trackingPoints,
-            'has_locations' => count($locations) > 0,
-            'is_in_transit' => method_exists($order, 'isInTransit') ? $order->isInTransit() : false,
-            'last_update' => now()->timestamp
-        ];
     }
+
+    return [
+        'locations' => $locations,
+        'issues' => $issues,
+        'tracking_points' => $trackingPoints,
+        'has_locations' => count($locations) > 0,
+        'is_in_transit' => method_exists($order, 'isInTransit') ? $order->isInTransit() : false,
+        'last_update' => now()->timestamp
+    ];
+}
 
     /**
      * ✅ Đếm số lượng đơn hàng theo trạng thái
