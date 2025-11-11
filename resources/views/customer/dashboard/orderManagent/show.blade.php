@@ -208,11 +208,11 @@
                         <span>
                             <i class="bi bi-map-fill me-2"></i>Theo dõi hành trình
                         </span>
-                        {{-- @if($mapData['is_in_transit'])
+                        @if($mapData['is_in_transit'])
                             <span class="badge bg-success">
                                 <i class="bi bi-arrow-clockwise spinning"></i> Cập nhật mỗi 30s
                             </span>
-                        @endif --}}
+                        @endif
                     </h6>
                     <div id="orderMap" style="height: 400px; border-radius: 12px; overflow: hidden; background: #f0f0f0;"></div>
                     <div class="mt-3 d-flex gap-3 flex-wrap">
@@ -224,12 +224,18 @@
                             <div class="rounded-circle bg-success" style="width: 12px; height: 12px;"></div>
                             <small class="ms-2">Điểm giao hàng</small>
                         </div>
-                        {{-- @if(count($mapData['tracking_points']) > 0)
+                         @if(isset($mapData['locations']['hub']))
+                            <div class="d-flex align-items-center">
+                                <div class="rounded-circle" style="width: 12px; height: 12px; background-color: #6f42c1;"></div>
+                                <small class="ms-2">Bưu cục</small>
+                            </div>
+                        @endif
+                        @if(count($mapData['tracking_points']) > 0)
                         <div class="d-flex align-items-center">
                             <div class="rounded-circle bg-secondary" style="width: 12px; height: 12px;"></div>
                             <small class="ms-2">Lịch sử di chuyển ({{ count($mapData['tracking_points']) }} điểm)</small>
                         </div>
-                        @endif --}}
+                        @endif
                         @if(isset($mapData['locations']['actual_delivery']))
                         <div class="d-flex align-items-center">
                             <div class="rounded-circle bg-info" style="width: 12px; height: 12px;"></div>
@@ -399,7 +405,7 @@
                     <div class="row g-3">
                         <div class="col-md-6">
                             <small class="text-muted d-block mb-1">Tài xế giao hàng</small>
-                            <strong>{{ $order->delivery->driver->name ?? 'N/A' }}</strong>
+                            <strong>{{ $order->delivery->driver->full_name ?? 'N/A' }}</strong>
                         </div>
                         <div class="col-md-6">
                             <small class="text-muted d-block mb-1">Thời gian giao</small>
@@ -582,7 +588,7 @@
                     </div>
 
                     <div class="mb-3">
-                        <small class="text-muted d-block mb-1">Thời gian lấy hàng</small>
+                        <small class="text-muted d-block mb-1">Thời gian lấy hàng dự kiến</small>
                         <strong>
                             <i class="bi bi-clock-fill text-primary me-1"></i>
                             {{ $order->pickup_time?->format('H:i d/m/Y') ?? '—' }}
@@ -590,7 +596,7 @@
                     </div>
 
                     <div class="mb-3">
-                        <small class="text-muted d-block mb-1">Thời gian giao hàng</small>
+                        <small class="text-muted d-block mb-1">Thời gian giao hàng dự kiến</small>
                         <strong>
                             <i class="bi bi-clock-fill text-success me-1"></i>
                             {{ $order->delivery_time?->format('H:i d/m/Y') ?? '—' }}
@@ -821,8 +827,19 @@ function renderMapData(mapData) {
             bounds
         );
     }
+
+      if (mapData.locations.hub) {
+        addMarker(
+            mapData.locations.hub,
+            '#6f42c1',
+            `<h6 class="mb-2"><i class="bi bi-building text-purple"></i> ${mapData.locations.hub.name || 'Bưu cục'}</h6>
+             <p class="mb-0 small">${mapData.locations.hub.address}</p>
+             <span class="badge bg-purple mt-2">Đang ở bưu cục</span>`,
+            bounds
+        );
+    }
     
-    // 3. ✅ Tracking points (lịch sử di chuyển)
+    // 3.Tracking points (lịch sử di chuyển)
     if (mapData.tracking_points && mapData.tracking_points.length > 0) {
         mapData.tracking_points.forEach((point, index) => {
             addMarker(
