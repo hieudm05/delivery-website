@@ -88,6 +88,8 @@ class AuthController extends Controller
             return redirect()->route('admin.index')->with('success', 'Xin chào Admin!');
         case 'driver':
             return redirect()->route('driver.index')->with('success', 'Xin chào Tài xế!');
+        case 'hub':
+            return redirect()->route('hub.index')->with('success', 'Xin chào Admin Hub!');
         case 'customer':
         default:
             return redirect()->route('home')->with('success', 'Đăng nhập thành công!');
