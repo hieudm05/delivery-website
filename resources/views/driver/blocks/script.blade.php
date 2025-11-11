@@ -1,5 +1,20 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
   <script>
+    // Chỉ gửi ping nếu trang có CSRF token (tức là user đang login)
+    setInterval(() => {
+        fetch("{{ route('ping') }}", {
+            method: "POST",
+            headers: {
+                "X-CSRF-TOKEN": "{{ csrf_token() }}",
+                "Content-Type": "application/json"
+            },
+        })
+        .then(() => console.log('Ping sent at ' + new Date().toLocaleTimeString()))
+        .catch(error => console.error('Ping error:', error));
+    }, 30000); // 30 giây ping một lần
+</script>
+
+  <script>
     const toggleBtn = document.getElementById('toggleSidebar');
     const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('sidebarOverlay');
