@@ -310,7 +310,7 @@ private function createGroupOrder($orderGroup, $request, $recipientData)
         'sender_address' => $request->sender_address,
         'sender_latitude' => $request->sender_latitude,
         'sender_longitude' => $request->sender_longitude,
-        'post_office_id' => $request->post_office_id,
+        'post_office_id' => $request->post_office_id ?? 11564316606,
         'pickup_time' => $request->pickup_time_formatted,
         
         'recipient_name' => $recipientData['recipient_name'],

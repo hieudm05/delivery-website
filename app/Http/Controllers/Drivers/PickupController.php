@@ -127,7 +127,7 @@ class PickupController extends Controller
                 'pickup_note' => $request->note,
                 'pickup_latitude' => $request->pickup_latitude,
                 'pickup_longitude' => $request->pickup_longitude,
-                'driver_id' => Auth::id(), // ID của shipper
+                'pickup_driver_id' => Auth::id(), // ID của người lấy hàng
             ]);
 
             // Lưu ảnh lấy hàng
@@ -302,7 +302,7 @@ class PickupController extends Controller
      */
     public function pickedOrders()
     {
-        $orders = Order::where('driver_id', Auth::id())
+        $orders = Order::where('pickup_driver_id', Auth::id())
             ->where('status', 'picked_up')
             ->whereDate('actual_pickup_time', today())
             ->with('products')

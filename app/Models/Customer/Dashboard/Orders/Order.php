@@ -68,6 +68,7 @@ class Order extends Model
         'save_address',
         'status',
         'driver_id',
+        'pickup_driver_id',
         'actual_pickup_start_time',
         'actual_pickup_time',
         'actual_packages',

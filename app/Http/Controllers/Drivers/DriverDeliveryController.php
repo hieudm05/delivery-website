@@ -10,6 +10,7 @@ use App\Models\Driver\Orders\OrderDeliveryIssue;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Auth;
 
 class DriverDeliveryController extends Controller
 {
@@ -53,7 +54,10 @@ class DriverDeliveryController extends Controller
             'delivery.issues',
             'delivery.driver'
         ])->findOrFail($id);
-
+        
+        if($order->pickup_driver_id === Auth::id()){
+            return redirect()->route('driver.delivery.index')->with('error',"Bạn không có quyền truy cập trang này");
+        }
         // Kiểm tra trạng thái
         if (!in_array($order->status, [Order::STATUS_AT_HUB, Order::STATUS_SHIPPING])) {
             return redirect()->route('driver.delivery.index')
