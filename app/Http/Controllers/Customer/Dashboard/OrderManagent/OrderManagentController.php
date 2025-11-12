@@ -7,6 +7,8 @@ use App\Models\Customer\Dashboard\Orders\Order;
 use App\Models\Hub\Hub;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class OrderManagentController extends Controller
@@ -355,10 +357,15 @@ class OrderManagentController extends Controller
     // ✅ 1. Điểm lấy hàng - Ưu tiên tọa độ thực tế nếu đã lấy hàng
     if ($order->actual_pickup_time && $order->pickup_latitude && $order->pickup_longitude) {
         // Đã lấy hàng thành công -> dùng tọa độ thực tế
+        $pickupAddress = $this->getAddressFromCoordinates(
+            $order->pickup_latitude, 
+            $order->pickup_longitude
+        ) ?? 'Vị trí lấy hàng thực tế';
+        
         $locations['sender'] = [
             'lat' => (float) $order->pickup_latitude,
             'lng' => (float) $order->pickup_longitude,
-            'address' => $order->sender_address,
+            'address' => $pickupAddress,
             'is_actual' => true, // Đánh dấu đây là vị trí thực tế
         ];
     } elseif ($order->sender_latitude && $order->sender_longitude) {
@@ -366,7 +373,7 @@ class OrderManagentController extends Controller
         $locations['sender'] = [
             'lat' => (float) $order->sender_latitude,
             'lng' => (float) $order->sender_longitude,
-            'address' => $order->sender_address,
+            'address' =>  'Điểm lấy hàng dự kiến',
             'is_actual' => false,
         ];
     }
@@ -449,6 +456,7 @@ class OrderManagentController extends Controller
         'last_update' => now()->timestamp
     ];
 }
+
 
     /**
      * ✅ Đếm số lượng đơn hàng theo trạng thái
@@ -535,4 +543,58 @@ class OrderManagentController extends Controller
             ], 500);
         }
     }
+
+     private function getAddressFromCoordinates($latitude, $longitude)
+    {
+        try {
+            $apiKey = env('GOONG_API_KEY');
+            
+            if (!$apiKey) {
+                Log::warning('Goong API key not configured for reverse geocoding');
+                return null;
+            }
+            
+            // Cache key để tránh gọi API nhiều lần cho cùng tọa độ
+            $cacheKey = "geocode_{$latitude}_{$longitude}";
+            
+            // Kiểm tra cache trước (cache 24h)
+            if (Cache::has($cacheKey)) {
+                return Cache::get($cacheKey);
+            }
+            
+            // Gọi Goong Reverse Geocoding API
+            $url = "https://rsapi.goong.io/Geocode?latlng={$latitude},{$longitude}&api_key={$apiKey}";
+            
+            $response = Http::timeout(5)->get($url);
+            
+            if ($response->successful()) {
+                $data = $response->json();
+                
+                if (isset($data['results'][0]['formatted_address'])) {
+                    $address = $data['results'][0]['formatted_address'];
+                    
+                    // Cache kết quả
+                    Cache::put($cacheKey, $address, now()->addHours(24));
+                    
+                    return $address;
+                }
+            }
+            
+            Log::warning('Goong reverse geocoding failed', [
+                'lat' => $latitude,
+                'lng' => $longitude,
+                'response' => $response->body()
+            ]);
+            
+            return null;
+            
+        } catch (\Exception $e) {
+            Log::error('Error in reverse geocoding: ' . $e->getMessage(), [
+                'lat' => $latitude,
+                'lng' => $longitude
+            ]);
+            return null;
+        }
+    } 
+    
 }

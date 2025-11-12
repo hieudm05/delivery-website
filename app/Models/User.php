@@ -46,6 +46,7 @@ class User extends Authenticatable
         'created_at'    => 'datetime',
         'updated_at'    => 'datetime',
         'last_login_at' => 'datetime',
+        'last_seen_at' => 'datetime',
     ];
 
     /**

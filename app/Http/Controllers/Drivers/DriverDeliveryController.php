@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Drivers;
 
 use App\Http\Controllers\Controller;
 use App\Models\Customer\Dashboard\Orders\Order;
+use App\Models\Driver\DriverProfile;
 use App\Models\Driver\Orders\OrderDelivery;
 use App\Models\Driver\Orders\OrderDeliveryImage;
 use App\Models\Driver\Orders\OrderDeliveryIssue;
@@ -11,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Http;
 
 class DriverDeliveryController extends Controller
 {
@@ -21,9 +23,13 @@ class DriverDeliveryController extends Controller
     {
         $status = $request->get('status', 'all');
         $search = $request->get('search');
-
+        $hubId = DriverProfile::where('user_id', Auth::id())->value('post_office_id');
+        if(!$hubId){
+            return redirect()->back()->with('error', 'Chưa có thông tin bưu cục. Vui lòng cập nhật hồ sơ tài xế.');
+        }
         $orders = Order::query()
             ->whereIn('status', [Order::STATUS_AT_HUB, Order::STATUS_SHIPPING])
+            ->where('driver_id',Auth::id())
             ->when($status !== 'all', function($q) use ($status) {
                 $q->where('status', $status);
             })
@@ -221,12 +227,34 @@ class DriverDeliveryController extends Controller
                     'actual_delivery_start_time' => now(),
                 ]);
             }
+            $lat = $request->delivery_latitude;
+            $lng = $request->delivery_longitude;
+            $deliveryAddress = $request->delivery_address;
+            if (empty($deliveryAddress)) {
+                $apiKey = env('GOONG_API_KEY');
+                $response = Http::get("https://rsapi.goong.io/Geocode", [
+                    'latlng' => "$lat,$lng",
+                    'api_key' => $apiKey,
+                ]);
 
+                if ($response->successful()) {
+                    $data = $response->json();
+                    if (!empty($data['results'][0]['formatted_address'])) {
+                        $deliveryAddress = $data['results'][0]['formatted_address'];
+                    }
+                } else {
+                    // \Log::warning('Goong reverse geocoding failed', [
+                    //     'lat' => $lat,
+                    //     'lng' => $lng,
+                    //     'response' => $response->body(),
+                    // ]);
+                }
+            }
             $delivery->update([
                 'actual_delivery_time' => now(),
                 'delivery_latitude' => $request->delivery_latitude,
                 'delivery_longitude' => $request->delivery_longitude,
-                'delivery_address' => $request->delivery_address,
+                'delivery_address' => $deliveryAddress,
                 'received_by_name' => $request->received_by_name,
                 'received_by_phone' => $request->received_by_phone,
                 'received_by_relation' => $request->received_by_relation,

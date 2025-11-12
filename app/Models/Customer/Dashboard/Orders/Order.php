@@ -9,6 +9,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 
 class Order extends Model
 {
@@ -667,7 +669,7 @@ class Order extends Model
         return $this->deliveryIssues()->latest('issue_time')->first();
     }
     public function getTrackingTimeline()
-{
+    {
     $timeline = [];
 
     // 1. Thời điểm tạo đơn
@@ -718,13 +720,28 @@ class Order extends Model
 
     // 4. Thời điểm lấy hàng thành công - DÙNG TỌA ĐỘ THỰC TẾ
     if ($this->actual_pickup_time) {
+        // Lấy địa chỉ từ tọa độ thực tế (nếu có)
+        $pickupAddress = $this->sender_address; // Fallback mặc định
+        
+        if ($this->pickup_latitude && $this->pickup_longitude) {
+            $reverseAddress = $this->getAddressFromCoordinates(
+                $this->pickup_latitude,
+                $this->pickup_longitude
+            );
+            
+            // Nếu reverse geocoding thành công thì dùng, không thì dùng sender_address
+            if ($reverseAddress) {
+                $pickupAddress = $reverseAddress;
+            }
+        }
+        
         $timeline[] = [
             'time' => $this->actual_pickup_time,
             'status' => 'picked_up',
             'status_label' => 'Đã lấy hàng thành công',
             'lat' => $this->pickup_latitude ? (float) $this->pickup_latitude : null,
             'lng' => $this->pickup_longitude ? (float) $this->pickup_longitude : null,
-            'address' => $this->sender_address,
+            'address' => $pickupAddress,
             'note' => $this->pickup_note ?: 'Lấy hàng thành công',
             'icon' => 'box-seam',
             'color' => '#20c997',
@@ -735,7 +752,6 @@ class Order extends Model
             ]
         ];
     }
-
     // 5. Sự cố lấy hàng (nếu có)
     if ($this->pickup_issue_time) {
         $timeline[] = [
@@ -927,5 +943,56 @@ class Order extends Model
             self::STATUS_AT_HUB,
             self::STATUS_SHIPPING
         ]);
+    }
+    private function getAddressFromCoordinates($latitude, $longitude)
+        {
+        try {
+            $apiKey = env('GOONG_API_KEY');
+            
+            if (!$apiKey) {
+                return null;
+            }
+            
+            // Cache key để tránh gọi API nhiều lần cho cùng tọa độ
+            $cacheKey = "geocode_{$latitude}_{$longitude}";
+            
+            // Kiểm tra cache trước (cache 24h)
+            if (Cache::has($cacheKey)) {
+                return Cache::get($cacheKey);
+            }
+            
+            // Gọi Goong Reverse Geocoding API
+            $url = "https://rsapi.goong.io/Geocode?latlng={$latitude},{$longitude}&api_key={$apiKey}";
+            
+            $response = Http::timeout(5)->get($url);
+            
+            if ($response->successful()) {
+                $data = $response->json();
+                
+                if (isset($data['results'][0]['formatted_address'])) {
+                    $address = $data['results'][0]['formatted_address'];
+                    
+                    // Cache kết quả
+                    Cache::put($cacheKey, $address, now()->addHours(24));
+                    
+                    return $address;
+                }
+            }
+            
+            Log::warning('Goong reverse geocoding failed', [
+                'lat' => $latitude,
+                'lng' => $longitude,
+                'response' => $response->body()
+            ]);
+            
+            return null;
+            
+        } catch (\Exception $e) {
+            Log::error('Error in reverse geocoding: ' . $e->getMessage(), [
+                'lat' => $latitude,
+                'lng' => $longitude
+            ]);
+            return null;
+        }
     }
 }

@@ -85,7 +85,7 @@
                                                     $payment = $order->payment_details;
                                                 @endphp
                                                 @if($payment['has_cod'])
-                                                    <span class="badge badge-sm bg-gradient-warning">
+                                                    <span class="bg bg-sm bg-gradient-warning">
                                                         {{ number_format($payment['cod_amount']) }}đ
                                                     </span>
                                                 @else

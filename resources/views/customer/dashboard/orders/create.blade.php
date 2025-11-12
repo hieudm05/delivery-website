@@ -381,11 +381,11 @@
                 </div>
                 <div class="col-4">
                   <label class="form-label">Khối lượng (g) <span class="text-danger">*</span></label>
-                  <input type="number" class="form-control" id="shared-product-weight" value="10" min="1">
+                  <input type="number" class="form-control" id="shared-product-weight" value="" min="1">
                 </div>
                 <div class="col-4">
                   <label class="form-label">Giá trị (VNĐ) <span class="text-danger">*</span></label>
-                  <input type="number" class="form-control" id="shared-product-value" value="10000" min="0">
+                  <input type="number" class="form-control" id="shared-product-value" value="" min="0">
                 </div>
               </div>
               
@@ -457,11 +457,11 @@
                 </div>
                 <div class="col-4">
                   <label class="form-label">Khối lượng (g) <span class="text-danger">*</span></label>
-                  <input type="number" class="form-control" id="shared-document-weight" value="10" min="1">
+                  <input type="number" class="form-control" id="shared-document-weight" value="" min="1">
                 </div>
                 <div class="col-4">
                   <label class="form-label">Giá trị (VNĐ) <span class="text-danger">*</span></label>
-                  <input type="number" class="form-control" id="shared-document-value" value="10000" min="0">
+                  <input type="number" class="form-control" id="shared-document-value" value="" min="0">
                 </div>
               </div>
               
@@ -1030,11 +1030,11 @@ function createRecipientCard(recipient, index) {
                             </div>
                             <div class="col-4">
                                 <label class="form-label">Khối lượng (g) <span class="text-danger">*</span></label>
-                                <input type="number" class="form-control product-weight-${recipient.id}" data-recipient-id="${recipient.id}" value="${d.product_weight || 10}" min="1">
+                                <input type="number" class="form-control product-weight-${recipient.id}" data-recipient-id="${recipient.id}" value="${d.product_weight || 1}" min="1">
                             </div>
                             <div class="col-4">
                                 <label class="form-label">Giá trị (VNĐ) <span class="text-danger">*</span></label>
-                                <input type="number" class="form-control product-value-${recipient.id}" data-recipient-id="${recipient.id}" value="${d.product_value || 10000}" min="0">
+                                <input type="number" class="form-control product-value-${recipient.id}" data-recipient-id="${recipient.id}" value="${d.product_value || 0}" min="0">
                             </div>
                         </div>
                         
@@ -1108,11 +1108,11 @@ function createRecipientCard(recipient, index) {
                             </div>
                             <div class="col-4">
                                 <label class="form-label">Khối lượng (g) <span class="text-danger">*</span></label>
-                                <input type="number" class="form-control document-weight-${recipient.id}" data-recipient-id="${recipient.id}" value="${d.document_weight || 10}" min="1">
+                                <input type="number" class="form-control document-weight-${recipient.id}" data-recipient-id="${recipient.id}" value="${d.document_weight || 1}" min="1">
                             </div>
                             <div class="col-4">
                                 <label class="form-label">Giá trị (VNĐ) <span class="text-danger">*</span></label>
-                                <input type="number" class="form-control document-value-${recipient.id}" data-recipient-id="${recipient.id}" value="${d.document_value || 10000}" min="0">
+                                <input type="number" class="form-control document-value-${recipient.id}" data-recipient-id="${recipient.id}" value="${d.document_value || 0}" min="0">
                             </div>
                         </div>
                         
