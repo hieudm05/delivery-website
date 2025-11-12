@@ -462,7 +462,6 @@ class OrderApprovalController extends Controller
                 ->count(),
             'avg_approval_time' => $this->calculateAvgApprovalTime($from, $to),
             'by_risk_level' => $this->getApprovalsByRiskLevel($from, $to),
-            'top_approvers' => $this->getTopApprovers($from, $to),
         ];
 
         return view('admin.orders.approval.statistics', compact('stats', 'from', 'to'));
