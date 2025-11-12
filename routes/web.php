@@ -73,6 +73,7 @@ Route::prefix('admin')
         Route::prefix('orders/approval')->name('orders.approval.')->group(function () {
             // Danh sách đơn chờ duyệt
             Route::get('/', [OrderApprovalController::class, 'index'])->name('index');
+            Route::get('/statistics', [OrderApprovalController::class, 'statistics'])->name('statistics');
             // Chi tiết đơn hàng
             Route::get('/{id}', [OrderApprovalController::class, 'show'])->name('show');
             // Duyệt đơn lẻ
@@ -86,7 +87,6 @@ Route::prefix('admin')
             // Cập nhật risk score
             Route::post('/update-risk-scores', [OrderApprovalController::class, 'updateRiskScores'])->name('update-risk-scores');
             // Thống kê
-            Route::get('/statistics', [OrderApprovalController::class, 'statistics'])->name('statistics');
         });
         // ADMIN TRACKING ROUTES
         Route::get('/drivers/active', [DriverTrackingController::class, 'getActiveDrivers'])
