@@ -215,6 +215,12 @@ Route::prefix('hub')
     ->middleware(['auth','role:hub'])
     ->group(function() {
         Route::get('/',[HubController::class,'index'])->name('index');
+        // Phát đơn cho tài xế
+        Route::get('/orders/{orderId}/assign', [HubController::class, 'assignOrderForm'])->name('orders.assign.form');
+        Route::post('/orders/{orderId}/assign', [HubController::class, 'assignOrder'])->name('orders.assign');
+        
+        // API: Lấy danh sách tài xế có thể nhận đơn
+        Route::get('/orders/{orderId}/available-drivers', [HubController::class, 'getAvailableDriversApi'])->name('orders.available-drivers');
     });
 
     // PUBLIC TRACKING ROUTES - Không cần auth
