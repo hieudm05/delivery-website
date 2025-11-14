@@ -42,12 +42,19 @@
             <span class="nav-link-text ms-1">Vận đơn</span>
           </a>
         </li>
+         <li class="nav-item">
+          <a class="nav-link {{request()->routeIs('customer.bank-accounts.index') ? 'active bg-gradient-dark text-white' : 'text-dark'}}" href="{{ route('customer.bank-accounts.index') }}">
+            <i class="material-symbols-rounded opacity-5">person</i>
+            <span class="nav-link-text ms-1">Tài khoản ngân hàng</span>
+          </a>
+        </li>
         <li class="nav-item">
           <a class="nav-link text-dark" href="{{ route('home') }}">
             <i class="material-symbols-rounded opacity-5">login</i>
             <span class="nav-link-text ms-1">Về trang client</span>
           </a>
         </li>
+        
       
       </ul>
     </div>
