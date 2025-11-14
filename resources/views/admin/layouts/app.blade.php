@@ -3,6 +3,7 @@
 
 <head>
  @include('admin.blocks.head')
+ @stack('styles')
 </head>
 
 <body class="g-sidenav-show  bg-gray-100">
@@ -91,6 +92,7 @@
       </div>
     </div>
   </div>
+  @stack('scripts')
   @include('admin.blocks.js')
   @include('admin.blocks.alert')
 </body>

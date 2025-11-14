@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\AdminController;
 use App\Http\Controllers\Admin\CodManagent\CodManagementController;
 use App\Http\Controllers\Admin\Driver\AdminDriverController;
+use App\Http\Controllers\Admin\Orders\AdminOrderTrackingController;
 use App\Http\Controllers\Admin\Orders\OrderApprovalController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Customer\Dashboard\Accounts\AccountController;
@@ -87,6 +88,25 @@ Route::prefix('admin')
             // Cập nhật risk score
             Route::post('/update-risk-scores', [OrderApprovalController::class, 'updateRiskScores'])->name('update-risk-scores');
             // Thống kê
+        });
+         Route::prefix('orders/tracking')->name('orders.tracking.')->group(function () {
+            // Dashboard tracking - Danh sách tất cả đơn
+            Route::get('/', [AdminOrderTrackingController::class, 'index'])->name('index');
+            
+            // Bản đồ tổng quan real-time
+            Route::get('/map', [AdminOrderTrackingController::class, 'mapView'])->name('map');
+            
+            // Chi tiết đơn hàng với timeline & map
+            Route::get('/{id}', [AdminOrderTrackingController::class, 'show'])->name('show');
+            
+            // API: Lấy tracking updates theo thời gian thực
+            Route::get('/{id}/updates', [AdminOrderTrackingController::class, 'getTrackingUpdates'])->name('updates');
+            
+            // API: Lấy vị trí đơn hàng
+            Route::get('/{id}/location', [AdminOrderTrackingController::class, 'getOrderLocation'])->name('location');
+            
+            // API: Lấy tất cả đơn đang vận chuyển (cho map tổng quan)
+            Route::get('/api/active-orders', [AdminOrderTrackingController::class, 'getActiveOrdersForMap'])->name('active-orders');
         });
         // ADMIN TRACKING ROUTES
         Route::get('/drivers/active', [DriverTrackingController::class, 'getActiveDrivers'])
@@ -221,7 +241,7 @@ Route::prefix('hub')
         // Quản lý đơn hàng
         Route::get('orders', [HubController::class, 'orders'])->name('orders.index');
         Route::get('orders/{orderId}', [HubController::class, 'showOrder'])->name('orders.show');
-        
+
         // Phát đơn cho tài xế
         Route::get('/orders/{orderId}/assign', [HubController::class, 'assignOrderForm'])->name('orders.assign.form');
         Route::post('/orders/{orderId}/assign', [HubController::class, 'assignOrder'])->name('orders.assign');

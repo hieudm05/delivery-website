@@ -35,6 +35,12 @@
             <span class="nav-link-text ms-1">Duyệt đơn hàng</span>
           </a>
         </li>
+         <li class="nav-item">
+          <a class="nav-link {{request()->routeIs('admin.orders.tracking.index') ? 'active bg-gradient-dark text-white' : 'text-dark'}}" href="{{ route('admin.orders.tracking.index') }}">
+            <i class="material-symbols-rounded opacity-5">person</i>
+            <span class="nav-link-text ms-1">Lịch sử vận đơn</span>
+          </a>
+        </li>
         <li class="nav-item">
            <a href="{{ route('logout') }}"  class="nav-link {{request()->routeIs('logout') ? 'active bg-gradient-dark text-white' : 'text-dark'}}" href="{{ route('logout') }}">
             <i class="material-symbols-rounded opacity-5">person</i>
