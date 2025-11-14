@@ -3,7 +3,7 @@
 
 <head>
  @include('customer.dashboard.blocks.head')
-  @stack('styles')
+ @stack('styles') 
 </head>
 
 <body class="g-sidenav-show  bg-gray-100">
