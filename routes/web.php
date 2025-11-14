@@ -11,6 +11,7 @@ use App\Http\Controllers\Customer\Dashboard\Accounts\AccountController;
 use App\Http\Controllers\Customer\Dashboard\DashboardCustomerController;
 use App\Http\Controllers\Customer\Dashboard\OrderManagent\OrderManagentController;
 use App\Http\Controllers\Customer\Dashboard\Orders\OrderController;
+use App\Http\Controllers\Drivers\BankAccountDRVController;
 use App\Http\Controllers\Drivers\DriverDeliveryController;
 use App\Http\Controllers\Drivers\DriverTrackingController;
 use App\Http\Controllers\Drivers\CodPaymentController;
@@ -197,31 +198,32 @@ Route::prefix('driver')
                 // Lấy vị trí hiện tại
                 Route::get('/location', [DriverTrackingController::class, 'getLocation'])->name('location');
             });
-        Route::prefix('bank-accounts')
+        // Quản lí tài khoản ngân hàng
+         Route::prefix('bank-accounts')
             ->name('bank-accounts.')
             ->group(function () {
                 // Danh sách tài khoản ngân hàng
-                Route::get('/', [BankAccountController::class, 'index'])->name('index');
+                Route::get('/', [BankAccountDRVController::class, 'indexDriver'])->name('index');
                 
                 // Tạo tài khoản mới
-                Route::get('/create', [BankAccountController::class, 'create'])->name('create');
-                Route::post('/', [BankAccountController::class, 'store'])->name('store');
+                Route::get('/create', [BankAccountDRVController::class, 'createDriver'])->name('create');
+                Route::post('/', [BankAccountDRVController::class, 'store'])->name('store');
                 
                 // Chi tiết tài khoản
-                Route::get('/{id}', [BankAccountController::class, 'show'])->name('show');
+                Route::get('/{id}', [BankAccountDRVController::class, 'show'])->name('show');
                 
                 // Chỉnh sửa tài khoản
-                Route::get('/{id}/edit', [BankAccountController::class, 'edit'])->name('edit');
-                Route::put('/{id}', [BankAccountController::class, 'update'])->name('update');
+                Route::get('/{id}/edit', [BankAccountDRVController::class, 'edit'])->name('edit');
+                Route::put('/{id}', [BankAccountDRVController::class, 'update'])->name('update');
                 
                 // Xóa tài khoản
-                Route::delete('/{id}', [BankAccountController::class, 'destroy'])->name('destroy');
+                Route::delete('/{id}', [BankAccountDRVController::class, 'destroy'])->name('destroy');
                 
                 // Đặt làm tài khoản chính
-                Route::post('/{id}/make-primary', [BankAccountController::class, 'makePrimary'])->name('make-primary');
+                Route::post('/{id}/make-primary', [BankAccountDRVController::class, 'makePrimary'])->name('make-primary');
                 
                 // Sinh QR code
-                Route::post('/{id}/generate-qr', [BankAccountController::class, 'generateQr'])->name('generate-qr');
+                Route::post('/{id}/generate-qr', [BankAccountDRVController::class, 'generateQr'])->name('generate-qr');
             });
     });
 

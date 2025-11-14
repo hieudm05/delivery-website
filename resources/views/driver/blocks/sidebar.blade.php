@@ -25,10 +25,10 @@
         </a>
     </li>
 
-    <li class="{{ request()->is('driver/map*') ? 'active' : '' }}">
-        <a href="#">
+    <li class="{{ request()->is('driver.bank-accounts.index') ? 'active' : '' }}">
+        <a href="{{ route('driver.bank-accounts.index') }}">
             <i class="fas fa-map-location-dot"></i>
-            <span class="menu-text">Bản Đồ</span>
+            <span class="menu-text">Tài khoản ngân hàng</span>
         </a>
     </li>
 
