@@ -1,56 +1,57 @@
 <?php
 
-namespace App\Models\Customer\Dashboard\Orders;
+namespace App\Models;
 
-use App\Models\User;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\User;
+use App\Models\Order;
 
 class CodTransaction extends Model
 {
-    use HasFactory;
-
     protected $fillable = [
-        'order_id',
-        'cod_amount',
-        'shipping_fee',
-        'total_collected',
-        
-        // Shipper → Admin
-        'shipper_payment_status',
-        'driver_id',
-        'shipper_transfer_time',
-        'shipper_transfer_method',
-        'shipper_transfer_proof',
-        'shipper_note',
-        'admin_confirm_time',
-        'admin_confirm_by',
-        'admin_note',
-        
-        // Admin → Sender
-        'sender_payment_status',
-        'sender_id',
-        'sender_receive_amount',
-        'platform_fee',
-        'sender_transfer_time',
-        'sender_transfer_method',
-        'sender_transfer_proof',
-        'sender_transfer_by',
-        'sender_transfer_note',
+        'order_id', 'driver_id', 'sender_id',
+
+        'cod_amount', 'shipping_fee', 'platform_fee',
+        'sender_receive_amount', 'payer_shipping',
+
+        // Shipper → Hub
+        'shipper_payment_status', 'shipper_transfer_time',
+        'shipper_transfer_method', 'shipper_transfer_proof',
+        'shipper_note', 'hub_confirm_time',
+        'hub_confirm_by', 'hub_confirm_note',
+
+        // Hub → Sender
+        'sender_payment_status', 'sender_transfer_time',
+        'sender_transfer_method', 'sender_transfer_proof',
+        'sender_transfer_by', 'sender_transfer_note',
+
+        // Hub → System
+        'hub_system_status', 'hub_system_amount',
+        'hub_system_transfer_time', 'hub_system_method',
+        'hub_system_proof', 'hub_system_transfer_by',
+        'hub_system_note', 'system_confirm_time',
+        'system_confirm_by', 'system_confirm_note',
+
+        // Audit
+        'created_by', 'updated_by',
     ];
 
     protected $casts = [
         'cod_amount' => 'decimal:2',
         'shipping_fee' => 'decimal:2',
-        'total_collected' => 'decimal:2',
-        'sender_receive_amount' => 'decimal:2',
         'platform_fee' => 'decimal:2',
+        'sender_receive_amount' => 'decimal:2',
+        'hub_system_amount' => 'decimal:2',
+
         'shipper_transfer_time' => 'datetime',
-        'admin_confirm_time' => 'datetime',
+        'hub_confirm_time' => 'datetime',
         'sender_transfer_time' => 'datetime',
+        'hub_system_transfer_time' => 'datetime',
+        'system_confirm_time' => 'datetime',
     ];
 
-    // ========== RELATIONSHIPS ==========
+    // ================= RELATIONS =================
+
     public function order()
     {
         return $this->belongsTo(Order::class);
@@ -66,83 +67,72 @@ class CodTransaction extends Model
         return $this->belongsTo(User::class, 'sender_id');
     }
 
-    public function adminConfirmer()
+    public function hubConfirmer()
     {
-        return $this->belongsTo(User::class, 'admin_confirm_by');
+        return $this->belongsTo(User::class, 'hub_confirm_by');
     }
 
-    public function adminTransferer()
+    public function senderTransferer()
     {
         return $this->belongsTo(User::class, 'sender_transfer_by');
     }
 
-    // ========== SCOPES ==========
-    
-    /**
-     * ✅ Danh sách chờ shipper chuyển tiền
-     */
-    public function scopePendingShipperPayment($query)
+    public function hubSystemTransferer()
     {
-        return $query->where('shipper_payment_status', 'pending');
+        return $this->belongsTo(User::class, 'hub_system_transfer_by');
     }
 
-    /**
-     * ✅ Danh sách chờ admin xác nhận
-     */
-    public function scopeWaitingAdminConfirm($query)
+    public function systemConfirmer()
     {
-        return $query->where('shipper_payment_status', 'transferred');
+        return $this->belongsTo(User::class, 'system_confirm_by');
     }
 
-    /**
-     * ✅ Danh sách chờ trả sender
-     */
-    public function scopePendingSenderPayment($query)
+    // ================= SCOPES =================
+
+    public function scopePendingShipper($q)
     {
-        return $query->where('shipper_payment_status', 'confirmed')
-                     ->where('sender_payment_status', 'pending');
+        return $q->where('shipper_payment_status', 'pending');
     }
 
-    // ========== METHODS ==========
+    public function scopePendingSender($q)
+    {
+        return $q->where('sender_payment_status', 'pending');
+    }
 
-    /**
-     * ✅ Shipper xác nhận đã chuyển tiền
-     */
+    public function scopePendingSystem($q)
+    {
+        return $q->where('hub_system_status', 'pending');
+    }
+
+    // ================= METHODS =================
+
+    // 1. Shipper chuyển tiền cho hub
     public function markShipperTransferred($method, $proof = null, $note = null)
     {
-        $this->update([
+        return $this->update([
             'shipper_payment_status' => 'transferred',
             'shipper_transfer_time' => now(),
             'shipper_transfer_method' => $method,
             'shipper_transfer_proof' => $proof,
             'shipper_note' => $note,
         ]);
-
-        $this->order->update(['cod_status' => 'transferred']);
     }
 
-    /**
-     * ✅ Admin xác nhận đã nhận tiền từ shipper
-     */
-    public function adminConfirmReceived($adminId, $note = null)
+    // 2. Hub xác nhận tiền từ shipper
+    public function hubConfirmShipper($hubId, $note = null)
     {
-        $this->update([
+        return $this->update([
             'shipper_payment_status' => 'confirmed',
-            'admin_confirm_time' => now(),
-            'admin_confirm_by' => $adminId,
-            'admin_note' => $note,
+            'hub_confirm_time' => now(),
+            'hub_confirm_by' => $hubId,
+            'hub_confirm_note' => $note,
         ]);
-
-        // Tự động chuyển trạng thái sang chờ trả sender
-        $this->update(['sender_payment_status' => 'pending']);
     }
 
-    /**
-     * ✅ Admin chuyển tiền cho sender
-     */
+    // 3. Hub → Sender
     public function transferToSender($adminId, $method, $proof = null, $note = null)
     {
-        $this->update([
+        return $this->update([
             'sender_payment_status' => 'completed',
             'sender_transfer_time' => now(),
             'sender_transfer_method' => $method,
@@ -150,66 +140,40 @@ class CodTransaction extends Model
             'sender_transfer_by' => $adminId,
             'sender_transfer_note' => $note,
         ]);
-
-        $this->order->update(['cod_status' => 'settled']);
     }
 
-    /**
-     * ✅ Tính số tiền sender sẽ nhận
-     */
-    public function calculateSenderAmount()
+    // 4. Hub → System
+    public function transferToSystem($hubId, $method, $proof = null, $note = null)
     {
-        // Nếu người gửi trả phí ship → sender nhận full COD
-        // Nếu người nhận trả → sender nhận COD - phí nền tảng (nếu có)
-        
-        $amount = $this->cod_amount;
-        
-        // Trừ phí nền tảng (ví dụ: 2% COD)
-        $platformFee = $this->cod_amount * 0.02;
-        
-        $this->update([
-            'platform_fee' => $platformFee,
-            'sender_receive_amount' => $amount - $platformFee,
+        return $this->update([
+            'hub_system_status' => 'transferred',
+            'hub_system_transfer_time' => now(),
+            'hub_system_method' => $method,
+            'hub_system_proof' => $proof,
+            'hub_system_transfer_by' => $hubId,
+            'hub_system_note' => $note,
         ]);
-
-        return $amount - $platformFee;
     }
 
-    // ========== ACCESSORS ==========
-
-    public function getShipperStatusLabelAttribute()
+    // 5. System xác nhận nhận tiền
+    public function systemConfirm($adminId, $note = null)
     {
-        return match($this->shipper_payment_status) {
-            'pending' => 'Chờ shipper chuyển',
-            'transferred' => 'Đã chuyển, chờ xác nhận',
-            'confirmed' => 'Admin đã nhận',
-            'disputed' => 'Có tranh chấp',
-            default => 'Không xác định'
-        };
+        return $this->update([
+            'hub_system_status' => 'confirmed',
+            'system_confirm_time' => now(),
+            'system_confirm_by' => $adminId,
+            'system_confirm_note' => $note,
+        ]);
     }
 
-    public function getSenderStatusLabelAttribute()
+    // Tính lại tiền shop nhận
+    public function calculateAmounts()
     {
-        return match($this->sender_payment_status) {
-            'pending' => 'Chờ chuyển',
-            'processing' => 'Đang xử lý',
-            'completed' => 'Đã chuyển',
-            'failed' => 'Thất bại',
-            default => 'Không xác định'
-        };
-    }
+        $this->platform_fee = $this->cod_amount * 0.02; // ví dụ 2%
+        $this->sender_receive_amount = $this->cod_amount - $this->platform_fee;
 
-    public function getStatusBadgeAttribute()
-    {
-        if ($this->sender_payment_status === 'completed') {
-            return 'success';
-        }
-        if ($this->shipper_payment_status === 'confirmed') {
-            return 'info';
-        }
-        if ($this->shipper_payment_status === 'transferred') {
-            return 'warning';
-        }
-        return 'secondary';
+        $this->hub_system_amount = $this->platform_fee;
+
+        $this->save();
     }
 }

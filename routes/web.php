@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\Driver\AdminDriverController;
 use App\Http\Controllers\Admin\Orders\AdminOrderTrackingController;
 use App\Http\Controllers\Admin\Orders\OrderApprovalController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\BankAccountController;
 use App\Http\Controllers\Customer\Dashboard\Accounts\AccountController;
 use App\Http\Controllers\Customer\Dashboard\DashboardCustomerController;
 use App\Http\Controllers\Customer\Dashboard\OrderManagent\OrderManagentController;
@@ -108,6 +109,25 @@ Route::prefix('admin')
             // API: Lấy tất cả đơn đang vận chuyển (cho map tổng quan)
             Route::get('/api/active-orders', [AdminOrderTrackingController::class, 'getActiveOrdersForMap'])->name('active-orders');
         });
+         Route::prefix('bank-accounts')
+            ->name('bank-accounts.')
+            ->group(function () {
+                // Danh sách tất cả tài khoản (với filter & tìm kiếm)
+                Route::get('/', [BankAccountController::class, 'adminAllBankAccounts'])->name('index');
+                
+                // Tạo tài khoản (Admin cho User khác)
+                Route::get('/create', [BankAccountController::class, 'adminCreateSystemBankAccount'])->name('create');
+                Route::post('/', [BankAccountController::class, 'adminStoreSystemBankAccount'])->name('store');
+                
+                // Xác thực tài khoản
+                Route::post('/{id}/verify', [BankAccountController::class, 'adminVerifyBankAccount'])->name('verify');
+                
+                // Từ chối tài khoản
+                Route::post('/{id}/reject', [BankAccountController::class, 'adminRejectBankAccount'])->name('reject');
+                
+                // Chi tiết
+                Route::get('/{id}', [BankAccountController::class, 'show'])->name('show');
+            });
         // ADMIN TRACKING ROUTES
         Route::get('/drivers/active', [DriverTrackingController::class, 'getActiveDrivers'])
         ->name('drivers.active');
@@ -177,6 +197,32 @@ Route::prefix('driver')
                 // Lấy vị trí hiện tại
                 Route::get('/location', [DriverTrackingController::class, 'getLocation'])->name('location');
             });
+        Route::prefix('bank-accounts')
+            ->name('bank-accounts.')
+            ->group(function () {
+                // Danh sách tài khoản ngân hàng
+                Route::get('/', [BankAccountController::class, 'index'])->name('index');
+                
+                // Tạo tài khoản mới
+                Route::get('/create', [BankAccountController::class, 'create'])->name('create');
+                Route::post('/', [BankAccountController::class, 'store'])->name('store');
+                
+                // Chi tiết tài khoản
+                Route::get('/{id}', [BankAccountController::class, 'show'])->name('show');
+                
+                // Chỉnh sửa tài khoản
+                Route::get('/{id}/edit', [BankAccountController::class, 'edit'])->name('edit');
+                Route::put('/{id}', [BankAccountController::class, 'update'])->name('update');
+                
+                // Xóa tài khoản
+                Route::delete('/{id}', [BankAccountController::class, 'destroy'])->name('destroy');
+                
+                // Đặt làm tài khoản chính
+                Route::post('/{id}/make-primary', [BankAccountController::class, 'makePrimary'])->name('make-primary');
+                
+                // Sinh QR code
+                Route::post('/{id}/generate-qr', [BankAccountController::class, 'generateQr'])->name('generate-qr');
+            });
     });
 
 // Customer
@@ -227,6 +273,34 @@ Route::prefix('customer')
             Route::get('/{id}/tracking-updates', [OrderManagentController::class, 'getTrackingUpdates'])
                 ->name('tracking.updates');
         });
+
+        // Quản lí tài khoản ngân hàng
+         Route::prefix('bank-accounts')
+            ->name('bank-accounts.')
+            ->group(function () {
+                // Danh sách tài khoản ngân hàng
+                Route::get('/', [BankAccountController::class, 'indexCustomer'])->name('index');
+                
+                // Tạo tài khoản mới
+                Route::get('/create', [BankAccountController::class, 'createCustomer'])->name('create');
+                Route::post('/', [BankAccountController::class, 'store'])->name('store');
+                
+                // Chi tiết tài khoản
+                Route::get('/{id}', [BankAccountController::class, 'show'])->name('show');
+                
+                // Chỉnh sửa tài khoản
+                Route::get('/{id}/edit', [BankAccountController::class, 'edit'])->name('edit');
+                Route::put('/{id}', [BankAccountController::class, 'update'])->name('update');
+                
+                // Xóa tài khoản
+                Route::delete('/{id}', [BankAccountController::class, 'destroy'])->name('destroy');
+                
+                // Đặt làm tài khoản chính
+                Route::post('/{id}/make-primary', [BankAccountController::class, 'makePrimary'])->name('make-primary');
+                
+                // Sinh QR code
+                Route::post('/{id}/generate-qr', [BankAccountController::class, 'generateQr'])->name('generate-qr');
+            });
     });
 
 // Hub
@@ -250,6 +324,23 @@ Route::prefix('hub')
         Route::get('/orders/{orderId}/available-drivers', [HubController::class, 'getAvailableDriversApi'])->name('orders.available-drivers');
         Route::get('orders/{orderId}/tracking-updates', [HubController::class, 'getTrackingUpdates'])->name('orders.tracking-updates');
         Route::get('orders/{orderId}/location', [HubController::class, 'getOrderLocation'])->name('orders.location');
+
+        Route::prefix('bank-accounts')
+            ->name('bank-accounts.')
+            ->group(function () {
+                // Danh sách tài khoản hub
+                Route::get('/', [BankAccountController::class, 'hubBankAccounts'])->name('index');
+                
+                // Tạo tài khoản hub
+                Route::get('/create', [BankAccountController::class, 'hubCreateBankAccount'])->name('create');
+                Route::post('/', [BankAccountController::class, 'hubStoreBankAccount'])->name('store');
+                
+                // Đặt làm chính
+                Route::post('/{id}/make-primary', [BankAccountController::class, 'makePrimary'])->name('make-primary');
+                
+                // Sinh QR
+                Route::post('/{id}/generate-qr', [BankAccountController::class, 'generateQr'])->name('generate-qr');
+            });
     });
 
     // PUBLIC TRACKING ROUTES - Không cần auth
