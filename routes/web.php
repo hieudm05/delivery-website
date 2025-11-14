@@ -215,12 +215,21 @@ Route::prefix('hub')
     ->middleware(['auth','role:hub'])
     ->group(function() {
         Route::get('/',[HubController::class,'index'])->name('index');
+        // Duyệt đơn
+        Route::get('approval',[HubController::class,'approval'])->name('approval');
+
+        // Quản lý đơn hàng
+        Route::get('orders', [HubController::class, 'orders'])->name('orders.index');
+        Route::get('orders/{orderId}', [HubController::class, 'showOrder'])->name('orders.show');
+        
         // Phát đơn cho tài xế
         Route::get('/orders/{orderId}/assign', [HubController::class, 'assignOrderForm'])->name('orders.assign.form');
         Route::post('/orders/{orderId}/assign', [HubController::class, 'assignOrder'])->name('orders.assign');
         
         // API: Lấy danh sách tài xế có thể nhận đơn
         Route::get('/orders/{orderId}/available-drivers', [HubController::class, 'getAvailableDriversApi'])->name('orders.available-drivers');
+        Route::get('orders/{orderId}/tracking-updates', [HubController::class, 'getTrackingUpdates'])->name('orders.tracking-updates');
+        Route::get('orders/{orderId}/location', [HubController::class, 'getOrderLocation'])->name('orders.location');
     });
 
     // PUBLIC TRACKING ROUTES - Không cần auth
