@@ -14,14 +14,14 @@
               <span class="nav-link-text ms-1">Trang chủ</span>
           </a>
         </li>
-        <li class="nav-item mt-3">
-          <h5 class="ps-4 ms-2 text-uppercase text-xs text-dark font-weight-bolder opacity-5">Quản lý đơn hàng</h5>
-        </li>
         <li class="nav-item">
           <a class="nav-link {{request()->routeIs('hub.approval') ? 'active bg-gradient-dark text-white' : 'text-dark'}}" href="{{ route('hub.approval') }}">
             <i class="material-symbols-rounded opacity-5">person</i>
             <span class="nav-link-text ms-1">Duyệt đơn</span>
           </a>
+        </li>
+         <li class="nav-item mt-3">
+          <h5 class="ps-4 ms-2 text-uppercase text-xs text-dark font-weight-bolder opacity-5">Quản lý</h5>
         </li>
         <li class="nav-item">
           <a class="nav-link {{request()->routeIs('hub.orders.index') ? 'active bg-gradient-dark text-white' : 'text-dark'}}" href="{{ route('hub.orders.index') }}">
@@ -29,13 +29,16 @@
             <span class="nav-link-text ms-1">Lịch sử đơn hàng</span>
           </a>
         </li>
-         <li class="nav-item mt-3">
-          <h5 class="ps-4 ms-2 text-uppercase text-xs text-dark font-weight-bolder opacity-5">Quản lý tài khoản</h5>
-        </li>
          <li class="nav-item">
           <a class="nav-link {{request()->routeIs('hub.bank-accounts.index') ? 'active bg-gradient-dark text-white' : 'text-dark'}}" href="{{ route('hub.bank-accounts.index') }}">
             <i class="material-symbols-rounded opacity-5">person</i>
-            <span class="nav-link-text ms-1">Ngân hàng</span>
+            <span class="nav-link-text ms-1">Tài khoản Ngân hàng</span>
+          </a>
+        </li>
+         <li class="nav-item">
+          <a class="nav-link {{request()->routeIs('hub.drivers.index') ? 'active bg-gradient-dark text-white' : 'text-dark'}}" href="{{ route('hub.drivers.index') }}">
+            <i class="material-symbols-rounded opacity-5">person</i>
+            <span class="nav-link-text ms-1">Nhân viên</span>
           </a>
         </li>
       </ul>

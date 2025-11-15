@@ -20,6 +20,7 @@ use App\Http\Controllers\Drivers\DriverController;
 use App\Http\Controllers\Drivers\PickupController;
 use App\Http\Controllers\Hub\BankAccountHubController;
 use App\Http\Controllers\Hub\HubController;
+use App\Http\Controllers\Hub\Staff\HubDriverController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -352,6 +353,28 @@ Route::prefix('hub')
                 
                 // Sinh QR code
                 Route::post('/{id}/generate-qr', [BankAccountHubController::class, 'generateQr'])->name('generate-qr');
+            });
+             // Quản lý driver
+        Route::prefix('drivers')
+            ->name('drivers.')
+            ->group(function () {
+                // Danh sách driver
+                Route::get('/', [HubDriverController::class, 'index'])->name('index');
+                
+                // Chi tiết driver
+                Route::get('/{id}', [HubDriverController::class, 'show'])->name('show');
+                
+                // Lịch sử giao hàng theo ngày
+                Route::get('/{id}/delivery-history', [HubDriverController::class, 'deliveryHistory'])->name('delivery-history');
+                
+                // Cập nhật trạng thái (khóa/mở khóa)
+                Route::post('/{id}/update-status', [HubDriverController::class, 'updateStatus'])->name('update-status');
+                
+                // Xem vị trí trên bản đồ
+                Route::get('/{id}/location', [HubDriverController::class, 'location'])->name('location');
+                
+                // Báo cáo tổng hợp
+                Route::get('/report/overview', [HubDriverController::class, 'report'])->name('report');
             });
     });
 
