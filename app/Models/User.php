@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Customer\Dashboard\Accounts\UserInfo;
+use App\Models\Driver\DriverProfile;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -64,5 +65,9 @@ class User extends Authenticatable
     public function isOnline()
     {
         return $this->last_seen_at && $this->last_seen_at->gt(now()->subSeconds(90));
+    }
+    public function driverProfile()
+    {
+        return $this->hasOne(DriverProfile::class);
     }
 }
