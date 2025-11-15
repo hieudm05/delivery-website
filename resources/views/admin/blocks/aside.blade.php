@@ -41,24 +41,17 @@
             <span class="nav-link-text ms-1">Lịch sử vận đơn</span>
           </a>
         </li>
+         <li class="nav-item">
+          <a class="nav-link {{request()->routeIs('admin.bank-accounts.index') ? 'active bg-gradient-dark text-white' : 'text-dark'}}" href="{{ route('admin.bank-accounts.index') }}">
+            <i class="material-symbols-rounded opacity-5">person</i>
+            <span class="nav-link-text ms-1">Tài khoản ngân hàng </span>
+          </a>
+        </li>
         <li class="nav-item">
            <a href="{{ route('logout') }}"  class="nav-link {{request()->routeIs('logout') ? 'active bg-gradient-dark text-white' : 'text-dark'}}" href="{{ route('logout') }}">
             <i class="material-symbols-rounded opacity-5">person</i>
                 <span class="nav-link-text ms-1">Đăng xuất</span>
               </a>
         </li>
-         {{-- <li class="nav-item mt-3">
-          <h5 class="ps-4 ms-2 text-uppercase text-xs text-dark font-weight-bolder opacity-5">Cài đặt tài khoản</h5>
-        </li>
-        <li class="nav-item">
-         <a class="nav-link {{ request()->routeIs('customer.account.index') ? 'active bg-gradient-dark text-white' : 'text-dark' }}" href="{{ route('customer.account.index') }}">
-            <i class="material-symbols-rounded opacity-5">person</i>
-            <span class="nav-link-text ms-1">Thông tin tài khoản</span>
-        </a>
-        <a class="nav-link {{ request()->routeIs('customer.account.product') ? 'active bg-gradient-dark text-white' : 'text-dark' }}" href="{{ route('customer.account.product') }}">
-            <i class="material-symbols-rounded opacity-5">person</i>
-            <span class="nav-link-text ms-1">Dách sách hàng hoá</span>
-        </a>
-        </li>  --}}
       </ul>
     </div>

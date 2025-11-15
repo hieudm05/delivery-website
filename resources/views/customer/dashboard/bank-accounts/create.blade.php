@@ -7,7 +7,7 @@
     <div class="row justify-content-center">
         <div class="col-12 col-md-10">
             <div class="card shadow-lg">
-                <div class="card-header bg-primary text-white">
+                <div class="card-header text-white">
                     <h5 class="mb-0">
                         @if (isset($bankAccount))
                             Chỉnh sửa Tài khoản Ngân hàng
@@ -18,17 +18,6 @@
                 </div>
 
                 <div class="card-body">
-                    @if ($errors->any())
-                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                            <strong><i class="fas fa-exclamation-circle"></i> Lỗi:</strong>
-                            <ul class="mb-0">
-                                @foreach ($errors->all() as $error)
-                                    <li>{{ $error }}</li>
-                                @endforeach
-                            </ul>
-                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                        </div>
-                    @endif
 
                     <form action="{{ isset($bankAccount) ? route('customer.bank-accounts.update', $bankAccount->id) : route('customer.bank-accounts.store') }}" 
                           method="POST" class="needs-validation" novalidate>
@@ -125,7 +114,7 @@
                         </div>
 
                         {{-- Alert Info --}}
-                        <div class="alert alert-info mt-4" role="alert">
+                        <div class=" mt-4" role="alert">
                             <i class="fas fa-info-circle"></i>
                             <strong>Lưu ý quan trọng:</strong>
                             @if (isset($bankAccount) && $bankAccount->isVerified())

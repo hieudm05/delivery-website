@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\AdminController;
+use App\Http\Controllers\Admin\BankAccountAdminController;
 use App\Http\Controllers\Admin\CodManagent\CodManagementController;
 use App\Http\Controllers\Admin\Driver\AdminDriverController;
 use App\Http\Controllers\Admin\Orders\AdminOrderTrackingController;
@@ -113,22 +114,19 @@ Route::prefix('admin')
         });
          Route::prefix('bank-accounts')
             ->name('bank-accounts.')
+            ->controller(BankAccountAdminController::class)
             ->group(function () {
-                // Danh sách tất cả tài khoản (với filter & tìm kiếm)
-                Route::get('/', [BankAccountController::class, 'adminAllBankAccounts'])->name('index');
-                
-                // Tạo tài khoản (Admin cho User khác)
-                Route::get('/create', [BankAccountController::class, 'adminCreateSystemBankAccount'])->name('create');
-                Route::post('/', [BankAccountController::class, 'adminStoreSystemBankAccount'])->name('store');
-                
+                // Danh sách (phân loại: chờ xác thực, đã xác thực, hệ thống)
+                Route::get('/', 'index')->name('index');
+                // Tạo tài khoản hệ thống
+                Route::get('/create', 'create')->name('create');
+                Route::post('/', 'store')->name('store');
                 // Xác thực tài khoản
-                Route::post('/{id}/verify', [BankAccountController::class, 'adminVerifyBankAccount'])->name('verify');
-                
+                Route::post('/{id}/verify', 'adminVerify')->name('verify');
                 // Từ chối tài khoản
-                Route::post('/{id}/reject', [BankAccountController::class, 'adminRejectBankAccount'])->name('reject');
-                
-                // Chi tiết
-                Route::get('/{id}', [BankAccountController::class, 'show'])->name('show');
+                Route::post('/{id}/reject', 'adminReject')->name('reject');
+                // Mở khoá tài khoản
+                Route::post('/{id}/reactivate', 'reactivate')->name('reactivate');
             });
         // ADMIN TRACKING ROUTES
         Route::get('/drivers/active', [DriverTrackingController::class, 'getActiveDrivers'])
