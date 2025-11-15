@@ -7,7 +7,7 @@
     <div class="row">
         <div class="col-12">
             <div class="card shadow-lg">
-                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <div class="card-header text-white d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">
                         <i class="fas fa-university"></i> Tài khoản Ngân hàng của tôi
                     </h5>
@@ -200,7 +200,7 @@
                         </div>
 
                         {{-- Thông tin hướng dẫn --}}
-                        <div class="alert alert-info mt-4" role="alert">
+                        <div class="mt-4" role="alert">
                             <h6 class="alert-heading">
                                 <i class="fas fa-info-circle"></i> Lưu ý về tài khoản chính:
                             </h6>
