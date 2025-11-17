@@ -32,10 +32,10 @@
         </a>
     </li>
 
-    <li class="{{ request()->is('driver/statistic*') ? 'active' : '' }}">
-        <a href="#">
+    <li class="{{ request()->is('driver.cod.index') ? 'active' : '' }}">
+        <a href="{{ route('driver.cod.index') }}">
             <i class="fas fa-chart-bar"></i>
-            <span class="menu-text">Thống Kê</span>
+            <span class="menu-text">Thanh toán COD</span>
         </a>
     </li>
 

@@ -144,7 +144,7 @@ class BankAccountAdminController extends Controller
     /**
      * Admin: Xác thực tài khoản
      */
-    public function verify(Request $request, $id)
+    public function Adminverify(Request $request, $id)
     {
         if (Auth::user()->role !== 'admin') {
             abort(403);
@@ -166,7 +166,7 @@ class BankAccountAdminController extends Controller
     /**
      * Admin: Từ chối tài khoản
      */
-    public function reject(Request $request, $id)
+    public function adminReject(Request $request, $id)
     {
         if (Auth::user()->role !== 'admin') {
             abort(403);
