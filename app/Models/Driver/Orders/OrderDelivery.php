@@ -6,8 +6,6 @@ use App\Models\Customer\Dashboard\Orders\Order;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class OrderDelivery extends Model
 {
@@ -38,32 +36,32 @@ class OrderDelivery extends Model
         'cod_collected_amount' => 'decimal:2',
     ];
 
-    public function order(): BelongsTo
+    public function order()
     {
         return $this->belongsTo(Order::class);
     }
 
-    public function driver(): BelongsTo
+    public function driver()
     {
         return $this->belongsTo(User::class, 'delivery_driver_id');
     }
 
-    public function images(): HasMany
+    public function images()
     {
         return $this->hasMany(OrderDeliveryImage::class, 'order_id', 'order_id');
     }
 
-    public function issues(): HasMany
+    public function issues()
     {
         return $this->hasMany(OrderDeliveryIssue::class, 'order_id', 'order_id');
     }
 
-    public function getIsDeliveredAttribute(): bool
+    public function getIsDeliveredAttribute()
     {
         return !is_null($this->actual_delivery_time);
     }
 
-    public function getGoogleMapsLinkAttribute(): ?string
+    public function getGoogleMapsLinkAttribute()
     {
         if (!$this->delivery_latitude || !$this->delivery_longitude) return null;
         return "https://www.google.com/maps?q={$this->delivery_latitude},{$this->delivery_longitude}";

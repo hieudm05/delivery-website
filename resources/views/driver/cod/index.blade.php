@@ -3,217 +3,232 @@
 
 @section('content')
 <div class="container-fluid py-4">
-    <!-- SUMMARY CARDS -->
+    <!-- HEADER -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="mb-0">
+                <i class="bi bi-wallet2 text-primary"></i> Quản lý tiền COD
+            </h3>
+            <p class="text-muted mb-0">Theo dõi và nộp tiền thu hộ về bưu cục</p>
+        </div>
+        @if($stats['count_pending'] > 0)
+        <div>
+            <a href="{{ route('driver.cod.group-by-date') }}" class="btn btn-success">
+                <i class="bi bi-stack"></i> Nộp tiền gộp
+            </a>
+        </div>
+        @endif
+    </div>
+
+    <!-- THỐNG KÊ -->
     <div class="row mb-4">
-        <div class="col-md-6">
-            <div class="card bg-warning text-white">
+        <div class="col-md-4 mb-3">
+            <div class="card border-left-warning shadow h-100">
                 <div class="card-body">
-                    <h6 class="text-white mb-0">Cần trả về Admin</h6>
-                    <h3 class="text-white mb-0">{{ number_format($totalPending) }} đ</h3>
-                    <small>{{ $pending->count() }} giao dịch</small>
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                Chờ nộp tiền
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ number_format($stats['total_pending']) }}đ
+                            </div>
+                            <small class="text-muted">{{ $stats['count_pending'] }} giao dịch</small>
+                        </div>
+                        <div class="col-auto">
+                            <i class="bi bi-hourglass-split fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
-        <div class="col-md-6">
-            <div class="card bg-info text-white">
+
+        <div class="col-md-4 mb-3">
+            <div class="card border-left-info shadow h-100">
                 <div class="card-body">
-                    <h6 class="text-white mb-0">Chờ Admin xác nhận</h6>
-                    <h3 class="text-white mb-0">{{ number_format($totalTransferred) }} đ</h3>
-                    <small>{{ $transferred->count() }} giao dịch</small>
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                Chờ xác nhận
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ number_format($stats['total_transferred']) }}đ
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="bi bi-clock-history fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-3">
+            <div class="card border-left-success shadow h-100">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Đã xác nhận
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ number_format($stats['total_confirmed']) }}đ
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="bi bi-check-circle-fill fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- PENDING PAYMENTS -->
-    <div class="card mb-4">
-        <div class="card-header pb-0">
-            <h5><i class="bi bi-exclamation-circle text-warning"></i> Cần chuyển tiền cho Admin</h5>
+    <!-- BẢNG GIAO DỊCH -->
+    <div class="card shadow">
+        <div class="card-header py-3 d-flex justify-content-between align-items-center">
+            <h5 class="m-0 font-weight-bold text-primary">
+                <i class="bi bi-list-ul"></i> Danh sách giao dịch COD
+            </h5>
+            <!-- LỌC THEO NGÀY -->
+            <form method="GET" class="d-flex gap-2" style="max-width: 300px;">
+                <input type="date" name="date" class="form-control form-control-sm" value="{{ $date ?? '' }}">
+                <button type="submit" class="btn btn-sm btn-primary">Tìm</button>
+                @if($date)
+                <a href="{{ route('driver.cod.index') }}" class="btn btn-sm btn-secondary">Reset</a>
+                @endif
+            </form>
         </div>
+
         <div class="card-body">
-            @if($pending->isEmpty())
-                <div class="alert alert-success">
-                    <i class="bi bi-check-circle"></i> Bạn không có tiền COD cần trả
+            <!-- TABS -->
+            <ul class="nav nav-tabs mb-4" role="tablist">
+                <li class="nav-item">
+                    <a class="nav-link {{ $status === 'all' ? 'active' : '' }}" href="?status=all{{ $date ? '&date=' . $date : '' }}">
+                        <i class="bi bi-list"></i> Tất cả
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ $status === 'pending' ? 'active' : '' }}" href="?status=pending{{ $date ? '&date=' . $date : '' }}">
+                        <i class="bi bi-exclamation-circle"></i> Chờ nộp
+                        @if($stats['count_pending'] > 0)
+                        <span class="badge bg-warning ms-1">{{ $stats['count_pending'] }}</span>
+                        @endif
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ $status === 'transferred' ? 'active' : '' }}" href="?status=transferred{{ $date ? '&date=' . $date : '' }}">
+                        <i class="bi bi-clock"></i> Chờ xác nhận
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ $status === 'confirmed' ? 'active' : '' }}" href="?status=confirmed{{ $date ? '&date=' . $date : '' }}">
+                        <i class="bi bi-check-circle"></i> Đã xác nhận
+                    </a>
+                </li>
+            </ul>
+
+            @if($transactions->isEmpty())
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i> Không có giao dịch nào
                 </div>
             @else
                 <div class="table-responsive">
-                    <table class="table table-hover">
+                    <table class="table table-hover align-middle">
                         <thead class="table-light">
                             <tr>
                                 <th>Đơn hàng</th>
-                                <th>Ngày giao</th>
+                                <th>Người gửi</th>
                                 <th>Tiền COD</th>
                                 <th>Phí ship</th>
-                                <th>Tổng cần trả</th>
-                                <th>Hành động</th>
+                                <th>Tổng nộp</th>
+                                <th>Trạng thái</th>
+                                <th>Thời gian</th>
+                                <th class="text-center">Hành động</th>
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach($pending as $trans)
+                            @foreach($transactions as $trans)
                             <tr>
                                 <td>
-                                    <a href="{{ route('driver.orders.show', $trans->order_id) }}">
+                                    <a href="{{ route('driver.cod.show', $trans->id) }}" class="text-decoration-none">
                                         <strong>#{{ $trans->order_id }}</strong>
                                     </a>
                                 </td>
                                 <td>
-                                    <small>{{ $trans->order->updated_at->format('d/m/Y H:i') }}</small>
+                                    <div>
+                                        <strong>{{ $trans->sender->full_name ?? 'N/A' }}</strong><br>
+                                        <small class="text-muted">{{ $trans->sender->phone ?? '' }}</small>
+                                    </div>
                                 </td>
                                 <td>
                                     <strong class="text-success">{{ number_format($trans->cod_amount) }}đ</strong>
                                 </td>
+                                <td>{{ number_format($trans->shipping_fee) }}đ</td>
                                 <td>
-                                    {{ number_format($trans->shipping_fee) }}đ
+                                    <strong class="text-primary">{{ number_format($trans->total_collected) }}đ</strong>
                                 </td>
                                 <td>
-                                    <strong class="text-danger">{{ number_format($trans->total_collected) }}đ</strong>
-                                </td>
-                                <td>
-                                    <button type="button" class="btn btn-sm btn-warning" 
-                                            data-bs-toggle="modal" 
-                                            data-bs-target="#transferModal{{ $trans->id }}">
-                                        <i class="bi bi-send"></i> Chuyển tiền
-                                    </button>
-                                </td>
-                            </tr>
-
-                            <!-- MODAL CHUYỂN TIỀN -->
-                            <div class="modal fade" id="transferModal{{ $trans->id }}" tabindex="-1">
-                                <div class="modal-dialog">
-                                    <div class="modal-content">
-                                        <form action="{{ route('driver.cod.transfer', $trans->id) }}" method="POST" enctype="multipart/form-data">
-                                            @csrf
-                                            <div class="modal-header">
-                                                <h5 class="modal-title">Xác nhận chuyển tiền COD</h5>
-                                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                            </div>
-                                            <div class="modal-body">
-                                                <div class="alert alert-info">
-                                                    <strong>Đơn hàng:</strong> #{{ $trans->order_id }}<br>
-                                                    <strong>Tổng tiền:</strong> {{ number_format($trans->total_collected) }}đ
-                                                </div>
-
-                                                <div class="mb-3">
-                                                    <label class="form-label">Phương thức chuyển <span class="text-danger">*</span></label>
-                                                    <select name="method" class="form-select" required>
-                                                        <option value="">-- Chọn phương thức --</option>
-                                                        <option value="bank_transfer">Chuyển khoản ngân hàng</option>
-                                                        <option value="wallet">Ví điện tử (Momo, ZaloPay...)</option>
-                                                        <option value="cash">Nộp tiền mặt tại văn phòng</option>
-                                                    </select>
-                                                </div>
-
-                                                <div class="mb-3">
-                                                    <label class="form-label">Ảnh chứng từ <span class="text-muted">(bắt buộc nếu chuyển khoản)</span></label>
-                                                    <input type="file" name="proof" class="form-control" accept="image/*">
-                                                    <small class="text-muted">Chụp ảnh biên lai chuyển khoản</small>
-                                                </div>
-
-                                                <div class="mb-3">
-                                                    <label class="form-label">Ghi chú</label>
-                                                    <textarea name="note" class="form-control" rows="3" placeholder="VD: Đã chuyển lúc 14:30, mã GD 123456..."></textarea>
-                                                </div>
-                                            </div>
-                                            <div class="modal-footer">
-                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
-                                                <button type="submit" class="btn btn-warning">
-                                                    <i class="bi bi-check-circle"></i> Xác nhận đã chuyển
-                                                </button>
-                                            </div>
-                                        </form>
-                                    </div>
-                                </div>
-                            </div>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
-            @endif
-        </div>
-    </div>
-
-    <!-- TRANSFERRED (WAITING CONFIRM) -->
-    <div class="card mb-4">
-        <div class="card-header pb-0">
-            <h5><i class="bi bi-clock text-info"></i> Chờ Admin xác nhận</h5>
-        </div>
-        <div class="card-body">
-            @if($transferred->isEmpty())
-                <p class="text-muted">Không có giao dịch nào</p>
-            @else
-                <div class="table-responsive">
-                    <table class="table">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Đơn hàng</th>
-                                <th>Số tiền</th>
-                                <th>Thời gian chuyển</th>
-                                <th>Phương thức</th>
-                                <th>Trạng thái</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($transferred as $trans)
-                            <tr>
-                                <td><strong>#{{ $trans->order_id }}</strong></td>
-                                <td>{{ number_format($trans->total_collected) }}đ</td>
-                                <td>{{ $trans->shipper_transfer_time?->format('d/m/Y H:i') }}</td>
-                                <td>
-                                    @if($trans->shipper_transfer_method === 'bank_transfer')
-                                        Chuyển khoản
-                                    @elseif($trans->shipper_transfer_method === 'wallet')
-                                        Ví điện tử
-                                    @else
-                                        Tiền mặt
+                                    @if($trans->shipper_payment_status === 'pending')
+                                        <span class="badge bg-warning">
+                                            <i class="bi bi-exclamation-circle"></i> Chờ nộp
+                                        </span>
+                                    @elseif($trans->shipper_payment_status === 'transferred')
+                                        <span class="badge bg-info">
+                                            <i class="bi bi-clock"></i> Chờ xác nhận
+                                        </span>
+                                    @elseif($trans->shipper_payment_status === 'confirmed')
+                                        <span class="badge bg-success">
+                                            <i class="bi bi-check-circle"></i> Đã xác nhận
+                                        </span>
                                     @endif
                                 </td>
                                 <td>
-                                    <span class="badge bg-warning">Chờ xác nhận</span>
+                                    <small>{{ $trans->created_at->format('d/m/Y H:i') }}</small>
+                                </td>
+                                <td class="text-center">
+                                    @if($trans->canDriverTransfer())
+                                        <a href="{{ route('driver.cod.show', $trans->id) }}" 
+                                           class="btn btn-sm btn-primary">
+                                            <i class="bi bi-send"></i> Nộp tiền
+                                        </a>
+                                    @else
+                                        <a href="{{ route('driver.cod.show', $trans->id) }}" 
+                                           class="btn btn-sm btn-outline-info">
+                                            <i class="bi bi-eye"></i> Chi tiết
+                                        </a>
+                                    @endif
                                 </td>
                             </tr>
                             @endforeach
                         </tbody>
                     </table>
                 </div>
-            @endif
-        </div>
-    </div>
 
-    <!-- CONFIRMED -->
-    <div class="card">
-        <div class="card-header pb-0">
-            <h5><i class="bi bi-check-circle text-success"></i> Đã xác nhận</h5>
-        </div>
-        <div class="card-body">
-            @if($confirmed->isEmpty())
-                <p class="text-muted">Không có giao dịch nào</p>
-            @else
-                <div class="table-responsive">
-                    <table class="table">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Đơn hàng</th>
-                                <th>Số tiền</th>
-                                <th>Admin xác nhận</th>
-                                <th>Trạng thái</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($confirmed as $trans)
-                            <tr>
-                                <td><strong>#{{ $trans->order_id }}</strong></td>
-                                <td>{{ number_format($trans->total_collected) }}đ</td>
-                                <td>{{ $trans->admin_confirm_time?->format('d/m/Y H:i') }}</td>
-                                <td>
-                                    <span class="badge bg-success">Đã xác nhận</span>
-                                </td>
-                            </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
+                <!-- PAGINATION -->
+                <div class="mt-4 d-flex justify-content-between align-items-center">
+                    <div class="text-muted">
+                        Hiển thị {{ $transactions->firstItem() }} - {{ $transactions->lastItem() }} 
+                        trong tổng số {{ $transactions->total() }} giao dịch
+                    </div>
+                    <div>
+                        {{ $transactions->appends(['status' => $status, 'date' => $date])->links() }}
+                    </div>
                 </div>
             @endif
         </div>
     </div>
 </div>
+
+<style>
+.border-left-warning {
+    border-left: 4px solid #f6c23e !important;
+}
+.border-left-info {
+    border-left: 4px solid #36b9cc !important;
+}
+.border-left-success {
+    border-left: 4px solid #1cc88a !important;
+}
+</style>
 @endsection

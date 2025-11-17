@@ -9,6 +9,7 @@ use App\Http\Controllers\Admin\Orders\OrderApprovalController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BankAccountController;
 use App\Http\Controllers\Customer\Dashboard\Accounts\AccountController;
+use App\Http\Controllers\Customer\Dashboard\Cod\CustomerCodController;
 use App\Http\Controllers\Customer\Dashboard\DashboardCustomerController;
 use App\Http\Controllers\Customer\Dashboard\OrderManagent\OrderManagentController;
 use App\Http\Controllers\Customer\Dashboard\Orders\OrderController;
@@ -19,6 +20,7 @@ use App\Http\Controllers\Drivers\CodPaymentController;
 use App\Http\Controllers\Drivers\DriverController;
 use App\Http\Controllers\Drivers\PickupController;
 use App\Http\Controllers\Hub\BankAccountHubController;
+use App\Http\Controllers\Hub\Cod\HubCodController;
 use App\Http\Controllers\Hub\HubController;
 use App\Http\Controllers\Hub\Staff\HubDriverController;
 use Illuminate\Support\Facades\Auth;
@@ -66,9 +68,7 @@ Route::prefix('admin')
         Route::get('/driver/{id}', [AdminDriverController::class, 'show'])->name('driver.show');
         Route::post('/driver/{id}/approve', [AdminDriverController::class, 'approve'])->name('driver.approve');
         // ADMIN COD MANAGEMENT 
-        Route::prefix('cod')
-        ->name('cod.')
-        ->group( function () {
+       Route::prefix('cod')->name('cod.')->group(function () {
             Route::get('/', [CodManagementController::class, 'index'])->name('index');
             Route::get('statistics', [CodManagementController::class, 'statistics'])->name('statistics');
             Route::get('{id}', [CodManagementController::class, 'show'])->name('show');
@@ -225,6 +225,32 @@ Route::prefix('driver')
                 // Sinh QR code
                 Route::post('/{id}/generate-qr', [BankAccountDRVController::class, 'generateQr'])->name('generate-qr');
             });
+
+         // COD Payment Routes
+    Route::prefix('cod')->name('cod.')->group(function () {
+        // Danh sách giao dịch
+        Route::get('/', [CodPaymentController::class, 'index'])->name('index');
+        // QR Code route for single transaction
+        Route::get('{id}/qr', [CodPaymentController::class, 'getQrCode'])->name('qr');
+        // Xem danh sách giao dịch theo ngày (nộp gộp)
+        Route::get('group/by-date', [CodPaymentController::class, 'groupByDate'])
+            ->name('group-by-date');
+    
+        // Nộp tiền gộp cho ngày
+        Route::post('transfer/by-date', [CodPaymentController::class, 'transferByDate'])
+            ->name('transfer-by-date');        
+        // Nộp tiền cho Hub
+        Route::post('{id}/transfer', [CodPaymentController::class, 'transfer'])->name('transfer');
+        // Chi tiết giao dịch
+        Route::get('{id}', [CodPaymentController::class, 'show'])->name('show');
+    });
+    
+    // 🔥 FIX: API Routes - MUST be inside authenticated middleware
+    Route::prefix('api/cod')->name('api.cod.')->group(function () {
+        // QR Code cho nộp gộp
+        Route::post('group-qr/{hubId}', [CodPaymentController::class, 'getGroupQrCode'])
+            ->name('group-qr');
+    });
     });
 
 // Customer
@@ -276,33 +302,44 @@ Route::prefix('customer')
                 ->name('tracking.updates');
         });
 
-        // Quản lí tài khoản ngân hàng
-         Route::prefix('bank-accounts')
-            ->name('bank-accounts.')
-            ->group(function () {
-                // Danh sách tài khoản ngân hàng
-                Route::get('/', [BankAccountController::class, 'indexCustomer'])->name('index');
-                
-                // Tạo tài khoản mới
-                Route::get('/create', [BankAccountController::class, 'createCustomer'])->name('create');
-                Route::post('/', [BankAccountController::class, 'store'])->name('store');
-                
-                // Chi tiết tài khoản
-                Route::get('/{id}', [BankAccountController::class, 'show'])->name('show');
-                
-                // Chỉnh sửa tài khoản
-                Route::get('/{id}/edit', [BankAccountController::class, 'edit'])->name('edit');
-                Route::put('/{id}', [BankAccountController::class, 'update'])->name('update');
-                
-                // Xóa tài khoản
-                Route::delete('/{id}', [BankAccountController::class, 'destroy'])->name('destroy');
-                
-                // Đặt làm tài khoản chính
-                Route::post('/{id}/make-primary', [BankAccountController::class, 'makePrimary'])->name('make-primary');
-                
-                // Sinh QR code
-                Route::post('/{id}/generate-qr', [BankAccountController::class, 'generateQr'])->name('generate-qr');
-            });
+    // Quản lí tài khoản ngân hàng
+    Route::prefix('bank-accounts')
+    ->name('bank-accounts.')
+    ->group(function () {
+        // Danh sách tài khoản ngân hàng
+        Route::get('/', [BankAccountController::class, 'indexCustomer'])->name('index');
+        
+        // Tạo tài khoản mới
+        Route::get('/create', [BankAccountController::class, 'createCustomer'])->name('create');
+        Route::post('/', [BankAccountController::class, 'store'])->name('store');
+        
+        // Chi tiết tài khoản
+        Route::get('/{id}', [BankAccountController::class, 'show'])->name('show');
+        
+        // Chỉnh sửa tài khoản
+        Route::get('/{id}/edit', [BankAccountController::class, 'edit'])->name('edit');
+        Route::put('/{id}', [BankAccountController::class, 'update'])->name('update');
+        
+        // Xóa tài khoản
+        Route::delete('/{id}', [BankAccountController::class, 'destroy'])->name('destroy');
+        
+        // Đặt làm tài khoản chính
+        Route::post('/{id}/make-primary', [BankAccountController::class, 'makePrimary'])->name('make-primary');
+        
+        // Sinh QR code
+        Route::post('/{id}/generate-qr', [BankAccountController::class, 'generateQr'])->name('generate-qr');
+    });
+    // Quản lý COD
+    Route::prefix('cod')->name('cod.')->group(function () {
+        // Danh sách giao dịch
+        Route::get('/', [CustomerCodController::class, 'index'])->name('index');
+        // Chi tiết giao dịch
+        Route::get('/{id}', [CustomerCodController::class, 'show'])->name('show');
+        // Thống kê
+        Route::get('/statistics', [CustomerCodController::class, 'statistics'])->name('statistics');
+        // Yêu cầu xử lý ưu tiên
+        Route::post('/{id}/request-priority', [CustomerCodController::class, 'requestPriority'])->name('request-priority');
+    });
     });
 
 // Hub
@@ -376,6 +413,28 @@ Route::prefix('hub')
                 // Báo cáo tổng hợp
                 Route::get('/report/overview', [HubDriverController::class, 'report'])->name('report');
             });
+        Route::prefix('cod')->name('cod.')->group(function () {
+            // Dashboard COD
+            Route::get('/', [HubCodController::class, 'index'])->name('index');
+            // Chi tiết giao dịch
+            Route::get('/{id}', [HubCodController::class, 'show'])->name('show');
+            // Xác nhận nhận tiền từ Driver
+            Route::post('/{id}/confirm', [HubCodController::class, 'confirmFromDriver'])->name('confirm');
+            // Chuyển tiền cho Sender
+            Route::post('/{id}/transfer-sender', [HubCodController::class, 'transferToSender'])->name('transfer-sender');
+             // Trả commission cho Driver
+            Route::post('/{id}/pay-driver-commission', [HubCodController::class, 'payDriverCommission'])->name('pay-driver-commission');
+            // Trả commission hàng loạt
+            Route::post('/batch-pay-driver-commission', [HubCodController::class, 'batchPayDriverCommission'])->name('batch-pay-driver-commission');
+            // Nộp tiền cho hệ thống (batch)
+            Route::post('/transfer-system', [HubCodController::class, 'transferToSystem'])->name('transfer-system');
+            // Tranh chấp
+            Route::post('/{id}/dispute', [HubCodController::class, 'dispute'])->name('dispute');
+            // Thống kê
+            Route::get('/statistics', [HubCodController::class, 'statistics'])->name('statistics');
+            // API: Lấy QR code hệ thống
+            Route::get('/api/system-qr', [HubCodController::class, 'getSystemQrCode'])->name('system-qr');
+        });
     });
 
     // PUBLIC TRACKING ROUTES - Không cần auth

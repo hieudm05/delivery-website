@@ -41,5 +41,17 @@
             <span class="nav-link-text ms-1">Nhân viên</span>
           </a>
         </li>
+         <li class="nav-item">
+          <a class="nav-link {{request()->routeIs('hub.cod.index') ? 'active bg-gradient-dark text-white' : 'text-dark'}}" href="{{ route('hub.cod.index') }}">
+            <i class="material-symbols-rounded opacity-5">person</i>
+            <span class="nav-link-text ms-1">COD</span>
+          </a>
+        </li>
+         <li class="nav-item">
+          <a class="nav-link {{request()->routeIs('logout') ? 'active bg-gradient-dark text-white' : 'text-dark'}}" href="{{ route('logout') }}">
+            <i class="material-symbols-rounded opacity-5">person</i>
+            <span class="nav-link-text ms-1">Đăng xuất</span>
+          </a>
+        </li>
       </ul>
     </div>

@@ -162,11 +162,11 @@
                                     <tr>
                                         <td><strong class="text-primary">#{{ $trans->id }}</strong></td>
                                         <td>
-                                            <a href="{{ route('admin.orders.show', $trans->order_id) }}" 
+                                            {{-- <a href="{{ route('admin.orders.show', $trans->order_id) }}" 
                                                class="text-decoration-none" 
                                                target="_blank">
                                                 <i class="bi bi-box-seam"></i> Đơn #{{ $trans->order_id }}
-                                            </a>
+                                            </a> --}}
                                         </td>
                                         <td>
                                             <div>
