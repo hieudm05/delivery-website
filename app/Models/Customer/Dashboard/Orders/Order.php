@@ -979,19 +979,10 @@ class Order extends Model
                 }
             }
             
-            Log::warning('Goong reverse geocoding failed', [
-                'lat' => $latitude,
-                'lng' => $longitude,
-                'response' => $response->body()
-            ]);
             
             return null;
             
         } catch (\Exception $e) {
-            Log::error('Error in reverse geocoding: ' . $e->getMessage(), [
-                'lat' => $latitude,
-                'lng' => $longitude
-            ]);
             return null;
         }
     }

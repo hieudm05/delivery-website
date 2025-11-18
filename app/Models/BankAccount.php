@@ -223,6 +223,80 @@ class BankAccount extends Model
     }
 
     /**
+     * ✅ NEW: Lấy tài khoản ngân hàng của hệ thống
+     * Hệ thống = user có role 'admin' hoặc 'system' có bank account primary
+     */
+    public static function getSystemAccount()
+    {
+        // Cách 1: Lấy user có role admin/system
+        $systemUser = User::whereIn('role', ['admin', 'system'])
+            ->where('status', 'active')
+            ->first();
+
+        if (!$systemUser) {
+            return null;
+        }
+
+        return self::where('user_id', $systemUser->id)
+            ->where('is_primary', true)
+            ->where('is_active', true)
+            ->verified()
+            ->first();
+    }
+
+    /**
+     * ✅ NEW: Lấy tài khoản ngân hàng của hệ thống theo email cụ thể
+     * Dùng khi bạn có email cố định cho tài khoản hệ thống
+     */
+    public static function getSystemAccountByEmail($email = 'system@delivery.com')
+    {
+        $systemUser = User::where('email', $email)
+            ->where('status', 'active')
+            ->first();
+
+        if (!$systemUser) {
+            return null;
+        }
+
+        return self::where('user_id', $systemUser->id)
+            ->where('is_primary', true)
+            ->where('is_active', true)
+            ->verified()
+            ->first();
+    }
+
+    /**
+     * ✅ NEW: Lấy tài khoản hệ thống với fallback
+     * Thử nhiều cách để tìm system account
+     */
+    public static function getSystemAccountWithFallback()
+    {
+        // Thử lấy theo role admin
+        $account = self::getSystemAccount();
+        
+        if ($account) {
+            return $account;
+        }
+
+        // Thử lấy theo email cố định
+        $account = self::getSystemAccountByEmail('system@delivery.com');
+        
+        if ($account) {
+            return $account;
+        }
+
+        // Thử lấy theo user_id = 1 (thường là super admin)
+        $account = self::getPrimaryAccount(1);
+        
+        if ($account) {
+            return $account;
+        }
+
+        // Không tìm thấy - throw exception
+        throw new \Exception('Không tìm thấy tài khoản ngân hàng hệ thống. Vui lòng cấu hình tài khoản cho admin.');
+    }
+
+    /**
      * Format số tài khoản (ẩn giữa, giữ 4 số đầu và 4 số cuối)
      */
     public function getMaskedAccountNumber()

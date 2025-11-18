@@ -580,11 +580,6 @@ class OrderManagentController extends Controller
                 }
             }
             
-            Log::warning('Goong reverse geocoding failed', [
-                'lat' => $latitude,
-                'lng' => $longitude,
-                'response' => $response->body()
-            ]);
             
             return null;
             

@@ -224,7 +224,11 @@ private function createStandaloneOrder($request, $recipientData)
         'delivery_time' => $recipientData['delivery_time_formatted'],
         
         'item_type' => $recipientData['item_type'] ?? 'package',
-        'services' => [], // Services sẽ được parse từ checkboxes nếu cần
+       'services' => !empty($recipientData['services']) 
+        ? (is_string($recipientData['services']) 
+            ? json_decode($recipientData['services'], true) 
+            : $recipientData['services'])
+        : [],
         'cod_amount' => $recipientData['cod_amount'] ?? 0,
         'cod_fee' => $calculationResult['cod_fee'],
         'shipping_fee' => $calculationResult['shipping_fee'],
@@ -325,7 +329,11 @@ private function createGroupOrder($orderGroup, $request, $recipientData)
         'delivery_time' => $recipientData['delivery_time_formatted'],
         
         'item_type' => $recipientData['item_type'] ?? 'package',
-        'services' => [],
+        'services' => !empty($recipientData['services']) 
+        ? (is_string($recipientData['services']) 
+            ? json_decode($recipientData['services'], true) 
+            : $recipientData['services'])
+        : [],
         'cod_amount' => $recipientData['cod_amount'] ?? 0,
         'cod_fee' => $calculationResult['cod_fee'],
         'shipping_fee' => $calculationResult['shipping_fee'],
@@ -448,103 +456,233 @@ private function saveRecipientAddress($recipientData)
         }
     }
 
-    private function calculateOrderFees($products, $recipientData)
-    {
-        $totalWeight = 0;
-        $totalValue = 0;
-        $allSpecials = [];
+   private function calculateOrderFees($products, $recipientData)
+{
+    // ✅ Validate input
+    if (!is_array($products)) {
+        \Log::error('calculateOrderFees: products không phải array', [
+            'type' => gettype($products),
+            'value' => $products
+        ]);
+        $products = [];
+    }
 
-        foreach ($products as $product) {
-            $qty = $product['quantity'] ?? 1;
-            $totalWeight += ($product['weight'] ?? 0) * $qty;
-            $totalValue += ($product['value'] ?? 0) * $qty;
-            
-            if (isset($product['specials']) && is_array($product['specials'])) {
-                $allSpecials = array_merge($allSpecials, $product['specials']);
-            }
-        }
-        
-        $allSpecials = array_unique($allSpecials);
-        
-        $base = 20000;
-        if ($totalWeight > 1000) {
-            $base += ($totalWeight - 1000) * 5;
-        }
-        
-        $extra = 0;
-        foreach ($allSpecials as $sp) {
-            $extra += match ($sp) {
-                'high_value' => 5000,
-                'oversized' => 10000,
-                'liquid' => 3000,
-                'battery' => 2000,
-                'fragile' => 5000,
-                'bulk' => 3000,
-                'certificate' => 2000,
-                default => 0,
-            };
-        }
-        
-        $services = $recipientData['services'] ?? [];
-        foreach ($services as $service) {
-            $extra += match ($service) {
-                'fast' => $base * 0.15,
-                'insurance' => $totalValue * 0.01,
-                default => 0,
-            };
-        }
-        
-        $shippingFee = round($base + $extra);
-        
-        $hasCOD = in_array('cod', $services) && (($recipientData['cod_amount'] ?? 0) > 0);
-        $codAmount = $hasCOD ? $recipientData['cod_amount'] : 0;
-        $codFee = $hasCOD ? (1000 + ($codAmount * 0.01)) : 0;
-        
-        $payer = $recipientData['payer'] ?? 'sender';
-        
-        if ($payer === 'sender') {
-            $senderPays = $shippingFee + $codFee;
-            $recipientPays = $codAmount;
-        } else {
-            $senderPays = $codFee;
-            $recipientPays = $shippingFee + $codAmount;
-        }
-        
+    if (empty($products)) {
         return [
-            'base_cost' => $base,
-            'extra_cost' => $extra,
-            'shipping_fee' => $shippingFee,
-            'cod_fee' => $codFee,
-            'cod_amount' => $codAmount,
-            'sender_pays' => $senderPays,
-            'recipient_pays' => $recipientPays,
+            'base_cost' => 0,
+            'extra_cost' => 0,
+            'shipping_fee' => 0,
+            'cod_fee' => 0,
+            'cod_amount' => 0,
+            'sender_pays' => 0,
+            'recipient_pays' => 0,
         ];
     }
 
-    public function calculate(Request $request)
-    {
-        $products = [];
+    $totalWeight = 0;
+    $totalValue = 0;
+    $allSpecials = [];
+
+    // ✅ Tính tổng weight, value, specials
+    foreach ((array)$products as $product) {
+        if (!is_array($product)) {
+            continue;
+        }
+
+        $qty = $product['quantity'] ?? 1;
+        $totalWeight += ($product['weight'] ?? 0) * $qty;
+        $totalValue += ($product['value'] ?? 0) * $qty;
         
+        if (isset($product['specials']) && is_array($product['specials'])) {
+            $allSpecials = array_merge($allSpecials, $product['specials']);
+        }
+    }
+    
+    $allSpecials = array_unique($allSpecials);
+    
+    // Tính cước cơ bản
+    $base = 20000;
+    if ($totalWeight > 1000) {
+        $base += ($totalWeight - 1000) * 5;
+    }
+    
+    // Tính phụ phí theo đặc tính hàng hóa
+    $extra = 0;
+    foreach ($allSpecials as $sp) {
+        $extra += match ($sp) {
+            'high_value' => 5000,
+            'oversized' => 10000,
+            'liquid' => 3000,
+            'battery' => 2000,
+            'fragile' => 5000,
+            'bulk' => 3000,
+            'certificate' => 2000,
+            default => 0,
+        };
+    }
+    
+    // Xử lý services
+    $services = $recipientData['services'] ?? [];
+    if (!is_array($services)) {
+        $services = [];
+    }
+
+    // 🐛 DEBUG
+    \Log::info('Services in calculateOrderFees:', [
+        'services' => $services,
+        'has_cod' => in_array('cod', $services),
+    ]);
+
+    // Tính phụ phí theo dịch vụ (TRỪ COD - COD tính riêng)
+    foreach ($services as $service) {
+        if ($service === 'cod') {
+            continue; // COD tính riêng, không tính vào phụ phí
+        }
+        
+        $extra += match ($service) {
+            'priority' => round($base * 0.25),
+            'fast' => round($base * 0.15),
+            'insurance' => round($totalValue * 0.01),
+            default => 0,
+        };
+    }
+    
+    $shippingFee = round($base + $extra);
+    
+    // ✅ QUAN TRỌNG: Tính COD fee
+    // Lấy cod_amount từ recipientData
+    $codAmount = $recipientData['cod_amount'] ?? 0;
+    $codAmount = max(0, (float)$codAmount); // Đảm bảo >= 0
+    
+    // Kiểm tra:
+    // 1. 'cod' phải có trong services
+    // 2. codAmount phải > 0
+    
+    if ($codAmount > 0) {
+        // ✅ Công thức: 1000 + (codAmount * 0.01)
+        // Ví dụ: codAmount = 89000 → codFee = 1000 + 890 = 1890
+        $codFee = round(1000 + ($codAmount * 0.01));
+    } else {
+        $codFee = 0;
+    }
+
+    \Log::info('COD Calculation:', [
+        'codAmount' => $codAmount,
+        'hasCOD' => true,
+        'codFee' => $codFee,
+    ]);
+    
+    // Tính tiền người gửi và người nhận trả
+    $payer = $recipientData['payer'] ?? 'sender';
+    
+    if ($payer === 'sender') {
+        // Người gửi trả: shipping_fee + cod_fee
+        // Người nhận trả: cod_amount
+        $senderPays = $shippingFee + $codFee;
+        $recipientPays = $codAmount;
+    } else {
+        // Người gửi trả: cod_fee
+        // Người nhận trả: shipping_fee + cod_amount
+        $senderPays = $codFee;
+        $recipientPays = $shippingFee + $codAmount;
+    }
+    
+    $result = [
+        'base_cost' => $base,
+        'extra_cost' => $extra,
+        'shipping_fee' => $shippingFee,
+        'cod_fee' => $codFee,
+        'cod_amount' => $codAmount,
+        'sender_pays' => $senderPays,
+        'recipient_pays' => $recipientPays,
+    ];
+
+    \Log::info('Final calculation result:', $result);
+    
+    return $result;
+}
+
+    public function calculate(Request $request)
+{
+    try {
+        // ✅ Xử lý products_json
+        $products = [];
         if ($request->has('products_json') && !empty($request->products_json)) {
             $products = json_decode($request->products_json, true) ?? [];
         }
-        
-        $result = $this->calculateOrderFees($products, $request->all());
-        
+
+        // ✅ Validate products
+        if (!is_array($products) || empty($products)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Vui lòng thêm ít nhất 1 sản phẩm'
+            ], 422);
+        }
+
+        // ✅ Xử lý services
+        $services = [];
+        if ($request->has('services')) {
+            $servicesInput = $request->services;
+            if (is_string($servicesInput)) {
+                $services = json_decode($servicesInput, true) ?? [];
+            } elseif (is_array($servicesInput)) {
+                $services = $servicesInput;
+            }
+        }
+
+        // ✅ Xử lý COD amount - QUAN TRỌNG
+        $codAmount = 0;
+        if ($request->has('cod_amount') && !empty($request->cod_amount)) {
+            $codAmount = (float) $request->cod_amount;
+        }
+
+        // 🐛 DEBUG
+        \Log::info('Calculate request:', [
+            'services' => $services,
+            'cod_amount' => $codAmount,
+            'has_cod_in_services' => in_array('cod', $services),
+        ]);
+
+        // ✅ Xử lý payer
+        $payer = $request->input('payer', 'sender');
+
+        // ✅ Chuẩn bị dữ liệu cho calculateOrderFees
+        $recipientData = [
+            'services' => $services,
+            'cod_amount' => $codAmount,
+            'payer' => $payer,
+            'item_type' => $request->input('item_type', 'package')
+        ];
+
+        $result = $this->calculateOrderFees($products, $recipientData);
+
+        \Log::info('Calculate result:', $result);
+
         return response()->json([
             'success' => true,
             'base_cost' => $result['base_cost'],
             'extra_cost' => $result['extra_cost'],
             'shipping_fee' => $result['shipping_fee'],
-            'cod_fee' => $result['cod_fee'],
+            'cod_fee' => $result['cod_fee'],  // ✅ Kiểm tra giá trị này
             'total' => $result['shipping_fee'] + $result['cod_fee'],
-            'payer' => $request->payer ?? 'sender',
-            'has_cod' => in_array('cod', $request->services ?? []),
+            'payer' => $payer,
+            'has_cod' => in_array('cod', $services),
             'cod_amount' => $result['cod_amount'],
             'sender_pays' => $result['sender_pays'],
             'recipient_pays' => $result['recipient_pays'],
         ]);
+
+    } catch (\Exception $e) {
+        \Log::error('Calculate error: ' . $e->getMessage(), [
+            'trace' => $e->getTraceAsString()
+        ]);
+        return response()->json([
+            'success' => false,
+            'message' => 'Lỗi tính toán chi phí: ' . $e->getMessage()
+        ], 500);
     }
+}
+
 
     public function getNearby(Request $request)
     {
