@@ -67,14 +67,16 @@ Route::prefix('admin')
         Route::get('/driver', [AdminDriverController::class, 'index'])->name('driver.index');
         Route::get('/driver/{id}', [AdminDriverController::class, 'show'])->name('driver.show');
         Route::post('/driver/{id}/approve', [AdminDriverController::class, 'approve'])->name('driver.approve');
-        // ADMIN COD MANAGEMENT 
-       Route::prefix('cod')->name('cod.')->group(function () {
+        Route::prefix('cod')->name('cod.')->group(function () {
             Route::get('/', [CodManagementController::class, 'index'])->name('index');
             Route::get('statistics', [CodManagementController::class, 'statistics'])->name('statistics');
             Route::get('{id}', [CodManagementController::class, 'show'])->name('show');
-            Route::post('{id}/confirm', [CodManagementController::class, 'confirmReceived'])->name('confirm');
-            Route::post('{id}/transfer-sender', [CodManagementController::class, 'transferToSender'])->name('transfer');
-            Route::post('{id}/dispute', [CodManagementController::class, 'dispute'])->name('dispute');
+            
+            // ✅ NEW: Admin xác nhận nhận Platform Fee từ Hub
+            Route::post('{id}/confirm-system', [CodManagementController::class, 'confirmSystemReceived'])->name('confirm-system');
+            
+            // ✅ NEW: Admin tranh chấp Platform Fee
+            Route::post('{id}/dispute-system', [CodManagementController::class, 'disputeSystem'])->name('dispute-system');
         });
         Route::prefix('orders/approval')->name('orders.approval.')->group(function () {
             // Danh sách đơn chờ duyệt
@@ -331,15 +333,23 @@ Route::prefix('customer')
     });
     // Quản lý COD
     Route::prefix('cod')->name('cod.')->group(function () {
-        // Danh sách giao dịch
-        Route::get('/', [CustomerCodController::class, 'index'])->name('index');
-        // Chi tiết giao dịch
-        Route::get('/{id}', [CustomerCodController::class, 'show'])->name('show');
-        // Thống kê
-        Route::get('/statistics', [CustomerCodController::class, 'statistics'])->name('statistics');
-        // Yêu cầu xử lý ưu tiên
-        Route::post('/{id}/request-priority', [CustomerCodController::class, 'requestPriority'])->name('request-priority');
-    });
+            // Danh sách giao dịch
+            Route::get('/', [CustomerCodController::class, 'index'])->name('index');
+
+            Route::get('/{id}/qr', [CustomerCodController::class, 'getQrCode'])->name('qr');
+            
+            // Chi tiết giao dịch
+            Route::get('/{id}', [CustomerCodController::class, 'show'])->name('show');
+            
+            // Thống kê
+            Route::get('/statistics', [CustomerCodController::class, 'statistics'])->name('statistics');
+            
+            // ✅ NEW: Thanh toán phí hệ thống (Sender)
+            Route::post('/{id}/pay-fee', [CustomerCodController::class, 'paySenderFee'])->name('pay-fee');
+            
+            // ✅ NEW: Yêu cầu xử lý ưu tiên
+            Route::post('/{id}/request-priority', [CustomerCodController::class, 'requestPriority'])->name('request-priority');
+        });
     });
 
 // Hub

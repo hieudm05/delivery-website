@@ -13,28 +13,28 @@
 
     <li class="{{ request()->routeIs('driver.pickup.index') ? 'active' : '' }}">
         <a href="{{ route('driver.pickup.index') }}">
-            <i class="fas fa-clipboard-list"></i>
+            <i class="fas fa-box-open"></i>
             <span class="menu-text">Đơn Hàng</span>
         </a>
     </li>
 
     <li class="{{ request()->is('driver.delivery.index') ? 'active' : '' }}">
         <a href="{{ route('driver.delivery.index') }}">
-            <i class="fas fa-route"></i>
+            <i class="fas fa-truck-fast"></i>
             <span class="menu-text">Giao hàng</span>
         </a>
     </li>
 
     <li class="{{ request()->is('driver.bank-accounts.index') ? 'active' : '' }}">
         <a href="{{ route('driver.bank-accounts.index') }}">
-            <i class="fas fa-map-location-dot"></i>
+            <i class="fas fa-building-columns"></i>
             <span class="menu-text">Tài khoản ngân hàng</span>
         </a>
     </li>
 
     <li class="{{ request()->is('driver.cod.index') ? 'active' : '' }}">
         <a href="{{ route('driver.cod.index') }}">
-            <i class="fas fa-chart-bar"></i>
+            <i class="fas fa-money-bill-wave"></i>
             <span class="menu-text">Thanh toán COD</span>
         </a>
     </li>
@@ -55,7 +55,7 @@
 
     <li class="{{ request()->is('logout') ? 'active' : '' }}">
         <a href="{{ url('logout') }}">
-            <i class="fas fa-cog"></i>
+            <i class="fas fa-right-from-bracket"></i>
             <span class="menu-text">Đăng xuất</span>
         </a>
     </li>
