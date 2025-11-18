@@ -414,28 +414,32 @@ Route::prefix('hub')
                 Route::get('/report/overview', [HubDriverController::class, 'report'])->name('report');
             });
         Route::prefix('cod')->name('cod.')->group(function () {
-            // Dashboard COD
-            Route::get('/', [HubCodController::class, 'index'])->name('index');
-            // Chi tiết giao dịch
-            Route::get('/{id}', [HubCodController::class, 'show'])->name('show');
-            // Xác nhận nhận tiền từ Driver
-            Route::post('/{id}/confirm', [HubCodController::class, 'confirmFromDriver'])->name('confirm');
-            // Chuyển tiền cho Sender
-            Route::post('/{id}/transfer-sender', [HubCodController::class, 'transferToSender'])->name('transfer-sender');
-             // Trả commission cho Driver
-            Route::post('/{id}/pay-driver-commission', [HubCodController::class, 'payDriverCommission'])->name('pay-driver-commission');
-            // Trả commission hàng loạt
-            Route::post('/batch-pay-driver-commission', [HubCodController::class, 'batchPayDriverCommission'])->name('batch-pay-driver-commission');
-            // Nộp tiền cho hệ thống (batch)
-            Route::post('/transfer-system', [HubCodController::class, 'transferToSystem'])->name('transfer-system');
-            // Tranh chấp
-            Route::post('/{id}/dispute', [HubCodController::class, 'dispute'])->name('dispute');
-            // Thống kê
-            Route::get('/statistics', [HubCodController::class, 'statistics'])->name('statistics');
-            // API: Lấy QR code hệ thống
-            Route::get('/api/system-qr', [HubCodController::class, 'getSystemQrCode'])->name('system-qr');
-        });
+           // Dashboard & List
+        Route::get('/', [HubCodController::class, 'index'])->name('index');
+        Route::get('/{id}', [HubCodController::class, 'show'])->name('show');
+        
+        // Payment Actions
+        Route::post('/{id}/confirm', [HubCodController::class, 'confirmFromDriver'])->name('confirm');
+        Route::post('/{id}/transfer-sender', [HubCodController::class, 'transferToSender'])->name('transfer-sender');
+        Route::post('/{id}/pay-driver-commission', [HubCodController::class, 'payDriverCommission'])->name('pay-driver-commission');
+        Route::post('/batch-pay-driver-commission', [HubCodController::class, 'batchPayDriverCommission'])->name('batch-pay-driver-commission');
+        Route::post('/transfer-system', [HubCodController::class, 'transferToSystem'])->name('transfer-system');
+        
+        // Dispute
+        Route::post('/{id}/dispute', [HubCodController::class, 'dispute'])->name('dispute');
+        
+        // Statistics
+        Route::get('/statistics/overview', [HubCodController::class, 'statistics'])->name('statistics');
+        
+        // ✅ NEW: Activity Logs Routes
+        Route::get('/logs/activity', [HubCodController::class, 'activityLogs'])->name('activity-logs');
+        Route::get('/logs/export', [HubCodController::class, 'exportActivityLogs'])->name('export-activity-logs');
+        Route::get('/logs/recent', [HubCodController::class, 'getRecentLogs'])->name('recent-logs');
+        
+        // API Routes
+        Route::get('/api/system-qr', [HubCodController::class, 'getSystemQrCode'])->name('api.system-qr');
     });
+});
 
     // PUBLIC TRACKING ROUTES - Không cần auth
     Route::get('/tracking/{order_id}', [DriverTrackingController::class, 'trackingMap'])

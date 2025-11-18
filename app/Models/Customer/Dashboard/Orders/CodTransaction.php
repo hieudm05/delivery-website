@@ -154,27 +154,36 @@ class CodTransaction extends Model
         $codFee = $order->cod_fee ?? 0;
         $payer = $order->payer;
         
-        // ✅ TÍNH DRIVER COMMISSION
+        // ✅ TÍNH NGƯỢC SERVICE FEE từ shipping_fee và services
+        $serviceFee = self::calculateServiceFeeFromOrder($order);
+        
+        // ✅ Shipping fee thực tế (không bao gồm service fee)
+        $actualShippingFee = $shippingFee - $serviceFee;
+        
+        // ✅ TÍNH DRIVER COMMISSION (chỉ từ actualShippingFee)
         $driverCommissionRate = config('delivery.driver_commission_rate', 0.5);
         $minCommission = config('delivery.min_driver_commission', 5000);
         $maxCommission = config('delivery.max_driver_commission', 50000);
         
-        $driverCommission = $shippingFee * $driverCommissionRate;
+        $driverCommission = $actualShippingFee * $driverCommissionRate;
         $driverCommission = max($minCommission, min($driverCommission, $maxCommission));
         
         // Sender nhận đủ COD
         $senderReceiveAmount = $codAmount;
         
-        // Tổng Driver nộp Hub
+        // Tổng Driver thu từ khách
         if ($payer === 'recipient') {
-            $totalCollected = $codAmount + $shippingFee + $codFee;
+            $totalCollected = $codAmount + $shippingFee;
         } else {
             $totalCollected = $codAmount;
         }
         
-        // Hub nộp COD Fee cho System
-        $platformFee = $codFee;
-        $hubSystemAmount = $codFee;
+        // ✅ PLATFORM FEE = COD Fee + Service Fee
+        $platformFee = $codFee + $serviceFee;
+        
+        // Hub nộp cho System
+        $hubSystemAmount = $platformFee;
+        
         
         return self::create([
             'order_id' => $order->id,
@@ -184,7 +193,7 @@ class CodTransaction extends Model
             
             'cod_amount' => $codAmount,
             'shipping_fee' => $shippingFee,
-            'platform_fee' => $platformFee,
+            'platform_fee' => $platformFee, // ✅ COD Fee + Service Fee
             'sender_receive_amount' => $senderReceiveAmount,
             'payer_shipping' => $payer,
             'total_collected' => $totalCollected,
@@ -198,6 +207,67 @@ class CodTransaction extends Model
             
             'created_by' => auth()->id() ?? $senderId,
         ]);
+    }
+
+    /**
+     * ✅ TÍNH NGƯỢC SERVICE FEE từ Order
+     * Dựa vào services và products_json để tính lại phí dịch vụ
+     */
+    private static function calculateServiceFeeFromOrder(Order $order): float
+    {
+        $services = $order->services ?? [];
+        
+        // Parse services nếu là JSON string
+        if (is_string($services)) {
+            $services = json_decode($services, true) ?? [];
+        }
+        
+        if (!is_array($services) || empty($services)) {
+            return 0;
+        }
+        
+        // Parse products để lấy totalValue và totalWeight
+        $products = $order->products_json ?? [];
+        if (is_string($products)) {
+            $products = json_decode($products, true) ?? [];
+        }
+        
+        $totalWeight = 0;
+        $totalValue = 0;
+        
+        foreach ((array)$products as $product) {
+            if (!is_array($product)) {
+                continue;
+            }
+            
+            $qty = $product['quantity'] ?? 1;
+            $totalWeight += ($product['weight'] ?? 0) * $qty;
+            $totalValue += ($product['value'] ?? 0) * $qty;
+        }
+        
+        // Tính base cost (giống logic calculateOrderFees)
+        $base = 20000;
+        if ($totalWeight > 1000) {
+            $base += ($totalWeight - 1000) * 5;
+        }
+        
+        // ✅ TÍNH SERVICE FEE dựa vào services
+        $serviceFee = 0;
+        
+        foreach ($services as $service) {
+            if ($service === 'cod') {
+                continue; // COD đã tính riêng trong cod_fee
+            }
+            
+            $serviceFee += match ($service) {
+                'priority' => round($base * 0.25),
+                'fast' => round($base * 0.15),
+                'insurance' => round($totalValue * 0.01),
+                default => 0,
+            };
+        }
+        
+        return (float)$serviceFee;
     }
 
     // ============ PAYMENT FLOW METHODS ============

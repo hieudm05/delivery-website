@@ -486,8 +486,6 @@ class HubController extends Controller
         ];
     }
 
-    // ... (giữ nguyên các phương thức khác)
-
     private function getAvailableDrivers(Hub $hub, Order $order)
     {
         $maxDistance = 20;

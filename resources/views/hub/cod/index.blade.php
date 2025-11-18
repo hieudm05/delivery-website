@@ -2,7 +2,10 @@
 @section('title', 'Quản lý tiền COD')
 
 @section('content')
-<div class="container-fluid py-4">
+<div class="container">
+    @php
+        use App\Models\Customer\Dashboard\Orders\CodTransaction;
+    @endphp
     <!-- HEADER -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>

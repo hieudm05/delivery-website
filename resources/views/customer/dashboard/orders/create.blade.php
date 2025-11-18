@@ -1171,22 +1171,45 @@ function createRecipientCard(recipient, index) {
                     </div>
                     
                     <!-- COD -->
-                    <div class="mb-3">
+                   <div class="mb-3">
                         <div class="form-check">
-                            <input class="form-check-input cod-checkbox" type="checkbox" id="cod-${recipient.id}" data-recipient-id="${recipient.id}" ${d.cod_amount ? 'checked' : ''}>
-                            <label class="form-check-label" for="cod-${recipient.id}">Thu hộ COD</label>
+                            <input class="form-check-input cod-checkbox" 
+                                type="checkbox" 
+                                id="cod-${recipient.id}" 
+                                data-recipient-id="${recipient.id}"
+                                ${d.cod_amount ? 'checked' : ''}>
+
+                            <label class="form-check-label" for="cod-${recipient.id}">
+                                Thu hộ COD
+                            </label>
                         </div>
+
                         <div class="cod-amount-container-${recipient.id} ${d.cod_amount ? '' : 'd-none'} mt-2">
                             <label class="form-label">Số tiền thu hộ (VNĐ)</label>
-                            <input type="number" class="form-control cod-amount" data-recipient-id="${recipient.id}" name="recipients[${recipient.id}][cod_amount]" min="0" placeholder="Nhập số tiền" value="${esc(d.cod_amount)}">
+                            <input type="number" 
+                                class="form-control cod-amount" 
+                                data-recipient-id="${recipient.id}" 
+                                name="recipients[${recipient.id}][cod_amount]" 
+                                min="0" 
+                                placeholder="Nhập số tiền"
+                                value="${esc(d.cod_amount)}">
                         </div>
                     </div>
+
+                    <!-- ✅ THÊM HIDDEN INPUT SERVICES ARRAY -->
+                   <input type="hidden"
+                        name="recipients[${recipient.id}][services][]"
+                        value="cod"
+                        class="cod-services-input-${recipient.id}"
+                        ${d.cod_amount ? '' : 'disabled'}>
+
+
                     
                     <!-- NGƯỜI THANH TOÁN -->
                     <div class="mb-3">
                         <label class="form-label fw-bold">Người thanh toán cước phí</label>
                         <div class="form-check">
-                            <input class="form-check-input payer-radio" type="radio" name="recipients[${recipient.id}][payer]" id="payer-sender-${recipient.id}" value="sender" data-recipient-id="${recipient.id}" ${!d.payer || d.payer === 'sender' ? 'checked' : ''}>
+                            <input class="form-check-input payer-radio" type="radio" name="recipients[${recipient.id}][payer]" id="payer-sender-${recipient.id}" value="sender" data-recipient-id="${recipient.id}" ${d.payer === 'sender' ? 'checked' : ''}>
                             <label class="form-check-label" for="payer-sender-${recipient.id}">Người gửi</label>
                         </div>
                         <div class="form-check">
@@ -1237,6 +1260,7 @@ function createRecipientCard(recipient, index) {
                         <label class="form-label">Ghi chú riêng cho người nhận này</label>
                         <textarea class="form-control" name="recipients[${recipient.id}][note]" rows="2" placeholder="Ghi chú đặc biệt...">${esc(d.note)}</textarea>
                     </div>
+                    <input type="hidden" class="services-json-${recipient.id}" name="recipients[${recipient.id}][services]" value="[]">
                 </div>
             </div>
         </div>
@@ -1296,30 +1320,72 @@ function setupRecipientEventHandlers() {
     });
     
     // Services
-    $('.service-checkbox').off('change').on('change', function() {
+    $(document).off('change', '.service-checkbox').on('change', '.service-checkbox', function() {
         const recipientId = $(this).data('recipient-id');
+        const serviceName = $(this).val();
+        const isChecked = $(this).is(':checked');
+        
+        console.log(`🔄 Service '${serviceName}' checkbox changed #${recipientId}: ${isChecked}`);
+        
         calculateCost(recipientId);
     });
     
-    $('.cod-checkbox').off('change').on('change', function() {
+   $(document).off('change', '.cod-checkbox').on('change', '.cod-checkbox', function() {
+    const id = $(this).data('recipient-id');
+    const isChecked = $(this).is(':checked');
+
+    console.log(`🔄 COD Checkbox #${id} changed: ${isChecked}`);
+
+    // ✅ Enable/Disable hidden input để gửi services[]
+    $(`.cod-services-input-${id}`).prop('disabled', !isChecked);
+
+    if (isChecked) {
+        // Hiện input nhập tiền
+        $(`.cod-amount-container-${id}`).removeClass('d-none');
+        console.log(`👁️ Show cod_amount input`);
+    } else {
+        // Ẩn input nhập tiền + reset
+        $(`.cod-amount-container-${id}`).addClass('d-none');
+        $(`.cod-amount[data-recipient-id="${id}"]`).val('');
+        console.log(`🙈 Hide cod_amount input + clear value`);
+    }
+
+    // Tính toán lại
+    calculateCost(id);
+});
+
+    
+    $(document).off('input', '.cod-amount').on('input', '.cod-amount', function() {
         const recipientId = $(this).data('recipient-id');
-        if ($(this).is(':checked')) {
-            $(`.cod-amount-container-${recipientId}`).removeClass('d-none');
-        } else {
-            $(`.cod-amount-container-${recipientId}`).addClass('d-none');
-            $(`.cod-amount[data-recipient-id="${recipientId}"]`).val('');
+        const newValue = $(this).val();
+
+        console.log(`💰 COD Amount input #${recipientId}: ${newValue}`);
+
+        // Clear debounce cũ
+        if (window[`cod_debounce_${recipientId}`]) {
+            clearTimeout(window[`cod_debounce_${recipientId}`]);
         }
-        calculateCost(recipientId);
+
+        // Debounce 1 giây
+        window[`cod_debounce_${recipientId}`] = setTimeout(() => {
+            console.log(`⏱️ Debounce finished, calling calculateCost`);
+            calculateCost(recipientId);
+        }, 1000);
     });
+
     
-    $('.cod-amount').off('input').on('input', function() {
-        const recipientId = $(this).data('recipient-id');
-        calculateCost(recipientId);
-    });
-    
-    $('.payer-radio').off('change').on('change', function() {
-        const recipientId = $(this).data('recipient-id');
-        calculateCost(recipientId);
+       $('.payer-radio').off('change').on('change', function() {
+        const id = $(this).data('recipient-id');
+        const value = $(this).val();
+        const rec = recipientsList.find(r => r.id == id);
+        
+        // 🔥 LƯU PAYER VÀO DATA
+        if (rec) {
+            rec.data.payer = value;
+            console.log(`💳 Payer changed for #${id}: ${value}`);
+        }
+
+        calculateCost(id);
     });
     
     // Images
@@ -1823,8 +1889,8 @@ function removeProduct(recipientId, idx) {
 function resetProductForm(recipientId) {
     $(`.product-name-${recipientId}`).val('');
     $(`.product-quantity-${recipientId}`).val('1');
-    $(`.product-weight-${recipientId}`).val('10');
-    $(`.product-value-${recipientId}`).val('10000');
+    $(`.product-weight-${recipientId}`).val('1');
+    $(`.product-value-${recipientId}`).val('1');
     $(`.product-length-${recipientId}`).val('');
     $(`.product-width-${recipientId}`).val('');
     $(`.product-height-${recipientId}`).val('');
@@ -1834,8 +1900,8 @@ function resetProductForm(recipientId) {
 function resetDocumentForm(recipientId) {
     $(`.document-name-${recipientId}`).val('');
     $(`.document-quantity-${recipientId}`).val('1');
-    $(`.document-weight-${recipientId}`).val('10');
-    $(`.document-value-${recipientId}`).val('10000');
+    $(`.document-weight-${recipientId}`).val('1');
+    $(`.document-value-${recipientId}`).val('1');
     $(`.document-length-${recipientId}`).val('');
     $(`.document-width-${recipientId}`).val('');
     $(`.document-height-${recipientId}`).val('');
@@ -1929,63 +1995,88 @@ function calculateCost(recipientId) {
         productsData = recipient.products;
     }
     
-    // ✅ FIX: Thu thập services + COD
+    // ✅ Lấy cod_amount từ input
+    let codAmount = 0;
+    const codInput = $(`.cod-amount[data-recipient-id="${recipientId}"]`).val();
+    if (codInput && codInput.trim()) {
+        codAmount = parseFloat(codInput);
+    }
+
+    console.log(`💵 COD Amount: ${codAmount}`);
+    
+    // ✅ Lấy tất cả services từ form checkboxes + hidden input
     const services = [];
+    
+    // Service checkboxes (priority, insurance)
     $(`.service-checkbox[data-recipient-id="${recipientId}"]:checked`).each(function() {
         services.push($(this).val());
     });
     
-    // ✅ THÊM: Kiểm tra COD checkbox
-    const hasCOD = $(`.cod-checkbox[data-recipient-id="${recipientId}"]`).is(':checked');
-    const codAmount = hasCOD ? (parseFloat($(`.cod-amount[data-recipient-id="${recipientId}"]`).val()) || 0) : 0;
-    
-    // ✅ THÊM 'cod' vào services nếu có COD
-    if (hasCOD && codAmount > 0) {
+    // ✅ Check hidden COD input (nếu enabled = checkbox được bật)
+    // hidden input nhận từ HTML
+    const codHiddenInput = $(`.cod-services-input-${recipientId}`);
+
+    // nếu checkbox COD bật => hidden input không disabled
+    if (!codHiddenInput.prop('disabled')) {
         if (!services.includes('cod')) {
             services.push('cod');
         }
+        console.log(`✅ 'cod' added to services`);
     }
+
+
+
+    console.log(`📋 Final services:`, services);
     
-    const payer = $(`input[name="recipients[${recipientId}][payer]"]:checked`).val();
+    const payer = $(`input[name="recipients[${recipientId}][payer]"]:checked`).val() || 'sender';
     
     const data = {
         products_json: JSON.stringify(productsData),
-        services: services, // ✅ Đã bao gồm 'cod'
+        services: services,
         cod_amount: codAmount,
         payer: payer,
         item_type: productsData[0]?.type || 'package',
         _token: $('meta[name="csrf-token"]').attr('content') || '{{ csrf_token() }}'
     };
     
-    console.log('📤 Sending to calculate:', data); // DEBUG
+    console.log(`📤 Sending to /calculate:`, data);
     
-    $.post('{{ route("customer.orders.calculate") }}', data)
-        .done(function(res) {
-            console.log('📥 Response from calculate:', res); // DEBUG
+    $.ajax({
+        url: '{{ route("customer.orders.calculate") }}',
+        type: 'POST',
+        data: data,
+        dataType: 'json',
+        success: function(res) {
+            console.log(`📥 Response:`, res);
             
             if (res && res.success === true) {
                 $(`.base-cost-${recipientId}`).text((res.base_cost || 0).toLocaleString('vi-VN') + ' đ');
                 $(`.extra-cost-${recipientId}`).text((res.extra_cost || 0).toLocaleString('vi-VN') + ' đ');
                 
-                if (res.cod_fee > 0) {
+                // ✅ Display COD fee
+                if (res.cod_fee && res.cod_fee > 0) {
                     $(`.cod-fee-${recipientId}`).text(res.cod_fee.toLocaleString('vi-VN') + ' đ');
                     $(`.cod-fee-row-${recipientId}`).show();
+                    console.log(`✅ COD Fee: ${res.cod_fee} đ`);
                 } else {
+                    $(`.cod-fee-${recipientId}`).text('0 đ');
                     $(`.cod-fee-row-${recipientId}`).hide();
                 }
                 
                 $(`.total-cost-${recipientId}`).text((res.total || 0).toLocaleString('vi-VN') + ' đ');
-                
-                // ✅ QUAN TRỌNG: Hiển thị đúng COD amount
                 $(`.sender-pays-${recipientId}`).text((res.sender_pays || 0).toLocaleString('vi-VN') + ' đ');
                 $(`.recipient-pays-${recipientId}`).text((res.recipient_pays || 0).toLocaleString('vi-VN') + ' đ');
                 
+                // ✅ Save services to hidden input
+                $(`.services-json-${recipientId}`).val(JSON.stringify(services));
+                
                 updateSummary();
             }
-        })
-        .fail(function(xhr) {
-            console.error('❌ Lỗi tính cước:', xhr.responseText);
-        });
+        },
+        error: function(xhr) {
+            console.error('❌ AJAX Error:', xhr.responseText);
+        }
+    });
 }
 
 // ✅ Hàm helper reset display
