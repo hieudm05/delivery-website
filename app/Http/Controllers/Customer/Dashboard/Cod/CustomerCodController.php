@@ -11,174 +11,274 @@ use Illuminate\Support\Facades\Auth;
 class CustomerCodController extends Controller
 {
     /**
-     * Danh sách giao dịch COD của customer
+     * ✅ DANH SÁCH GIAO DỊCH COD (Customer View)
      */
     public function index(Request $request)
     {
-        $customerId = Auth::id();
-        $status = $request->get('status', 'all');
+        $tab = $request->get('tab', 'all');
 
-        $query = CodTransaction::with(['order', 'driver', 'hub', 'senderBankAccount'])
-            ->bySender($customerId);
+        $query = CodTransaction::with(['order', 'driver', 'hub'])
+            ->where('sender_id', Auth::id());
 
-        // Lọc theo trạng thái
-        switch ($status) {
-            case 'pending':
-                // Chờ Hub chuyển tiền
+        switch ($tab) {
+            case 'pending_payment':
+                // Chờ thanh toán phí
+                $query->whereNull('sender_fee_paid_at');
+                break;
+
+            case 'waiting_cod':
+                // Chờ nhận COD
                 $query->where('sender_payment_status', 'pending');
                 break;
-            case 'completed':
-                // Đã nhận tiền
+
+            case 'received':
+                // Đã nhận COD
                 $query->where('sender_payment_status', 'completed');
                 break;
-            case 'not_ready':
-                // Chưa sẵn sàng (shipper chưa nộp về hub)
-                $query->where('sender_payment_status', 'not_ready');
+
+            case 'all':
+                // Tất cả
                 break;
         }
 
-        $transactions = $query->latest()->paginate(15);
+        $transactions = $query->latest()->paginate(20);
 
-        // Thống kê
-        $stats = [
-            'total_cod' => CodTransaction::bySender($customerId)->sum('cod_amount'),
-            'total_receive' => CodTransaction::bySender($customerId)
-                ->where('sender_payment_status', 'completed')
-                ->sum('sender_receive_amount'),
-            'total_pending' => CodTransaction::bySender($customerId)
-                ->where('sender_payment_status', 'pending')
-                ->sum('sender_receive_amount'),
-            'total_platform_fee' => CodTransaction::bySender($customerId)->sum('platform_fee'),
-            'count_pending' => CodTransaction::bySender($customerId)
-                ->where('sender_payment_status', 'pending')
-                ->count(),
-        ];
+        // Tổng số tiền cần trả & cần nhận
+        $totalFeeOwed = CodTransaction::where('sender_id', Auth::id())
+            ->whereNull('sender_fee_paid_at')
+            ->sum('sender_fee_paid');
 
-        return view('customer.cod.index', compact('transactions', 'status', 'stats'));
+        $totalCodPending = CodTransaction::where('sender_id', Auth::id())
+            ->where('sender_payment_status', 'pending')
+            ->sum('sender_receive_amount');
+
+        $totalCodReceived = CodTransaction::where('sender_id', Auth::id())
+            ->where('sender_payment_status', 'completed')
+            ->sum('sender_receive_amount');
+
+        return view('customer.dashboard.cod.index', compact(
+            'transactions', 
+            'tab', 
+            'totalFeeOwed', 
+            'totalCodPending', 
+            'totalCodReceived'
+        ));
     }
 
     /**
-     * Chi tiết giao dịch COD
+     * ✅ CHI TIẾT GIAO DỊCH
      */
     public function show($id)
     {
-        $customerId = Auth::id();
-        
-        $transaction = CodTransaction::with([
-            'order', 
-            'driver', 
-            'hub',
-            'senderBankAccount',
-            'senderTransferer'
-        ])
-        ->bySender($customerId)
-        ->findOrFail($id);
+        $transaction = CodTransaction::with(['order', 'driver', 'hub', 'senderBankAccount'])
+            ->where('sender_id', Auth::id())
+            ->findOrFail($id);
 
-        // Lấy tài khoản ngân hàng chính của customer
-        $customerBankAccount = BankAccount::where('user_id', $customerId)
-            ->where('is_primary', true)
-            ->where('is_active', true)
-            ->verified()
-            ->first();
+        // Lấy bank account của customer
+        $bankAccount = BankAccount::getPrimaryAccount(Auth::id());
 
-        return view('customer.cod.show', compact('transaction', 'customerBankAccount'));
+        return view('customer.cod.show', compact('transaction', 'bankAccount'));
     }
 
     /**
-     * Thống kê tổng quan
+     * ✅ THỐNG KÊ COD (Customer)
      */
-    public function statistics(Request $request)
+    public function statistics()
     {
-        $customerId = Auth::id();
-        
-        // Lọc theo khoảng thời gian
-        $from = $request->get('from', now()->startOfMonth());
-        $to = $request->get('to', now()->endOfMonth());
+        $userId = Auth::id();
 
         $stats = [
-            'total_orders' => CodTransaction::bySender($customerId)
-                ->whereBetween('created_at', [$from, $to])
-                ->count(),
-            
-            'total_cod_amount' => CodTransaction::bySender($customerId)
-                ->whereBetween('created_at', [$from, $to])
-                ->sum('cod_amount'),
-            
-            'total_received' => CodTransaction::bySender($customerId)
+            // Tổng quan
+            'total_orders' => CodTransaction::where('sender_id', $userId)->count(),
+            'total_cod_amount' => CodTransaction::where('sender_id', $userId)->sum('cod_amount'),
+            'total_fee_paid' => CodTransaction::where('sender_id', $userId)
+                ->whereNotNull('sender_fee_paid_at')
+                ->sum('sender_fee_paid'),
+            'total_cod_received' => CodTransaction::where('sender_id', $userId)
                 ->where('sender_payment_status', 'completed')
-                ->whereBetween('created_at', [$from, $to])
                 ->sum('sender_receive_amount'),
             
-            'total_platform_fee' => CodTransaction::bySender($customerId)
-                ->whereBetween('created_at', [$from, $to])
-                ->sum('platform_fee'),
+            // Chờ xử lý
+            'pending_fee' => CodTransaction::where('sender_id', $userId)
+                ->whereNull('sender_fee_paid_at')
+                ->sum('sender_fee_paid'),
+            'pending_cod' => CodTransaction::where('sender_id', $userId)
+                ->where('sender_payment_status', 'pending')
+                ->sum('sender_receive_amount'),
             
-            'avg_cod_per_order' => CodTransaction::bySender($customerId)
-                ->whereBetween('created_at', [$from, $to])
-                ->avg('cod_amount'),
+            // Count
+            'count_pending_fee' => CodTransaction::where('sender_id', $userId)
+                ->whereNull('sender_fee_paid_at')
+                ->count(),
+            'count_pending_cod' => CodTransaction::where('sender_id', $userId)
+                ->where('sender_payment_status', 'pending')
+                ->count(),
+            'count_completed' => CodTransaction::where('sender_id', $userId)
+                ->where('sender_payment_status', 'completed')
+                ->count(),
         ];
 
-        // Thống kê theo trạng thái
-        $statusBreakdown = [
-            'not_ready' => [
-                'count' => CodTransaction::bySender($customerId)
-                    ->where('sender_payment_status', 'not_ready')
-                    ->count(),
-                'amount' => CodTransaction::bySender($customerId)
-                    ->where('sender_payment_status', 'not_ready')
-                    ->sum('sender_receive_amount'),
-            ],
-            'pending' => [
-                'count' => CodTransaction::bySender($customerId)
-                    ->where('sender_payment_status', 'pending')
-                    ->count(),
-                'amount' => CodTransaction::bySender($customerId)
-                    ->where('sender_payment_status', 'pending')
-                    ->sum('sender_receive_amount'),
-            ],
-            'completed' => [
-                'count' => CodTransaction::bySender($customerId)
-                    ->where('sender_payment_status', 'completed')
-                    ->count(),
-                'amount' => CodTransaction::bySender($customerId)
-                    ->where('sender_payment_status', 'completed')
-                    ->sum('sender_receive_amount'),
-            ],
-        ];
+        // Timeline 30 ngày
+        $timeline = CodTransaction::where('sender_id', $userId)
+            ->where('sender_transfer_time', '>=', now()->subDays(30))
+            ->selectRaw('DATE(sender_transfer_time) as date, SUM(sender_receive_amount) as amount')
+            ->groupBy('date')
+            ->orderBy('date')
+            ->pluck('amount', 'date')
+            ->toArray();
 
-        // Timeline - 30 ngày gần nhất
-        $timeline = [];
-        for ($i = 29; $i >= 0; $i--) {
-            $date = now()->subDays($i)->format('Y-m-d');
-            $timeline[$date] = CodTransaction::bySender($customerId)
-                ->whereDate('created_at', $date)
-                ->sum('sender_receive_amount');
-        }
+        $stats['timeline'] = $timeline;
 
-        return view('customer.cod.statistics', compact('stats', 'statusBreakdown', 'timeline', 'from', 'to'));
+        return view('customer.cod.statistics', compact('stats'));
     }
 
     /**
-     * Yêu cầu Hub xử lý nhanh (nếu đã quá lâu)
+     * ✅ YÊU CẦU XỬ LÝ ƯU TIÊN
      */
     public function requestPriority(Request $request, $id)
     {
-        $customerId = Auth::id();
-        
-        $transaction = CodTransaction::bySender($customerId)->findOrFail($id);
+        $request->validate([
+            'reason' => 'required|string|max:500',
+        ]);
+
+        $transaction = CodTransaction::where('sender_id', Auth::id())
+            ->findOrFail($id);
 
         if ($transaction->sender_payment_status !== 'pending') {
             return back()->withErrors(['error' => 'Giao dịch không ở trạng thái chờ xử lý']);
         }
 
-        // Kiểm tra đã quá 3 ngày chưa
-        if ($transaction->hub_confirm_time && $transaction->hub_confirm_time->diffInDays(now()) < 3) {
-            return back()->withErrors(['error' => 'Chưa đủ thời gian để yêu cầu ưu tiên. Vui lòng đợi ít nhất 3 ngày.']);
+        // Lưu vào bảng priority_requests hoặc gửi thông báo cho Hub
+        // TODO: Implement logic này
+
+        return back()->with('success', 'Đã gửi yêu cầu xử lý ưu tiên. Hub sẽ liên hệ sớm nhất!');
+    }
+    /**
+ * ✅ API: Lấy QR code để thanh toán phí cho Hub
+ */
+public function getQrCode($id)
+{
+    $customerId = Auth::id();
+
+    // 1) Lấy transaction
+    $transaction = CodTransaction::with('hub')
+        ->where('sender_id', $customerId)
+        ->find($id);
+
+
+    if (!$transaction) {
+        return response()->json(['error' => 'Không tìm thấy giao dịch'], 404);
+    }
+
+    // 2) Kiểm tra hub_id
+    if (!$transaction->hub_id) {
+        return response()->json(['error' => 'Không tìm thấy thông tin Hub'], 404);
+    }
+
+    // 3) Lấy bank account của HUB
+    $hubBankAccount = BankAccount::where('user_id', $transaction->hub_id)
+        ->where('is_primary', true)
+        ->where('is_active', true)
+        ->verified()
+        ->first();
+
+    if (!$hubBankAccount) {
+        return response()->json(['error' => 'Hub chưa cấu hình tài khoản ngân hàng'], 404);
+    }
+
+    // 4) Kiểm tra số tiền sender_fee_paid
+
+    if ($transaction->sender_fee_paid <= 0) {
+        return response()->json(['error' => 'Không có phí cần thanh toán'], 400);
+    }
+
+    // 5) Tạo nội dung chuyển khoản
+    $transferContent = "PHI DH{$transaction->order_id} KH{$customerId}";
+
+    // 6) Tạo QR
+    $qrUrl = $hubBankAccount->generateQrCode(
+        $transaction->sender_fee_paid, 
+        $transferContent
+    );
+
+
+    if (!$qrUrl) {
+        return response()->json(['error' => 'Không thể tạo QR Code'], 500);
+    }
+
+    // 7) Trả dữ liệu JSON
+    return response()->json([
+        'qr_url' => $qrUrl,
+        'bank_name' => $hubBankAccount->bank_name,
+        'account_number' => $hubBankAccount->account_number,
+        'account_name' => $hubBankAccount->account_name,
+        'amount' => $transaction->sender_fee_paid, 
+        'content' => $transferContent,
+    ]);
+}
+public function paySenderFee(Request $request, $id)
+{
+    $method = $request->input('payment_method');
+    
+    $rules = [
+        'payment_method' => 'required|in:bank_transfer,wallet,cash',
+    ];
+
+    $messages = [
+        'payment_method.required' => 'Vui lòng chọn phương thức thanh toán',
+    ];
+
+    // ✅ Chỉ validate proof khi method yêu cầu
+    if (in_array($method, ['bank_transfer', 'wallet'])) {
+        $rules['proof'] = 'required|image|mimes:jpeg,png,jpg,gif|max:5120';
+        $messages['proof.required'] = 'Vui lòng tải lên ảnh chứng từ';
+        $messages['proof.image'] = 'File phải là ảnh';
+        $messages['proof.mimes'] = 'Chỉ chấp nhận ảnh PNG, JPG, JPEG hoặc GIF';
+        $messages['proof.max'] = 'Ảnh không được lớn hơn 5MB';
+    }
+
+    $request->validate($rules, $messages);
+
+    $transaction = CodTransaction::where('sender_id', Auth::id())
+        ->findOrFail($id);
+
+    if ($transaction->sender_fee_paid <= 0) {
+        return back()->withErrors(['error' => 'Không có phí cần thanh toán']);
+    }
+
+    if ($transaction->sender_fee_paid_at) {
+        return back()->withErrors(['error' => 'Phí đã được thanh toán trước đó']);
+    }
+
+    try {
+        // Upload proof nếu có
+        $proofPath = null;
+        if ($request->hasFile('proof')) {
+            $file = $request->file('proof');
+            
+            if ($file->isValid()) {
+                $proofPath = $file->store('fee_payments/customer', 'public');
+                
+                if (!$proofPath) {
+                    throw new \Exception('Không thể lưu ảnh chứng từ');
+                }
+            } else {
+                throw new \Exception('File không hợp lệ: ' . $file->getErrorMessage());
+            }
         }
 
-        // TODO: Gửi thông báo cho Hub admin
-        // TODO: Tạo ticket hỗ trợ tự động
+        $transaction->update([
+            'sender_fee_payment_method' => $method,
+            'sender_fee_payment_proof' => $proofPath,
+            'sender_fee_paid_at' => now(),
+        ]);
 
-        return back()->with('success', 'Đã gửi yêu cầu xử lý ưu tiên. Hub sẽ liên hệ trong 24h.');
+
+        return redirect()->route('customer.cod.index', ['tab' => 'all'])
+            ->with('success', '✅ Đã thanh toán phí ₫' . number_format($transaction->sender_fee_paid) . ' thành công!');
+            
+    } catch (\Exception $e) {
+        return back()->withErrors(['error' => $e->getMessage()])->withInput();
     }
+}
 }

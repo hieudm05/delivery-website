@@ -666,12 +666,12 @@
                         <i class="bi bi-gear-fill me-2"></i>Thao tác
                     </h6>
                     
-                    @if($order->canEdit())
+                    {{-- @if($order->canEdit())
                         <a href="{{ route('customer.orderManagent.edit', $order->id) }}" 
                            class="btn btn-warning w-100 mb-2">
                             <i class="bi bi-pencil me-2"></i>Chỉnh sửa đơn hàng
                         </a>
-                    @endif
+                    @endif --}}
 
                     @if($order->canCancel())
                         <form action="{{ route('customer.orderManagent.cancel', $order->id) }}" 

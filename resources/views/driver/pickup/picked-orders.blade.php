@@ -109,7 +109,7 @@
                                 <span class="badge bg-primary">{{ $order->actual_packages }}</span>
                             </td>
                             <td class="text-end">
-                                {{ number_format($order->actual_weight, 1) }} kg
+                                {{ number_format($order->actual_weight, 1) }} g
                             </td>
                             <td class="text-end">
                                 <strong>{{ number_format($order->cod_amount) }}đ</strong>

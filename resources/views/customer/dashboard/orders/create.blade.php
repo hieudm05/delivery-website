@@ -407,7 +407,7 @@
               <div class="mt-3 special-box">
                 <h6 class="fw-bold mb-2"><i class="bi bi-exclamation-diamond"></i> Tính chất hàng hóa</h6>
                 <div class="row">
-                  <div class="col-md-4">
+                  <div class="">
                     <div class="form-check">
                       <input class="form-check-input shared-special-checkbox" type="checkbox" id="shared-high-value" value="high_value">
                       <label class="form-check-label" for="shared-high-value">Giá trị cao</label>
@@ -417,7 +417,7 @@
                       <label class="form-check-label" for="shared-oversized">Quá khổ</label>
                     </div>
                   </div>
-                  <div class="col-md-4">
+                  <div class="">
                     <div class="form-check">
                       <input class="form-check-input shared-special-checkbox" type="checkbox" id="shared-fragile" value="fragile">
                       <label class="form-check-label" for="shared-fragile">Dễ vỡ</label>
@@ -427,7 +427,7 @@
                       <label class="form-check-label" for="shared-liquid">Chất lỏng</label>
                     </div>
                   </div>
-                  <div class="col-md-4">
+                  <div class="">
                     <div class="form-check">
                       <input class="form-check-input shared-special-checkbox" type="checkbox" id="shared-bulk" value="bulk">
                       <label class="form-check-label" for="shared-bulk">Nguyên khối</label>
@@ -1024,15 +1024,15 @@ function createRecipientCard(recipient, index) {
                                 <label class="form-label">Tên hàng <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control product-name-${recipient.id}" data-recipient-id="${recipient.id}" placeholder="VD: Áo thun, Sách, Điện thoại..." value="${esc(d.product_name)}">
                             </div>
-                            <div class="col-4">
+                            <div class="col-6">
                                 <label class="form-label">Số lượng <span class="text-danger">*</span></label>
                                 <input type="number" class="form-control product-quantity-${recipient.id}" data-recipient-id="${recipient.id}" value="${d.product_quantity || 1}" min="1">
                             </div>
-                            <div class="col-4">
+                            <div class="col-6">
                                 <label class="form-label">Khối lượng (g) <span class="text-danger">*</span></label>
                                 <input type="number" class="form-control product-weight-${recipient.id}" data-recipient-id="${recipient.id}" value="${d.product_weight || 1}" min="1">
                             </div>
-                            <div class="col-4">
+                            <div class="col-12">
                                 <label class="form-label">Giá trị (VNĐ) <span class="text-danger">*</span></label>
                                 <input type="number" class="form-control product-value-${recipient.id}" data-recipient-id="${recipient.id}" value="${d.product_value || 0}" min="0">
                             </div>
@@ -1056,7 +1056,7 @@ function createRecipientCard(recipient, index) {
                         <div class="mt-3 special-box">
                             <h6 class="fw-bold mb-2"><i class="bi bi-exclamation-diamond"></i> Tính chất hàng hóa</h6>
                             <div class="row">
-                                <div class="col-md-4">
+                                <div class="">
                                     <div class="form-check">
                                         <input class="form-check-input special-checkbox-${recipient.id}" type="checkbox" id="high-value-${recipient.id}" value="high_value" data-recipient-id="${recipient.id}">
                                         <label class="form-check-label" for="high-value-${recipient.id}">Giá trị cao</label>
@@ -1066,7 +1066,7 @@ function createRecipientCard(recipient, index) {
                                         <label class="form-check-label" for="oversized-${recipient.id}">Quá khổ</label>
                                     </div>
                                 </div>
-                                <div class="col-md-4">
+                                <div class="">
                                     <div class="form-check">
                                         <input class="form-check-input special-checkbox-${recipient.id}" type="checkbox" id="fragile-${recipient.id}" value="fragile" data-recipient-id="${recipient.id}">
                                         <label class="form-check-label" for="fragile-${recipient.id}">Dễ vỡ</label>
@@ -1076,7 +1076,7 @@ function createRecipientCard(recipient, index) {
                                         <label class="form-check-label" for="liquid-${recipient.id}">Chất lỏng</label>
                                     </div>
                                 </div>
-                                <div class="col-md-4">
+                                <div class="">
                                     <div class="form-check">
                                         <input class="form-check-input special-checkbox-${recipient.id}" type="checkbox" id="bulk-${recipient.id}" value="bulk" data-recipient-id="${recipient.id}">
                                         <label class="form-check-label" for="bulk-${recipient.id}">Nguyên khối</label>
@@ -1168,10 +1168,7 @@ function createRecipientCard(recipient, index) {
                             <input class="form-check-input service-checkbox" type="checkbox" id="insurance-${recipient.id}" value="insurance" data-recipient-id="${recipient.id}">
                             <label class="form-check-label" for="insurance-${recipient.id}">Bảo hiểm</label>
                         </div>
-                    </div>
-                    
-                    <!-- COD -->
-                   <div class="mb-3">
+                        <!-- COD -->
                         <div class="form-check">
                             <input class="form-check-input cod-checkbox" 
                                 type="checkbox" 
@@ -1195,6 +1192,8 @@ function createRecipientCard(recipient, index) {
                                 value="${esc(d.cod_amount)}">
                         </div>
                     </div>
+                    
+                    
 
                     <!-- ✅ THÊM HIDDEN INPUT SERVICES ARRAY -->
                    <input type="hidden"
