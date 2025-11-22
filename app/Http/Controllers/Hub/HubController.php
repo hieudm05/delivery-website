@@ -43,7 +43,7 @@ class HubController extends Controller
             return redirect()->route('home')->with('error', 'Bạn chưa được phân bưu cục.');
         }
 
-        $order = Order::with(['orderGroup'])->findOrFail($orderId);
+        $order = Order::with(['orderGroup','products'])->findOrFail($orderId);
         if ($order->post_office_id != $hub->post_office_id) {
             return redirect()->route('hub.index')->with('error', 'Đơn hàng không thuộc bưu cục của bạn.');
         }
