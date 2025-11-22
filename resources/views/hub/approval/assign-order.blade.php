@@ -33,42 +33,75 @@
                     <p class="mb-3"><i class="bi bi-geo-alt"></i> {{ $order->recipient_full_address }}</p>
 
                     <hr>
+                    <h6>Thông tin hàng hoá</h6>
+                   <table class="table table-bordered table-striped">
+                        <thead class="thead-light">
+                            <tr>
+                                <th>Sản phẩm</th>
+                                <th class="text-center">SL</th>
+                                <th class="text-center">Khối lượng (g)</th>
+                                <th class="text-right">Giá trị</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($order->products as $product)
+                            <tr>
+                                <td>{{ $product->name }}</td>
+                                <td class="text-center">{{ $product->quantity }}</td>
+                                <td class="text-center">{{ $product->weight }}</td>
+                                <td class="text-right">{{ $product->value }}</td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
 
-                    <div class="row">
-                        <div class="col-6">
-                            <label class="text-muted">Trạng thái</label>
-                            <p>
-                                <span class="badge bg-{{ $order->status_badge }}">
-                                    {{ $order->status_label }}
-                                </span>
-                            </p>
+                    <hr>
+
+                    <!-- Trạng thái -->
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <label class="text-muted d-block mb-1">Trạng thái</label>
+                            <span class="badge bg-{{ $order->status_badge }}">
+                                {{ $order->status_label }}
+                            </span>
                         </div>
+                    </div>
+
+                    <!-- Phí ship & COD -->
+                    <div class="row mb-3">
                         <div class="col-6">
-                            <label class="text-muted">COD</label>
-                            <p>
-                                @if($order->cod_amount > 0)
+                            <label class="text-muted d-block mb-1">Phí ship</label>
+                            <div class="d-flex align-items-center gap-1 flex-wrap">
+                                <strong>{{ number_format($order->shipping_fee) }}đ</strong>
+                                <small class="text-muted">
+                                    ({{ $order->payer === 'sender' ? 'người gửi trả' : 'người nhận trả' }})
+                                </small>
+                            </div>
+                        </div>
+
+                        <div class="col-6">
+                            <label class="text-muted d-block mb-1">COD</label>
+                            @if($order->cod_amount > 0)
                                 <strong class="text-warning">{{ number_format($order->cod_amount) }}đ</strong>
-                                @else
+                            @else
                                 <span class="text-muted">Không có</span>
-                                @endif
-                            </p>
+                            @endif
                         </div>
                     </div>
 
-                    <div class="row">
+                    <!-- Tổng trả -->
+                    <div class="row mb-3">
                         <div class="col-6">
-                            <label class="text-muted">Phí ship</label>
-                            <p><strong>{{ number_format($order->shipping_fee) }}đ</strong></p>
+                            <label class="text-muted d-block mb-1">Người nhận trả</label>
+                            <strong>{{ number_format($order->recipient_total) }}đ</strong>
                         </div>
+
                         <div class="col-6">
-                            <label class="text-muted">Người trả</label>
-                            <p>
-                                <span class="badge bg-info">
-                                    {{ $order->payer === 'sender' ? 'Người gửi' : 'Người nhận' }}
-                                </span>
-                            </p>
+                            <label class="text-muted d-block mb-1">Người gửi trả</label>
+                            <strong>{{ number_format($order->sender_total) }}đ</strong>
                         </div>
                     </div>
+
 
                     @if($order->note)
                     <hr>
