@@ -32,19 +32,6 @@
                     <!-- Delivery Form -->
                     <form method="POST" action="{{ route('driver.delivery.complete', $order->id) }}" enctype="multipart/form-data" id="deliveryForm">
                         @csrf
-
-                        <!-- Hidden Location Fields -->
-                        <input type="hidden" name="delivery_latitude" id="delivery_latitude">
-                        <input type="hidden" name="delivery_longitude" id="delivery_longitude">
-
-                        <!-- Get Location Button -->
-                        <div class="mb-3">
-                            <button type="button" class="btn btn-primary w-100" onclick="getLocation()">
-                                <i class="fas fa-map-marker-alt"></i> Lấy vị trí hiện tại
-                            </button>
-                            <small id="locationStatus" class="text-muted"></small>
-                        </div>
-
                         <!-- Receiver Info -->
                         <div class="row mb-3">
                             <div class="col-md-6">
@@ -123,7 +110,7 @@
 
                         <!-- Submit Buttons -->
                         <div class="d-grid gap-2">
-                            <button type="button" class="btn btn-success btn-lg" id="submitBtn" onclick="confirmDelivery('deliveryForm')" disabled>
+                            <button type="button" class="btn btn-success btn-lg" id="submitBtn" onclick="confirmDelivery('deliveryForm')" >
                                 <i class="fas fa-check-circle"></i> Xác nhận giao hàng thành công
                             </button>
                             <a href="{{ route('driver.delivery.failure.form', $order->id) }}" class="btn btn-danger btn-lg">
@@ -138,62 +125,6 @@
 </div>
 
 <script>
-// Get current location
-function getLocation() {
-    const status = document.getElementById('locationStatus');
-    const submitBtn = document.getElementById('submitBtn');
-    
-    if (!navigator.geolocation) {
-        Swal.fire({
-            icon: 'error',
-            title: 'Lỗi GPS',
-            text: 'Trình duyệt không hỗ trợ định vị!',
-            confirmButtonColor: '#dc3545'
-        });
-        return;
-    }
-    
-    status.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang lấy vị trí...';
-    submitBtn.disabled = true;
-    
-    navigator.geolocation.getCurrentPosition(
-        (position) => {
-            document.getElementById('delivery_latitude').value = position.coords.latitude;
-            document.getElementById('delivery_longitude').value = position.coords.longitude;
-            status.innerHTML = '<i class="fas fa-check-circle text-success"></i> Đã lấy vị trí thành công!';
-            submitBtn.disabled = false;
-        },
-        (error) => {
-            status.innerHTML = '<i class="fas fa-exclamation-circle text-danger"></i> Không thể lấy vị trí';
-            submitBtn.disabled = true;
-            
-            let errorMessage = 'Không thể lấy vị trí GPS';
-            switch(error.code) {
-                case error.PERMISSION_DENIED:
-                    errorMessage = 'Vui lòng cho phép truy cập vị trí trong cài đặt trình duyệt';
-                    break;
-                case error.POSITION_UNAVAILABLE:
-                    errorMessage = 'Thông tin vị trí không khả dụng';
-                    break;
-                case error.TIMEOUT:
-                    errorMessage = 'Hết thời gian chờ lấy vị trí';
-                    break;
-            }
-            
-            Swal.fire({
-                icon: 'error',
-                title: 'Lỗi GPS',
-                html: errorMessage + '<br><br><small>Vui lòng:</small><ul style="text-align: left;"><li>Bật GPS trên thiết bị</li><li>Cho phép truy cập vị trí</li><li>Thử lại</li></ul>',
-                confirmButtonColor: '#dc3545'
-            });
-        },
-        {
-            enableHighAccuracy: true,
-            timeout: 10000,
-            maximumAge: 0
-        }
-    );
-}
 
 // Add more image fields
 let imageCount = 1;
