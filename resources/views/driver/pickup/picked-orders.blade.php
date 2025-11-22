@@ -43,7 +43,7 @@
         <div class="col-md-3">
             <div class="card bg-info text-white">
                 <div class="card-body">
-                    <h3 class="mb-0">{{ number_format($orders->sum('actual_weight'), 1) }} kg</h3>
+                    <h3 class="mb-0">{{ number_format($orders->sum('actual_weight'), 1) }} g</h3>
                     <small>Tổng khối lượng</small>
                 </div>
             </div>
