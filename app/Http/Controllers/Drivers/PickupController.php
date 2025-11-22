@@ -106,8 +106,6 @@ class PickupController extends Controller
             'actual_packages' => 'required|integer|min:1',
             'actual_weight' => 'nullable|numeric|min:0',
             'note' => 'nullable|string|max:500',
-            'pickup_latitude' => 'nullable|numeric',
-            'pickup_longitude' => 'nullable|numeric',
         ]);
 
         DB::beginTransaction();
@@ -125,8 +123,6 @@ class PickupController extends Controller
                 'actual_packages' => $request->actual_packages,
                 'actual_weight' => $request->actual_weight,
                 'pickup_note' => $request->note,
-                'pickup_latitude' => $request->pickup_latitude,
-                'pickup_longitude' => $request->pickup_longitude,
                 'pickup_driver_id' => Auth::id(), // ID của người lấy hàng
             ]);
 

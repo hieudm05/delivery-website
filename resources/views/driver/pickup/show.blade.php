@@ -82,7 +82,7 @@
                                     <tr>
                                         <td>{{ $product->name }}</td>
                                         <td class="text-center">{{ $product->quantity }}</td>
-                                        <td class="text-end">{{ $product->weight }} kg</td>
+                                        <td class="text-end">{{ $product->weight }} g</td>
                                         <td class="text-end">{{ number_format($product->value) }}đ</td>
                                     </tr>
                                     @endforeach
@@ -93,8 +93,19 @@
 
                     <!-- Giá trị COD -->
                     <div class="alert alert-warning">
-                        <strong><i class="fas fa-money-bill-wave"></i> COD:</strong> 
+                      <div class="col-md-6">
+                          <strong>Thu COD:</strong> 
                         <span class="fs-5">{{ number_format($order->cod_amount) }}đ</span>
+                      </div>
+                       <div class="col-md-12">
+                         <strong>Phí Ship:</strong> 
+                        <span class="fs-5">{{ number_format($order->shipping_fee) ?? "Free"}}đ</span>
+                        <span class="fs-6">( {{ $order->payer =="sender" ? "Người gửi thanh toán" : "Người nhận thanh toán" }} )</span>
+                       </div>
+                        <div class="col-md-6">
+                         <strong>Tổng thu người nhận:</strong> 
+                        <span class="fs-5">{{ number_format($order->recipient_total) }}đ</span>
+                       </div>
                     </div>
 
                     <!-- Ghi chú -->
@@ -143,18 +154,6 @@
                                    accept="image/*" capture="environment" multiple required>
                             <small class="text-muted">Chụp ít nhất 1 ảnh bưu kiện đã nhận</small>
                             <div id="imagePreview" class="mt-2"></div>
-                        </div>
-
-                        <!-- Vị trí GPS -->
-                        <div class="mb-3">
-                            <button type="button" class="btn btn-outline-primary btn-sm w-100" id="getLocationBtn">
-                                <i class="fas fa-map-marker-alt"></i> Lấy vị trí hiện tại
-                            </button>
-                            <input type="hidden" name="pickup_latitude" id="pickup_latitude">
-                            <input type="hidden" name="pickup_longitude" id="pickup_longitude">
-                            <small class="text-success d-none" id="locationStatus">
-                                <i class="fas fa-check-circle"></i> Đã lấy vị trí
-                            </small>
                         </div>
 
                         <!-- Ghi chú -->
@@ -235,7 +234,7 @@
                     <div class="mb-3">
                         <label class="form-label">Mô tả chi tiết <span class="text-danger">*</span></label>
                         <textarea name="issue_note" class="form-control" rows="4" 
-                                  placeholder="Mô tả cụ thể vấn đề gặp phải..." required></textarea>
+                            placeholder="Mô tả cụ thể vấn đề gặp phải..." required></textarea>
                     </div>
 
                     <!-- Ảnh minh chứng -->
@@ -333,50 +332,11 @@ $(document).ready(function() {
         }
     }
 
-    // Lấy vị trí GPS
-    $('#getLocationBtn').click(function() {
-        if (!navigator.geolocation) {
-            Swal.fire('Lỗi', 'Trình duyệt không hỗ trợ GPS', 'error');
-            return;
-        }
-
-        $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Đang lấy vị trí...');
-
-        navigator.geolocation.getCurrentPosition(
-            function(position) {
-                $('#pickup_latitude').val(position.coords.latitude);
-                $('#pickup_longitude').val(position.coords.longitude);
-                $('#locationStatus').removeClass('d-none');
-                $('#getLocationBtn').prop('disabled', false)
-                    .html('<i class="fas fa-check"></i> Đã lấy vị trí');
-                Toast.fire({ icon: 'success', title: 'Đã lấy vị trí thành công' });
-            },
-            function(error) {
-                Swal.fire('Lỗi', 'Không thể lấy vị trí: ' + error.message, 'error');
-                $('#getLocationBtn').prop('disabled', false)
-                    .html('<i class="fas fa-map-marker-alt"></i> Lấy vị trí hiện tại');
-            }
-        );
-    });
 
     // Xác nhận lấy hàng
     $('#confirmPickupForm').submit(function(e) {
         e.preventDefault();
-
-        if (!$('#pickup_latitude').val()) {
-            Swal.fire({
-                icon: 'warning',
-                title: 'Chưa có vị trí GPS',
-                text: 'Bạn chưa lấy vị trí. Tiếp tục xác nhận?',
-                showCancelButton: true,
-                confirmButtonText: 'Tiếp tục',
-                cancelButtonText: 'Hủy'
-            }).then(result => {
-                if (result.isConfirmed) submitPickupForm();
-            });
-        } else {
-            submitPickupForm();
-        }
+        submitPickupForm();
 
         function submitPickupForm() {
             const formData = new FormData($('#confirmPickupForm')[0]);
