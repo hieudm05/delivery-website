@@ -202,19 +202,6 @@ function confirmDelivery(formId) {
         return;
     }
 
-    // Kiểm tra GPS
-    const lat = document.getElementById('delivery_latitude')?.value;
-    const lng = document.getElementById('delivery_longitude')?.value;
-    
-    if (!lat || !lng) {
-        Swal.fire({
-            icon: 'error',
-            title: 'Thiếu vị trí GPS',
-            text: 'Vui lòng nhấn "Lấy vị trí hiện tại" trước khi xác nhận!',
-            confirmButtonColor: '#dc3545',
-        });
-        return;
-    }
 
     confirmAction({
         title: 'Xác nhận giao hàng thành công?',
@@ -222,7 +209,6 @@ function confirmDelivery(formId) {
             <div style="text-align: left;">
                 <p><strong>Vui lòng kiểm tra:</strong></p>
                 <ul>
-                    <li>Đã lấy vị trí GPS chính xác</li>
                     <li>Thông tin người nhận đúng</li>
                     <li>Đã chụp ảnh chứng từ đầy đủ</li>
                     <li>Đã thu COD (nếu có)</li>
@@ -258,7 +244,6 @@ function confirmFailure(formId) {
                 <ul>
                     <li>✓ Mô tả rõ lý do thất bại</li>
                     <li>✓ Chụp ảnh bằng chứng (nếu có)</li>
-                    <li>✓ Lấy vị trí GPS hiện tại</li>
                 </ul>
             </div>
         `,

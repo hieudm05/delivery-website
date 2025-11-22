@@ -148,9 +148,6 @@ class DriverDeliveryController extends Controller
 
         // Validate dữ liệu
         $validator = Validator::make($request->all(), [
-            'delivery_latitude' => 'required|numeric',
-            'delivery_longitude' => 'required|numeric',
-            'delivery_address' => 'nullable|string|max:500',
             'received_by_name' => 'required|string|max:255',
             'received_by_phone' => 'required|string|max:20',
             'received_by_relation' => 'required|in:self,family,neighbor,security,other',
@@ -162,8 +159,6 @@ class DriverDeliveryController extends Controller
             'image_notes' => 'nullable|array',
             'image_notes.*' => 'nullable|string|max:500',
         ], [
-            'delivery_latitude.required' => 'Vui lòng lấy vị trí GPS hiện tại',
-            'delivery_longitude.required' => 'Vui lòng lấy vị trí GPS hiện tại',
             'received_by_name.required' => 'Vui lòng nhập tên người nhận hàng',
             'received_by_phone.required' => 'Vui lòng nhập số điện thoại người nhận',
             'received_by_relation.required' => 'Vui lòng chọn mối quan hệ với người nhận',
@@ -184,31 +179,6 @@ class DriverDeliveryController extends Controller
         try {
             DB::beginTransaction();
 
-            // Kiểm tra tọa độ và tính khoảng cách
-            $distanceWarning = null;
-            if ($order->recipient_latitude && $order->recipient_longitude) {
-                $distance = $this->calculateDistance(
-                    $order->recipient_latitude,
-                    $order->recipient_longitude,
-                    $request->delivery_latitude,
-                    $request->delivery_longitude
-                );
-
-                // Cảnh báo nếu > 2km
-                if ($distance > 2) {
-                    $distanceWarning = 'Vị trí giao hàng cách địa chỉ người nhận ' . round($distance, 2) . ' km';
-                }
-
-                // Chặn nếu > 10km (rõ ràng sai)
-                if ($distance > 10) {
-                    DB::rollBack();
-                    return back()
-                        ->withInput()
-                        ->with('error', 'Vị trí giao hàng quá xa địa chỉ người nhận (' . round($distance, 2) . ' km). Vui lòng kiểm tra lại GPS!')
-                        ->with('alert_type', 'error');
-                }
-            }
-
             // Xử lý COD nếu có
             $codCollected = 0;
             $paymentDetails = $order->payment_details;
@@ -227,34 +197,9 @@ class DriverDeliveryController extends Controller
                     'actual_delivery_start_time' => now(),
                 ]);
             }
-            $lat = $request->delivery_latitude;
-            $lng = $request->delivery_longitude;
-            $deliveryAddress = $request->delivery_address;
-            if (empty($deliveryAddress)) {
-                $apiKey = env('GOONG_API_KEY');
-                $response = Http::get("https://rsapi.goong.io/Geocode", [
-                    'latlng' => "$lat,$lng",
-                    'api_key' => $apiKey,
-                ]);
 
-                if ($response->successful()) {
-                    $data = $response->json();
-                    if (!empty($data['results'][0]['formatted_address'])) {
-                        $deliveryAddress = $data['results'][0]['formatted_address'];
-                    }
-                } else {
-                    // \Log::warning('Goong reverse geocoding failed', [
-                    //     'lat' => $lat,
-                    //     'lng' => $lng,
-                    //     'response' => $response->body(),
-                    // ]);
-                }
-            }
             $delivery->update([
                 'actual_delivery_time' => now(),
-                'delivery_latitude' => $request->delivery_latitude,
-                'delivery_longitude' => $request->delivery_longitude,
-                'delivery_address' => $deliveryAddress,
                 'received_by_name' => $request->received_by_name,
                 'received_by_phone' => $request->received_by_phone,
                 'received_by_relation' => $request->received_by_relation,
@@ -294,22 +239,14 @@ class DriverDeliveryController extends Controller
             if ($codCollected > 0) {
                 $successMessage .= '<br><strong>Đã thu COD: ' . number_format($codCollected) . ' đ</strong>';
             }
-            if ($distanceWarning) {
-                $successMessage .= '<br><small class="text-warning">⚠️ ' . $distanceWarning . '</small>';
-            }
 
             return redirect()->route('driver.delivery.index')
                 ->with('success', $successMessage)
                 ->with('alert_type', 'success')
-                ->with('alert_title', '✅ Giao hàng thành công!');
+                ->with('alert_title', 'Giao hàng thành công!');
 
         } catch (\Exception $e) {
             DB::rollBack();
-            \Log::error('Delivery completion error', [
-                'order_id' => $order->id,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
             
             return back()
                 ->withInput()
@@ -350,103 +287,95 @@ class DriverDeliveryController extends Controller
     /**
      * Xử lý giao hàng thất bại
      */
-    public function reportFailure(Request $request, $id)
-    {
-        $order = Order::with('delivery')->findOrFail($id);
+   /**
+ * Xử lý giao hàng thất bại
+ */
+public function reportFailure(Request $request, $id)
+{
+    $order = Order::with('delivery')->findOrFail($id);
 
-        // Validate
-        $validator = Validator::make($request->all(), [
-            'issue_type' => 'required|in:recipient_not_home,wrong_address,refused_package,unable_to_contact,address_too_far,dangerous_area,other',
-            'issue_note' => 'required|string|max:1000',
-            'issue_latitude' => 'required|numeric',
-            'issue_longitude' => 'required|numeric',
-            'images' => 'nullable|array',
-            'images.*' => 'image|mimes:jpeg,png,jpg|max:5120',
-            'image_notes' => 'nullable|array',
-        ], [
-            'issue_type.required' => 'Vui lòng chọn lý do giao hàng thất bại',
-            'issue_note.required' => 'Vui lòng mô tả chi tiết lý do',
-            'issue_latitude.required' => 'Vui lòng lấy vị trí GPS hiện tại',
-            'issue_longitude.required' => 'Vui lòng lấy vị trí GPS hiện tại',
+    // Validate
+    $validator = Validator::make($request->all(), [
+        'issue_type' => 'required|in:recipient_not_home,wrong_address,refused_package,unable_to_contact,address_too_far,dangerous_area,other',
+        'issue_note' => 'required|string|max:1000',
+        'images' => 'nullable|array',
+        'images.*' => 'image|mimes:jpeg,png,jpg|max:5120',
+        'image_notes' => 'nullable|array',
+    ], [
+        'issue_type.required' => 'Vui lòng chọn lý do giao hàng thất bại',
+        'issue_note.required' => 'Vui lòng mô tả chi tiết lý do',
+    ]);
+
+    if ($validator->fails()) {
+        return back()
+            ->withErrors($validator)
+            ->withInput()
+            ->with('error', 'Vui lòng kiểm tra lại thông tin!')
+            ->with('alert_type', 'error');
+    }
+
+    try {
+        DB::beginTransaction();
+
+        // Tạo bản ghi issue (không cần GPS)
+        OrderDeliveryIssue::create([
+            'order_id' => $order->id,
+            'issue_type' => $request->issue_type,
+            'issue_note' => $request->issue_note,
+            'issue_time' => now(),
+            'reported_by' => auth()->id(),
         ]);
 
-        if ($validator->fails()) {
-            return back()
-                ->withErrors($validator)
-                ->withInput()
-                ->with('error', 'Vui lòng kiểm tra lại thông tin!')
-                ->with('alert_type', 'error');
+        // Cập nhật trạng thái order về hub
+        $order->update([
+            'status' => Order::STATUS_AT_HUB,
+        ]);
+
+        // Lưu ảnh nếu có
+        if ($request->hasFile('images')) {
+            foreach ($request->file('images') as $index => $image) {
+                $path = $image->store('delivery_failure/' . date('Y/m'), 'public');
+                
+                OrderDeliveryImage::create([
+                    'order_id' => $order->id,
+                    'image_path' => $path,
+                    'type' => OrderDeliveryImage::TYPE_DELIVERY_PROOF,
+                    'note' => $request->image_notes[$index] ?? 'Ảnh giao hàng thất bại - ' . $request->issue_type,
+                ]);
+            }
         }
 
-        try {
-            DB::beginTransaction();
-
-            // Tạo bản ghi issue
-            OrderDeliveryIssue::create([
-                'order_id' => $order->id,
-                'issue_type' => $request->issue_type,
-                'issue_note' => $request->issue_note,
-                'issue_time' => now(),
-                'reported_by' => auth()->id(),
-                'issue_latitude' => $request->issue_latitude,
-                'issue_longitude' => $request->issue_longitude,
-            ]);
-
-            // Cập nhật trạng thái order về hub
-            $order->update([
-                'status' => Order::STATUS_AT_HUB,
-            ]);
-
-            // Lưu ảnh nếu có
-            if ($request->hasFile('images')) {
-                foreach ($request->file('images') as $index => $image) {
-                    $path = $image->store('delivery_failure/' . date('Y/m'), 'public');
-                    
-                    OrderDeliveryImage::create([
-                        'order_id' => $order->id,
-                        'image_path' => $path,
-                        'type' => OrderDeliveryImage::TYPE_DELIVERY_PROOF,
-                        'note' => $request->image_notes[$index] ?? 'Ảnh giao hàng thất bại - ' . $request->issue_type,
-                    ]);
-                }
-            }
-
-            // Cập nhật group status
-            if ($order->isPartOfGroup()) {
-                $order->orderGroup->updateGroupStatus();
-            }
-
-            DB::commit();
-
-            // Lấy label lý do
-            $issueLabels = [
-                'recipient_not_home' => 'Người nhận không có nhà',
-                'wrong_address' => 'Địa chỉ sai/không tìm thấy',
-                'refused_package' => 'Người nhận từ chối nhận hàng',
-                'unable_to_contact' => 'Không liên lạc được',
-                'address_too_far' => 'Địa chỉ quá xa',
-                'dangerous_area' => 'Khu vực nguy hiểm',
-                'other' => 'Lý do khác',
-            ];
-
-            return redirect()->route('driver.delivery.index')
-                ->with('warning', 'Đã ghi nhận giao hàng thất bại đơn #' . $order->id . '<br>Lý do: ' . $issueLabels[$request->issue_type] . '<br>Đơn hàng đã được chuyển về bưu cục.')
-                ->with('alert_type', 'warning')
-                ->with('alert_title', '⚠️ Giao hàng thất bại');
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            \Log::error('Delivery failure report error', [
-                'order_id' => $order->id,
-                'error' => $e->getMessage()
-            ]);
-            
-            return back()
-                ->withInput()
-                ->with('error', 'Có lỗi xảy ra khi ghi nhận thất bại. Vui lòng thử lại!')
-                ->with('alert_type', 'error');
+        // Cập nhật group status
+        if ($order->isPartOfGroup()) {
+            $order->orderGroup->updateGroupStatus();
         }
+
+        DB::commit();
+
+        // Lấy label lý do
+        $issueLabels = [
+            'recipient_not_home' => 'Người nhận không có nhà',
+            'wrong_address' => 'Địa chỉ sai/không tìm thấy',
+            'refused_package' => 'Người nhận từ chối nhận hàng',
+            'unable_to_contact' => 'Không liên lạc được',
+            'address_too_far' => 'Địa chỉ quá xa',
+            'dangerous_area' => 'Khu vực nguy hiểm',
+            'other' => 'Lý do khác',
+        ];
+
+        return redirect()->route('driver.delivery.index')
+            ->with('warning', 'Đã ghi nhận giao hàng thất bại đơn #' . $order->id . '<br>Lý do: ' . $issueLabels[$request->issue_type] . '<br>Đơn hàng đã được chuyển về bưu cục.')
+            ->with('alert_type', 'warning')
+            ->with('alert_title', '⚠️ Giao hàng thất bại');
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        return back()
+            ->withInput()
+            ->with('error', 'Có lỗi xảy ra khi ghi nhận thất bại. Vui lòng thử lại!')
+            ->with('alert_type', 'error');
     }
+}
 
     /**
      * Tính khoảng cách giữa 2 điểm (km) - Haversine formula

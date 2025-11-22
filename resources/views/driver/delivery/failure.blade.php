@@ -27,10 +27,6 @@
                           enctype="multipart/form-data" id="failureForm">
                         @csrf
 
-                        <!-- Hidden GPS Fields -->
-                        <input type="hidden" name="issue_latitude" id="issue_latitude">
-                        <input type="hidden" name="issue_longitude" id="issue_longitude">
-
                         <div class="row g-4">
                             <!-- Left Column -->
                             <div class="col-lg-6">
@@ -65,21 +61,6 @@
                                     </div>
                                 </div>
 
-                                <!-- Bước 1: Lấy vị trí GPS -->
-                                <div class="card border-primary shadow-sm mb-3">
-                                    <div class="card-header bg-primary text-white py-2">
-                                        <small class="fw-bold text-uppercase">
-                                            <i class="fas fa-map-marker-alt"></i> Bước 1: Xác nhận vị trí GPS
-                                        </small>
-                                    </div>
-                                    <div class="card-body">
-                                        <button type="button" class="btn btn-primary w-100 mb-2" onclick="getLocation()">
-                                            <i class="fas fa-crosshairs"></i> Lấy vị trí GPS hiện tại
-                                        </button>
-                                        <div id="locationStatus" class="text-center small"></div>
-                                    </div>
-                                </div>
-
                                 <!-- Cảnh báo -->
                                 <div class="alert alert-warning border-warning shadow-sm">
                                     <h6 class="alert-heading">
@@ -96,11 +77,11 @@
 
                             <!-- Right Column -->
                             <div class="col-lg-6">
-                                <!-- Bước 2: Lý do thất bại -->
+                                <!-- Lý do thất bại -->
                                 <div class="card border-warning shadow-sm mb-3">
                                     <div class="card-header bg-warning text-dark py-2">
                                         <small class="fw-bold text-uppercase">
-                                            <i class="fas fa-clipboard-list"></i> Bước 2: Chọn lý do thất bại
+                                            <i class="fas fa-clipboard-list"></i> Chọn lý do thất bại
                                         </small>
                                     </div>
                                     <div class="card-body">
@@ -160,11 +141,11 @@
                                     </div>
                                 </div>
 
-                                <!-- Bước 3: Ảnh minh chứng -->
+                                <!-- Ảnh minh chứng -->
                                 <div class="card border-info shadow-sm mb-3">
                                     <div class="card-header bg-info text-white py-2">
                                         <small class="fw-bold text-uppercase">
-                                            <i class="fas fa-camera"></i> Bước 3: Ảnh minh chứng (Tùy chọn)
+                                            <i class="fas fa-camera"></i> Ảnh minh chứng (Tùy chọn)
                                         </small>
                                     </div>
                                     <div class="card-body">
@@ -204,8 +185,7 @@
                                 <div class="d-grid">
                                     <button type="submit" 
                                             class="btn btn-danger btn-lg shadow" 
-                                            id="submitBtn" 
-                                            disabled>
+                                            id="submitBtn">
                                         <i class="fas fa-exclamation-triangle"></i> 
                                         Xác nhận giao hàng thất bại
                                     </button>
@@ -220,91 +200,7 @@
 </div>
 
 <script>
-let locationFetched = false;
 let imageCount = 1;
-
-// Get Location Function
-function getLocation() {
-    if (locationFetched) {
-        alert('Đã lấy vị trí rồi!');
-        return;
-    }
-
-    const status = document.getElementById('locationStatus');
-    const submitBtn = document.getElementById('submitBtn');
-    
-    if (!navigator.geolocation) {
-        alert('❌ Trình duyệt không hỗ trợ định vị GPS!');
-        return;
-    }
-    
-    status.innerHTML = `
-        <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
-        <span class="text-primary fw-bold">Đang lấy vị trí GPS...</span>
-    `;
-    
-    navigator.geolocation.getCurrentPosition(
-        (position) => {
-            const lat = position.coords.latitude;
-            const lng = position.coords.longitude;
-            
-            document.getElementById('issue_latitude').value = lat;
-            document.getElementById('issue_longitude').value = lng;
-            
-            status.innerHTML = `
-                <div class="alert alert-success py-2 mb-0 mt-2">
-                    <i class="fas fa-check-circle"></i> 
-                    <strong>Đã lấy vị trí thành công!</strong><br>
-                    <small class="font-monospace">${lat.toFixed(6)}, ${lng.toFixed(6)}</small>
-                </div>
-            `;
-            
-            submitBtn.disabled = false;
-            submitBtn.classList.add('pulse');
-            locationFetched = true;
-            
-            console.log('GPS captured:', { lat, lng });
-        },
-        (error) => {
-            let errorMsg = '';
-            let solution = '';
-            
-            switch(error.code) {
-                case error.PERMISSION_DENIED:
-                    errorMsg = 'Bạn đã từ chối quyền truy cập vị trí';
-                    solution = 'Vui lòng vào Cài đặt trình duyệt và cho phép truy cập vị trí';
-                    break;
-                case error.POSITION_UNAVAILABLE:
-                    errorMsg = 'Không thể xác định vị trí';
-                    solution = 'Vui lòng kiểm tra kết nối GPS/Internet';
-                    break;
-                case error.TIMEOUT:
-                    errorMsg = 'Yêu cầu định vị quá thời gian';
-                    solution = 'Vui lòng thử lại';
-                    break;
-                default:
-                    errorMsg = 'Lỗi không xác định';
-                    solution = 'Vui lòng thử lại hoặc kiểm tra GPS';
-            }
-            
-            status.innerHTML = `
-                <div class="alert alert-danger py-2 mb-0 mt-2">
-                    <i class="fas fa-exclamation-circle"></i> 
-                    <strong>${errorMsg}</strong><br>
-                    <small>${solution}</small>
-                </div>
-            `;
-            
-            alert(`⚠️ ${errorMsg}\n\n${solution}`);
-            console.error('GPS error:', error);
-        },
-        {
-            enableHighAccuracy: true,
-            timeout: 15000,
-            maximumAge: 0
-        }
-    );
-}
 
 // Add More Image Fields
 function addImageField() {
@@ -342,59 +238,14 @@ function addImageField() {
 
 // Prevent Double Submission
 document.getElementById('failureForm').addEventListener('submit', function(e) {
-    const lat = document.getElementById('issue_latitude').value;
-    const lng = document.getElementById('issue_longitude').value;
-    
-    console.log('Form submitting with GPS:', { lat, lng });
-    
-    if (!lat || !lng) {
-        e.preventDefault();
-        alert('⚠️ Vui lòng lấy vị trí GPS trước khi gửi!');
-        
-        document.getElementById('locationStatus').innerHTML = `
-            <div class="alert alert-danger py-2 mb-0 mt-2">
-                <i class="fas fa-exclamation-triangle"></i> 
-                <strong>Chưa lấy vị trí GPS!</strong><br>
-                <small>Vui lòng nhấn nút "Lấy vị trí GPS hiện tại"</small>
-            </div>
-        `;
-        
-        // Scroll to GPS section
-        document.querySelector('.card.border-primary').scrollIntoView({ behavior: 'smooth' });
-        return false;
-    }
+    const submitBtn = document.getElementById('submitBtn');
     
     // Disable submit button and show loading
-    const submitBtn = document.getElementById('submitBtn');
     submitBtn.disabled = true;
     submitBtn.innerHTML = `
         <span class="spinner-border spinner-border-sm me-2" role="status"></span>
         Đang xử lý...
     `;
 });
-
-// Auto Get Location on Page Load
-window.addEventListener('load', function() {
-    setTimeout(() => {
-        getLocation();
-    }, 500);
-});
-
-// Add pulse animation CSS
-const style = document.createElement('style');
-style.textContent = `
-    .pulse {
-        animation: pulse 2s infinite;
-    }
-    @keyframes pulse {
-        0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7); }
-        70% { box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
-    }
-    .font-monospace {
-        font-family: 'Courier New', monospace;
-    }
-`;
-document.head.appendChild(style);
 </script>
 @endsection
