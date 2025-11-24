@@ -986,4 +986,132 @@ class Order extends Model
             return null;
         }
     }
+     /**
+     * ✅ Bản đồ dịch Services từ Anh -> Việt
+     */
+    private static $servicesTranslation = [
+        'priority' => 'Giao ưu tiên',
+        'insurance' => 'Bảo hiểm',
+        'cod' => 'Thu hộ COD',
+        'fast' => 'Giao nhanh',
+    ];
+
+    /**
+     * ✅ Cấu hình phí dịch vụ (có thể override bằng .env)
+     */
+    public static function getServicesPricing()
+    {
+        return [
+            'priority' => (float) env('SERVICE_PRIORITY_FEE', 5000),
+            'insurance' => (float) env('SERVICE_INSURANCE_PERCENT', 1), // %
+            'fast' => (float) env('SERVICE_FAST_PERCENT', 15), // %
+            'cod' => (float) env('SERVICE_COD_BASE_FEE', 1000), // Phí cơ bản
+            'cod_percent' => (float) env('SERVICE_COD_PERCENT', 0.01), // % của tổng tiền
+        ];
+    }
+
+    /**
+     * ✅ Helper: Lấy tên dịch vụ tiếng Việt
+     * Dùng: $order->getServiceName('cod') -> 'Thu hộ COD'
+     */
+    public function getServiceName($serviceKey)
+    {
+        return self::$servicesTranslation[$serviceKey] ?? $serviceKey;
+    }
+
+    /**
+     * ✅ Helper: Lấy danh sách services đã dịch sang Việt
+     * Dùng: $order->getServicesTranslated() -> ['Giao ưu tiên', 'Bảo hiểm', ...]
+     */
+    public function getServicesTranslated()
+    {
+        $services = $this->services ?? [];
+        
+        // Nếu services là null hoặc empty, trả về array rỗng
+        if (empty($services)) {
+            return [];
+        }
+
+        // Dịch từ Anh -> Việt
+        return array_map(function ($service) {
+            return self::$servicesTranslation[$service] ?? $service;
+        }, $services);
+    }
+
+    /**
+     * ✅ Helper: Lấy services dạng string (hiển thị)
+     * Dùng: $order->getServicesDisplay() -> 'Giao ưu tiên, Bảo hiểm, ...'
+     */
+    public function getServicesDisplay()
+    {
+        return implode(', ', $this->getServicesTranslated());
+    }
+
+    /**
+     * ✅ Helper: Kiểm tra xem có dịch vụ nào không
+     * Dùng: $order->hasService('cod') hoặc $order->hasService('Thu hộ COD')
+     */
+    public function hasService($serviceName)
+    {
+        // Chấp nhận cả tên Anh hoặc Việt
+        $serviceKey = array_search($serviceName, self::$servicesTranslation) ?: $serviceName;
+        return in_array($serviceKey, $this->services ?? []);
+    }
+
+    /**
+     * ✅ Helper: Tính phí cho từng dịch vụ
+     * Dùng: $order->calculateServiceFee('cod', 50000, 1000000)
+     */
+    public function calculateServiceFee($serviceKey, $baseShippingFee = 0, $productValue = 0)
+    {
+        $pricing = self::getServicesPricing();
+        
+        return match ($serviceKey) {
+            'priority' => $pricing['priority'],
+            'insurance' => round($productValue * ($pricing['insurance'] / 100)),
+            'fast' => round($baseShippingFee * ($pricing['fast'] / 100)),
+            'cod' => round($pricing['cod'] + ($this->cod_amount * $pricing['cod_percent'])),
+            default => 0,
+        };
+    }
+
+    /**
+     * ✅ Helper: Tính tổng phí dịch vụ
+     * Dùng: $order->calculateTotalServiceFee(50000, 1000000)
+     */
+    public function calculateTotalServiceFee($baseShippingFee = 0, $productValue = 0)
+    {
+        $totalFee = 0;
+        $services = $this->services ?? [];
+
+        foreach ($services as $service) {
+            $totalFee += $this->calculateServiceFee($service, $baseShippingFee, $productValue);
+        }
+
+        return round($totalFee);
+    }
+
+    /**
+     * ✅ Helper: Lấy danh sách tất cả dịch vụ có sẵn (để hiển thị form)
+     * Dùng: Order::getAvailableServices()
+     */
+    public static function getAvailableServices()
+    {
+        $pricing = self::getServicesPricing();
+        
+        return collect(self::$servicesTranslation)->map(function ($nameVi, $key) use ($pricing) {
+            return [
+                'key' => $key,
+                'name_vi' => $nameVi,
+                'name_en' => $key,
+                'pricing_info' => match ($key) {
+                    'priority' => number_format($pricing['priority'], 0, ',', '.') . 'đ',
+                    'insurance' => $pricing['insurance'] . '%',
+                    'fast' => $pricing['fast'] . '%',
+                    'cod' => number_format($pricing['cod'], 0, ',', '.') . 'đ + ' . ($pricing['cod_percent'] * 100) . '%',
+                    default => 'Liên hệ',
+                }
+            ];
+        })->values();
+    }
 }
