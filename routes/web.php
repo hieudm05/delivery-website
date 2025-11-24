@@ -162,7 +162,7 @@ Route::prefix('driver')
             //Chuyển hàng về bưu cục (gộp nhiều đơn)
             Route::post('/transfer-to-hub', [PickupController::class, 'transferToHub'])->name('transfer-to-hub');
             // Lấy ảnh
-            Route::get('/{id}/images', [PickupController::class, 'uploadImage'])->name('images');
+            Route::get('/{orderId}/images', [PickupController::class, 'getImages'])->name('images');
         });
         // DRIVER COD MANAGEMENT
         Route::prefix('cod')

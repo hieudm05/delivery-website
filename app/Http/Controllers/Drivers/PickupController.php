@@ -353,5 +353,36 @@ class PickupController extends Controller
         ], 500);
     }
 }
+public function getImages($orderId)
+    {
+        try {
+            $order = Order::findOrFail($orderId);
+
+            // Lấy ảnh pickup của đơn này
+            $images = OrderImage::where('order_id', $orderId)
+                ->where('type', 'pickup')
+                ->get()
+                ->map(function($image) {
+                    return [
+                        'id' => $image->id,
+                        'image_path' => $image->image_path,
+                        'image_url' => Storage::url($image->image_path),
+                        'note' => $image->note,
+                        'created_at' => $image->created_at->format('H:i d/m/Y'),
+                    ];
+                });
+
+            return response()->json([
+                'success' => true,
+                'images' => $images
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Lỗi: ' . $e->getMessage()
+            ], 404);
+        }
+    }
 
 }
