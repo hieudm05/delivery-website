@@ -60,7 +60,6 @@ class DriverDeliveryController extends Controller
             'delivery.issues',
             'delivery.driver'
         ])->findOrFail($id);
-        
         if($order->pickup_driver_id === Auth::id()){
             return redirect()->route('driver.delivery.index')->with('error',"Bạn không có quyền truy cập trang này");
         }
