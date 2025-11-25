@@ -39,17 +39,17 @@
         </a>
     </li>
 
+    <li class="{{ request()->is('driver.returns.index') ? 'active' : '' }}">
+        <a href="{{ route('driver.returns.index') }}">
+            <i class="fas fa-star"></i>
+            <span class="menu-text">Hoàn hàng</span>
+        </a>
+    </li>
+
     <li class="{{ request()->is('driver/wallet*') ? 'active' : '' }}">
         <a href="#">
             <i class="fas fa-wallet"></i>
             <span class="menu-text">Thu Nhập</span>
-        </a>
-    </li>
-
-    <li class="{{ request()->is('driver/review*') ? 'active' : '' }}">
-        <a href="#">
-            <i class="fas fa-star"></i>
-            <span class="menu-text">Đánh Giá</span>
         </a>
     </li>
 

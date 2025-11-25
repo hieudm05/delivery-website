@@ -116,6 +116,9 @@
                             <a href="{{ route('driver.delivery.failure.form', $order->id) }}" class="btn btn-danger btn-lg">
                                 <i class="fas fa-times-circle"></i> Giao hàng thất bại
                             </a>
+                            <button type="button" class="btn btn-warning btn-lg" onclick="confirmReturn()">
+                                <i class="fas fa-undo"></i> Hoàn hàng về sender ngay
+                            </button>
                         </div>
                     </form>
                 </div>
@@ -185,5 +188,31 @@ document.getElementById('deliveryForm').addEventListener('submit', function(e) {
     e.preventDefault();
     confirmDelivery('deliveryForm');
 });
+function confirmReturn() {
+    Swal.fire({
+        title: '⚠️ Xác nhận hoàn hàng?',
+        html: `
+            <p class="text-start">Bạn đang chọn <strong>hoàn hàng về sender ngay</strong>.</p>
+            <p class="text-start">Hành động này sẽ:</p>
+            <ul class="text-start">
+                <li>Khởi tạo quy trình hoàn hàng</li>
+                <li>Bạn sẽ phải hoàn trả hàng cho sender</li>
+                <li>Phí hoàn hàng sẽ được tính vào đơn</li>
+            </ul>
+            <p class="text-danger text-start"><strong>Chỉ chọn nếu:</strong> Không thể giao được do lý do nghiêm trọng (địa chỉ sai hoàn toàn, khách từ chối nhận, v.v.)</p>
+        `,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ffc107',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: '<i class="fas fa-undo"></i> Đồng ý hoàn hàng',
+        cancelButtonText: 'Hủy'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Chuyển đến route khởi tạo hoàn hàng
+            window.location.href = "{{ route('driver.delivery.initiate-return', $order->id) }}";
+        }
+    });
+}
 </script>
 @endsection

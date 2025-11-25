@@ -8,6 +8,7 @@ use App\Models\Driver\DriverProfile;
 use App\Models\Driver\Orders\OrderDelivery;
 use App\Models\Driver\Orders\OrderDeliveryImage;
 use App\Models\Driver\Orders\OrderDeliveryIssue;
+use App\Models\Driver\Orders\OrderReturn;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -23,7 +24,7 @@ class DriverDeliveryController extends Controller
     {
         $status = $request->get('status', 'all');
         $search = $request->get('search');
-        $hubId = DriverProfile::where('user_id', Auth::id())->value('post_office_id');
+        $hubId = DriverProfile::where('user_id', operator: Auth::id())->value('post_office_id');
         if(!$hubId){
             return redirect()->back()->with('error', 'Chưa có thông tin bưu cục. Vui lòng cập nhật hồ sơ tài xế.');
         }
@@ -60,9 +61,13 @@ class DriverDeliveryController extends Controller
             'delivery.issues',
             'delivery.driver'
         ])->findOrFail($id);
-        if($order->pickup_driver_id === Auth::id()){
-            return redirect()->route('driver.delivery.index')->with('error',"Bạn không có quyền truy cập trang này");
+        
+        // ✅ SỬA: Kiểm tra xem tài xế có phải là người được phân giao không
+        if($order->driver_id !== Auth::id()){
+            return redirect()->route('driver.delivery.index')
+                ->with('error',"Bạn không có quyền truy cập đơn hàng này");
         }
+        
         // Kiểm tra trạng thái
         if (!in_array($order->status, [Order::STATUS_AT_HUB, Order::STATUS_SHIPPING])) {
             return redirect()->route('driver.delivery.index')
@@ -398,5 +403,62 @@ public function reportFailure(Request $request, $id)
             cos($latFrom) * cos($latTo) * pow(sin($lonDelta / 2), 2)));
 
         return $angle * $earthRadius;
+    }
+    /**
+     * ✅ THÊM PHƯƠNG THỨC: Khởi tạo hoàn hàng từ form giao hàng
+     */
+    public function initiateReturn($id)
+    {
+    $order = Order::with(['deliveryIssues'])->findOrFail($id);
+
+    // Validate trạng thái
+    if (!in_array($order->status, [Order::STATUS_SHIPPING])) {
+        return back()->with('error', 'Chỉ có thể khởi tạo hoàn hàng khi đang giao.');
+    }
+
+    // Kiểm tra đã có OrderReturn chưa
+    if ($order->has_return) {
+        return redirect()->route('driver.returns.show', $order->activeReturn->id)
+            ->with('info', 'Đơn hàng này đã có yêu cầu hoàn trước đó');
+    }
+
+    try {
+        DB::beginTransaction();
+
+        // Lấy issue gần nhất (nếu có)
+        $latestIssue = $order->deliveryIssues()->latest('issue_time')->first();
+        
+        $reasonType = $latestIssue 
+            ? OrderReturn::REASON_HUB_DECISION 
+            : OrderReturn::REASON_OTHER;
+        
+        $reasonDetail = $latestIssue 
+            ? "Giao hàng thất bại: {$latestIssue->issue_type_label}. {$latestIssue->issue_note}"
+            : "Tài xế quyết định hoàn hàng";
+
+        // ✅ CHỈ TẠO OrderReturn, KHÔNG TỰ ASSIGN
+        $return = OrderReturn::createFromOrder(
+            $order,
+            $reasonType,
+            $reasonDetail,
+            Auth::id()
+        );
+
+        // ✅ Đơn về hub, chờ Hub phân công
+        $order->update([
+            'status' => Order::STATUS_AT_HUB,
+        ]);
+
+        DB::commit();
+
+        // ✅ Thông báo cho tài xế biết đơn đã được chuyển về hub
+        return redirect()->route('driver.delivery.index')
+            ->with('success', 'Đã khởi tạo hoàn hàng thành công. Đơn đã được chuyển về hub để phân công.')
+            ->with('alert_type', 'success');
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        return back()->with('error', 'Có lỗi: ' . $e->getMessage());
+    }
     }
 }
