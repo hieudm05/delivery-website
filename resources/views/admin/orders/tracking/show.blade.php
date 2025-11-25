@@ -306,6 +306,14 @@
                             <span class="fw-bold">{{ number_format($order->shipping_fee) }}đ</span>
                         </div>
                     </div>
+                    @if($order->cod_fee > 0)
+                     <div class="info-row">
+                        <div class="info-label">Phí COD:</div>
+                        <div class="info-value">
+                            <span class="fw-bold">{{ number_format($order->cod_fee) }}đ</span>
+                        </div>
+                    </div>
+                    @endif
                     @if($order->cod_amount > 0)
                         <div class="info-row">
                             <div class="info-label">COD:</div>

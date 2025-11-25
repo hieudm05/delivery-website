@@ -428,7 +428,7 @@ class DriverDeliveryApiController extends Controller
         $latFrom = deg2rad($lat1);
         $lonFrom = deg2rad($lon1);
         $latTo = deg2rad($lat2);
-        $lonTo = deg2rad($lon2);
+        $lonTo = deg2rad(num: $lon2);
 
         $latDelta = $latTo - $latFrom;
         $lonDelta = $lonTo - $lonFrom;

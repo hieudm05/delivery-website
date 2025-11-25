@@ -48,6 +48,12 @@
       </a>
     </li>
      <li class="nav-item">
+      <a class="nav-link {{request()->routeIs('hub.issues.index') ? 'active bg-gradient-dark text-white' : 'text-dark'}}" href="{{ route('hub.issues.index') }}">
+        <i class="material-symbols-rounded opacity-5">request_quote</i>
+        <span class="nav-link-text ms-1">Hoàn hàng</span>
+      </a>
+    </li>
+     <li class="nav-item">
       <a class="nav-link {{request()->routeIs('logout') ? 'active bg-gradient-dark text-white' : 'text-dark'}}" href="{{ route('logout') }}">
         <i class="material-symbols-rounded opacity-5">logout</i>
         <span class="nav-link-text ms-1">Đăng xuất</span>

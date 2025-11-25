@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Http\Middleware\RoleMiddleware;
 use App\Models\Customer\Dashboard\Accounts\UserInfo;
 use App\Models\Driver\DriverProfile;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -49,7 +50,6 @@ class User extends Authenticatable
         'last_login_at' => 'datetime',
         'last_seen_at' => 'datetime',
     ];
-
     /**
      * Ghi đè lại tên trường password (Laravel mặc định là "password").
      * Vì DB đang dùng "password_hash".
