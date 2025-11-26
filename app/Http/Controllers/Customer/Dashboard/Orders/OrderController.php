@@ -32,9 +32,6 @@ class OrderController extends Controller
     /**
      * ✅ STORE - HỖ TRỢ CẢ ĐƠN ĐƠN GIẢN & ĐƠN NHIỀU NGƯỜI NHẬN
      */
-   /**
- * ✅ STORE - HỖ TRỢ CẢ ĐƠN ĐƠN GIẢN & ĐƠN NHIỀU NGƯỜI NHẬN
- */
 public function store(Request $request)
 {
     // ✅ DEBUG: Bỏ comment để xem data
