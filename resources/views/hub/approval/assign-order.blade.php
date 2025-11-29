@@ -233,7 +233,7 @@ document.getElementById('assignForm')?.addEventListener('submit', function(e) {
             alert(data.message);
             
             // Redirect về trang danh sách
-            window.location.href = "{{ route('hub.index') }}";
+            window.location.href = "{{ route('hub.approval') }}";
         } else {
             alert(data.error || 'Có lỗi xảy ra');
             submitBtn.disabled = false;

@@ -4,14 +4,17 @@ namespace App\Models\Customer\Dashboard\Orders;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\User;
 use App\Models\BankAccount;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 
 class CodTransaction extends Model
 {
     protected $fillable = [
         'order_id', 'driver_id', 'sender_id', 'hub_id',
-        'cod_amount', 'shipping_fee', 'platform_fee',
-        'sender_receive_amount', 'payer_shipping', 'total_collected',
-        'driver_commission', 'driver_commission_status', 'driver_paid_at',
+        'cod_amount', 'shipping_fee', 'platform_fee', 'cod_fee',
+        'sender_receive_amount', 'sender_debt_deducted', 'payer_shipping', 
+        'total_collected', 'driver_commission', 'hub_profit', 'admin_profit',
+        'driver_commission_status', 'driver_paid_at',
         
         // Driver -> Hub
         'shipper_payment_status', 'shipper_transfer_time',
@@ -26,16 +29,16 @@ class CodTransaction extends Model
         'sender_transfer_method', 'sender_transfer_proof',
         'sender_bank_account_id', 'sender_transfer_by', 'sender_transfer_note',
         
-        // Hub -> System (Platform Fee)
+        // Hub -> System (Admin Profit)
         'hub_system_status', 'hub_system_amount',
         'hub_system_transfer_time', 'hub_system_method',
         'hub_system_proof', 'hub_system_transfer_by',
         'hub_system_note',
         
-        // ✅ NEW: Admin confirm from Hub
+        // Admin confirm from Hub
         'system_confirm_time', 'system_confirm_by', 'system_confirm_note',
         
-        // ✅ NEW: Sender/Recipient phí hệ thống
+        // Sender/Recipient platform fee
         'sender_fee_paid', 'sender_fee_paid_at', 'sender_fee_payment_method',
         'recipient_fee_paid', 'recipient_fee_paid_at', 'recipient_fee_payment_method',
         
@@ -46,10 +49,14 @@ class CodTransaction extends Model
         'cod_amount' => 'decimal:2',
         'shipping_fee' => 'decimal:2',
         'platform_fee' => 'decimal:2',
+        'cod_fee' => 'decimal:2',
         'sender_receive_amount' => 'decimal:2',
+        'sender_debt_deducted' => 'decimal:2',
         'total_collected' => 'decimal:2',
-        'hub_system_amount' => 'decimal:2',
         'driver_commission' => 'decimal:2',
+        'hub_profit' => 'decimal:2',
+        'admin_profit' => 'decimal:2',
+        'hub_system_amount' => 'decimal:2',
         'sender_fee_paid' => 'decimal:2',
         'recipient_fee_paid' => 'decimal:2',
         
@@ -153,10 +160,34 @@ class CodTransaction extends Model
         return $q->where('hub_id', $hubId);
     }
 
-    // ============ AUTO CALCULATION ============
+    // ============ MAIN CALCULATION METHOD ============
     
+    /**
+     * TẠO TRANSACTION TỪ ORDER
+     * 
+     * LOGIC PHÂN PHỐI DÒNG TIỀN:
+     * 
+     * 1. Xác định tiền Driver thu được từ người nhận:
+     *    - Nếu payer = "recipient": total_collected = cod_amount + shipping_fee
+     *    - Nếu payer = "sender": total_collected = cod_amount
+     * 
+     * 2. Tính Driver Commission (từ shipping_fee):
+     *    - driver_commission = shipping_fee * 50% (min: 5K, max: 50K)
+     * 
+     * 3. Tính tiền Sender nhận (từ COD):
+     *    - sender_receive_before_debt = cod_amount - platform_fee - cod_fee
+     *    - Trừ nợ (nếu có): sender_receive_amount = sender_receive_before_debt - debt
+     * 
+     * 4. Tính phần còn lại để chia Hub & Admin:
+     *    - hub_received_total = total_collected (tiền Driver nộp)
+     *    - hub_must_pay = sender_receive_amount + driver_commission
+     *    - remaining_profit = hub_received_total - hub_must_pay
+     *    - hub_profit = remaining_profit * 60%
+     *    - admin_profit = remaining_profit * 40%
+     */
     public static function createFromOrder(Order $order)
     {
+        // ========== 1. XÁC ĐỊNH THÔNG TIN CƠ BẢN ==========
         $senderId = $order->sender_id ?? $order->orderGroup?->user_id;
         if (!$senderId) {
             throw new \Exception("Order #{$order->id} thiếu sender_id");
@@ -168,39 +199,92 @@ class CodTransaction extends Model
             throw new \Exception("Không tìm thấy Hub cho post_office_id: {$order->post_office_id}");
         }
         
-        $codAmount = $order->cod_amount ?? 0;
-        $shippingFee = $order->shipping_fee ?? 0;
-        $codFee = $order->cod_fee ?? 0;
-        $payer = $order->payer;
+        $codAmount = (float)($order->cod_amount ?? 0);
+        $shippingFee = (float)($order->shipping_fee ?? 0);
+        $codFee = (float)($order->cod_fee ?? 0);
+        $platformFee = (float)config('delivery.platform_base_fee', 2000);
+        $payer = $order->payer ?? 'sender';
         
-        // Tính service fee
-        $serviceFee = self::calculateServiceFeeFromOrder($order);
-        $actualShippingFee = $shippingFee - $serviceFee;
+        // ========== 2. TÍNH TIỀN DRIVER THU TỪ NGƯỜI NHẬN ==========
+        if ($payer === 'recipient') {
+            // Người nhận trả: shipping + cod
+            $totalCollected = $codAmount + $shippingFee;
+        } else {
+            // Người gửi trả ship, người nhận chỉ trả COD
+            $totalCollected = $codAmount;
+        }
         
-        // Tính driver commission
+        // ========== 3. TÍNH DRIVER COMMISSION ==========
         $driverCommissionRate = config('delivery.driver_commission_rate', 0.5);
         $minCommission = config('delivery.min_driver_commission', 5000);
         $maxCommission = config('delivery.max_driver_commission', 50000);
         
-        $driverCommission = $actualShippingFee * $driverCommissionRate;
+        $driverCommission = $shippingFee * $driverCommissionRate;
         $driverCommission = max($minCommission, min($driverCommission, $maxCommission));
         
-        $senderReceiveAmount = $codAmount;
-        
-        if ($payer === 'recipient') {
-            $totalCollected = $codAmount + $shippingFee;
-        } else {
-            $totalCollected = $codAmount;
+        // ========== 4. XỬ LÝ NỢ CỦA SENDER ==========
+        $senderDebt = 0;
+        if (config('delivery.debt.auto_deduct', true)) {
+            $senderDebt = self::getSenderDebtWithHub($senderId, $hubId);
         }
         
-        $platformFee = $codFee + $serviceFee;
-        $hubSystemAmount = $platformFee;
+        // ========== 5. TÍNH TIỀN SENDER NHẬN ==========
+        // Sender nhận = COD - platform_fee - cod_fee - nợ
+        $senderReceiveBeforeDebt = $codAmount - $platformFee - $codFee;
+        $senderReceiveAmount = $senderReceiveBeforeDebt - $senderDebt;
         
-        // ✅ Tính phí sender/recipient phải trả
-        $senderTotal = $order->sender_total ?? 0;
-        $recipientTotal = $order->recipient_total ?? 0;
+        // Nếu âm → tạo nợ mới
+        if ($senderReceiveAmount < 0) {
+            $newDebt = abs($senderReceiveAmount);
+            self::createDebt($senderId, $hubId, $newDebt, $order->id, "Nợ từ đơn #{$order->id}");
+            $senderReceiveAmount = 0;
+            $senderDebt += $newDebt;
+        }
         
-        return self::create([
+        // ========== 6. TÍNH CHIA LỢI NHUẬN HUB & ADMIN ==========
+        // Hub nhận tất cả tiền từ Driver
+        $hubReceivedTotal = $totalCollected;
+        
+        // Hub phải trả cho Sender + Driver
+        $hubMustPay = $senderReceiveAmount + $driverCommission;
+        
+        // Phần còn lại chia giữa Hub và Admin
+        $remainingProfit = $hubReceivedTotal - $hubMustPay;
+        
+        $hubProfitShare = config('delivery.hub_profit_share', 0.60);
+        $adminProfitShare = config('delivery.admin_profit_share', 0.40);
+        
+        $hubProfit = round($remainingProfit * $hubProfitShare);
+        $adminProfit = round($remainingProfit * $adminProfitShare);
+        
+        // ========== 7. KIỂM TRA CÂN BẰNG DÒNG TIỀN ==========
+        $totalDistributed = $senderReceiveAmount + $driverCommission + $hubProfit + $adminProfit;
+        $diff = abs($totalCollected - $totalDistributed);
+        
+        if ($diff > 0.01) {
+            Log::error("❌ Dòng tiền không cân bằng!", [
+                'order_id' => $order->id,
+                'thu_vao' => $totalCollected,
+                'chi_ra' => $totalDistributed,
+                'chenh_lech' => $totalCollected - $totalDistributed,
+                'breakdown' => [
+                    'cod_amount' => $codAmount,
+                    'shipping_fee' => $shippingFee,
+                    'cod_fee' => $codFee,
+                    'platform_fee' => $platformFee,
+                    'total_collected' => $totalCollected,
+                    'sender_receive' => $senderReceiveAmount,
+                    'sender_debt' => $senderDebt,
+                    'driver_commission' => $driverCommission,
+                    'hub_profit' => $hubProfit,
+                    'admin_profit' => $adminProfit,
+                ]
+            ]);
+            throw new \Exception("Dòng tiền không cân bằng! Thu: {$totalCollected} - Chi: {$totalDistributed}");
+        }
+        
+        // ========== 8. TẠO TRANSACTION ==========
+        $transaction = self::create([
             'order_id' => $order->id,
             'driver_id' => $order->driver_id,
             'sender_id' => $senderId,
@@ -209,76 +293,72 @@ class CodTransaction extends Model
             'cod_amount' => $codAmount,
             'shipping_fee' => $shippingFee,
             'platform_fee' => $platformFee,
-            'sender_receive_amount' => $senderReceiveAmount,
+            'cod_fee' => $codFee,
             'payer_shipping' => $payer,
-            'total_collected' => $totalCollected,
-            'hub_system_amount' => $hubSystemAmount,
-            'driver_commission' => $driverCommission,
-            'driver_commission_status' => 'pending',
             
+            'total_collected' => $totalCollected,
+            'sender_receive_amount' => $senderReceiveAmount,
+            'sender_debt_deducted' => $senderDebt,
+            'driver_commission' => $driverCommission,
+            'hub_profit' => $hubProfit,
+            'admin_profit' => $adminProfit,
+            'hub_system_amount' => $adminProfit, // Admin profit = platform fee
+            
+            'driver_commission_status' => 'pending',
             'shipper_payment_status' => 'pending',
-            'sender_payment_status' => 'not_ready',
+            'sender_payment_status' => $senderReceiveAmount > 0 ? 'not_ready' : 'not_applicable',
             'hub_system_status' => 'not_ready',
             
-            // ✅ Phí sender/recipient
-            'sender_fee_paid' => $senderTotal,
-            'recipient_fee_paid' => $recipientTotal,
+            'sender_fee_paid' => $payer === 'sender' ? $shippingFee + $platformFee + $codFee : $platformFee + $codFee,
+            'recipient_fee_paid' => $payer === 'recipient' ? $shippingFee : 0,
             
-            'created_by' => auth()->id() ?? $senderId,
+            'created_by' => Auth::id() ?? $senderId,
         ]);
+        
+        // ========== 9. GHI NHẬN NỢ ĐÃ TRỪ ==========
+        if ($senderDebt > 0) {
+            self::recordDebtDeduction($senderId, $hubId, $order->id, $senderDebt);
+        }
+        
+        Log::info("✅ Transaction created successfully", [
+            'order_id' => $order->id,
+            'transaction_id' => $transaction->id,
+            'summary' => [
+                'total_collected' => $totalCollected,
+                'sender_receive' => $senderReceiveAmount,
+                'driver_commission' => $driverCommission,
+                'hub_profit' => $hubProfit,
+                'admin_profit' => $adminProfit,
+                'debt_deducted' => $senderDebt,
+            ]
+        ]);
+        
+        return $transaction;
     }
 
-    private static function calculateServiceFeeFromOrder(Order $order): float
+    // ============ HELPER METHODS ============
+    
+    private static function getSenderDebtWithHub($senderId, $hubId)
     {
-        $services = $order->services ?? [];
+        $debt = \App\Models\SenderDebt::where('sender_id', $senderId)
+            ->where('hub_id', $hubId)
+            ->where('type', 'debt')
+            ->where('status', 'unpaid')
+            ->sum('amount');
         
-        if (is_string($services)) {
-            $services = json_decode($services, true) ?? [];
+        return (float)$debt;
+    }
+
+    private static function recordDebtDeduction($senderId, $hubId, $orderId, $amount)
+    {
+        if ($amount > 0) {
+            \App\Models\SenderDebt::recordDeduction($senderId, $hubId, $orderId, $amount);
         }
-        
-        if (!is_array($services) || empty($services)) {
-            return 0;
-        }
-        
-        $products = $order->products_json ?? [];
-        if (is_string($products)) {
-            $products = json_decode($products, true) ?? [];
-        }
-        
-        $totalWeight = 0;
-        $totalValue = 0;
-        
-        foreach ((array)$products as $product) {
-            if (!is_array($product)) {
-                continue;
-            }
-            
-            $qty = $product['quantity'] ?? 1;
-            $totalWeight += ($product['weight'] ?? 0) * $qty;
-            $totalValue += ($product['value'] ?? 0) * $qty;
-        }
-        
-        $base = 20000;
-        if ($totalWeight > 1000) {
-            $base += ($totalWeight - 1000) * 5;
-        }
-        
-        $serviceFee = 0;
-        
-        foreach ($services as $service) {
-            if ($service === 'cod') {
-                continue;
-            }
-            
-            $serviceFee += match ($service) {
-                'priority' => round($base * 0.25),
-                'fast' => round($base * 0.15),
-                'insurance' => round($totalValue * 0.01),
-                default => 0,
-            };
-        }
-        
-        return (float)$serviceFee;
+    }
+
+    private static function createDebt($senderId, $hubId, $amount, $orderId, $note)
+    {
+        \App\Models\SenderDebt::createDebt($senderId, $hubId, $amount, $orderId, $note);
     }
 
     // ============ PAYMENT FLOW METHODS ============
@@ -317,7 +397,7 @@ class CodTransaction extends Model
             'hub_confirm_by' => $hubAdminId,
             'hub_confirm_note' => $note,
             
-            'sender_payment_status' => 'pending',
+            'sender_payment_status' => $this->sender_receive_amount > 0 ? 'pending' : 'not_applicable',
             'hub_system_status' => 'pending',
         ]);
     }
@@ -362,7 +442,7 @@ class CodTransaction extends Model
     }
 
     /**
-     * Bước 4: Hub nộp Platform Fee cho System
+     * Bước 4: Hub nộp Admin Profit cho System
      */
     public function hubTransferToSystem($hubAdminId, $method, $proof = null, $note = null)
     {
@@ -381,7 +461,7 @@ class CodTransaction extends Model
     }
 
     /**
-     * ✅ Bước 5: Admin xác nhận đã nhận Platform Fee từ Hub
+     * Bước 5: Admin xác nhận đã nhận tiền từ Hub
      */
     public function systemConfirmReceived($adminId, $note = null)
     {
@@ -394,36 +474,6 @@ class CodTransaction extends Model
             'system_confirm_time' => now(),
             'system_confirm_by' => $adminId,
             'system_confirm_note' => $note,
-        ]);
-    }
-
-    /**
-     * ✅ Sender thanh toán phí hệ thống
-     */
-    public function senderPayFee($method, $proof = null, $note = null)
-    {
-        if ($this->sender_fee_paid <= 0) {
-            throw new \Exception('Không có phí cần thanh toán');
-        }
-
-        return $this->update([
-            'sender_fee_payment_method' => $method,
-            'sender_fee_paid_at' => now(),
-        ]);
-    }
-
-    /**
-     * ✅ Recipient thanh toán phí hệ thống
-     */
-    public function recipientPayFee($method, $proof = null, $note = null)
-    {
-        if ($this->recipient_fee_paid <= 0) {
-            throw new \Exception('Không có phí cần thanh toán');
-        }
-
-        return $this->update([
-            'recipient_fee_payment_method' => $method,
-            'recipient_fee_paid_at' => now(),
         ]);
     }
 
@@ -462,7 +512,8 @@ class CodTransaction extends Model
 
     public function isFullyCompleted()
     {
-        return $this->sender_payment_status === 'completed' 
+        return $this->shipper_payment_status === 'confirmed'
+            && ($this->sender_payment_status === 'completed' || $this->sender_payment_status === 'not_applicable')
             && $this->hub_system_status === 'confirmed'
             && $this->driver_commission_status === 'paid';
     }
@@ -475,12 +526,14 @@ class CodTransaction extends Model
             'cod_amount' => $this->cod_amount,
             'shipping_fee' => $this->shipping_fee,
             'platform_fee' => $this->platform_fee,
+            'cod_fee' => $this->cod_fee,
             'total_collected' => $this->total_collected,
             
             'sender_receive_amount' => $this->sender_receive_amount,
+            'sender_debt_deducted' => $this->sender_debt_deducted,
             'driver_commission' => $this->driver_commission,
-            'hub_profit' => $this->shipping_fee - $this->driver_commission,
-            'hub_system_amount' => $this->hub_system_amount,
+            'hub_profit' => $this->hub_profit,
+            'admin_profit' => $this->admin_profit,
             
             'sender_fee_paid' => $this->sender_fee_paid,
             'recipient_fee_paid' => $this->recipient_fee_paid,
@@ -506,6 +559,7 @@ class CodTransaction extends Model
             'not_ready' => 'Chưa sẵn sàng',
             'pending' => 'Chờ chuyển tiền',
             'completed' => 'Đã chuyển',
+            'not_applicable' => 'Không áp dụng',
             default => 'Không xác định'
         };
     }

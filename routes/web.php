@@ -396,7 +396,7 @@ Route::prefix('hub')
         Route::get('orders', [HubController::class, 'orders'])->name('orders.index');
         Route::get('orders/{orderId}', [HubController::class, 'showOrder'])->name('orders.show');
 
-        // Phát đơn cho tài xế
+        // Phát đơn cho tài xế,,
         Route::get('/orders/{orderId}/assign', [HubController::class, 'assignOrderForm'])->name('orders.assign.form');
         Route::post('/orders/{orderId}/assign', [HubController::class, 'assignOrder'])->name('orders.assign');
 
