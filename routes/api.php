@@ -9,6 +9,34 @@ use Illuminate\Support\Facades\Route;
 // API ROUTES FOR MOBILE APP
 // ==========================================
 
+use App\Http\Controllers\Api\SenderDebtController;
+
+Route::prefix('sender-debts')->middleware(['auth:sanctum'])->group(function () {
+    // Danh sách nợ
+    Route::get('/', [SenderDebtController::class, 'index']);
+    
+    // Chi tiết một khoản nợ
+    Route::get('/{id}', [SenderDebtController::class, 'show']);
+    
+    // Tổng nợ của Sender với Hub
+    Route::get('/total', [SenderDebtController::class, 'getTotalDebt']);
+    
+    // Lịch sử nợ
+    Route::get('/history', [SenderDebtController::class, 'getHistory']);
+    
+    // Báo cáo tổng quan
+    Route::get('/report/overview', [SenderDebtController::class, 'reportOverview']);
+    
+    // Tạo nợ mới (Admin/Hub only)
+    Route::post('/', [SenderDebtController::class, 'store']);
+    
+    // Thanh toán nợ thủ công
+    Route::post('/manual-payment', [SenderDebtController::class, 'manualPayment']);
+    
+    // Hủy nợ (Admin only)
+    Route::delete('/{id}/cancel', [SenderDebtController::class, 'cancel']);
+});
+
 Route::middleware(['auth:sanctum'])->group(function () {
     
     // ==========================================
@@ -112,3 +140,5 @@ Route::prefix('public')->name('api.public.')->group(function () {
     Route::get('/tracking/{order_id}', [DriverTrackingController::class, 'trackOrder'])
         ->name('tracking');
 });
+
+
