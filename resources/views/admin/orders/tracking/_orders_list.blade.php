@@ -91,6 +91,12 @@
                                     Có sự cố
                                 </span>
                             @endif
+                            @if($order->has_return)
+                                <span class="badge bg-warning">
+                                    <i class="bi bi-arrow-counterclockwise me-1"></i>
+                                    {{ $order->status === 'returning' ? 'Đang hoàn' : 'Đã hoàn' }}
+                                </span>
+                            @endif
                             @if($order->driver_id)
                                 @php
                                     $driver = \App\Models\User::find($order->driver_id);

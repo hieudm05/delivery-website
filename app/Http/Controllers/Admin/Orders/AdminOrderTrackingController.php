@@ -103,7 +103,8 @@ class AdminOrderTrackingController extends Controller
             Order::STATUS_PICKING_UP,
             Order::STATUS_PICKED_UP,
             Order::STATUS_AT_HUB,
-            Order::STATUS_SHIPPING
+            Order::STATUS_SHIPPING,
+            Order::STATUS_RETURNING 
         ])
         ->with(['delivery', 'deliveryIssues'])
         ->get();
@@ -117,6 +118,7 @@ class AdminOrderTrackingController extends Controller
             'picking_up' => $activeOrders->where('status', Order::STATUS_PICKING_UP)->count(),
             'at_hub' => $activeOrders->where('status', Order::STATUS_AT_HUB)->count(),
             'shipping' => $activeOrders->where('status', Order::STATUS_SHIPPING)->count(),
+            'returning' => $activeOrders->where('status', Order::STATUS_RETURNING)->count(),
             'with_issues' => $activeOrders->filter(fn($o) => $o->hasDeliveryIssues())->count(),
         ];
 
@@ -375,12 +377,15 @@ class AdminOrderTrackingController extends Controller
                     Order::STATUS_PICKING_UP,
                     Order::STATUS_PICKED_UP,
                     Order::STATUS_AT_HUB,
-                    Order::STATUS_SHIPPING
+                    Order::STATUS_SHIPPING,
+                    Order::STATUS_RETURNING
                 ])->count(),
                'with_issues' => Order::whereHas('deliveryIssues', function ($q) use ($today) {
                     $q->whereDate('issue_time', $today);
                 })->count(),
-
+                'returning' => Order::where('status', Order::STATUS_RETURNING)->count(), 
+                'returned' => Order::where('status', Order::STATUS_RETURNED)->whereDate('updated_at', $today)
+                ->count(),
             ],
             
             // Thống kê theo hub

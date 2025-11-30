@@ -251,6 +251,7 @@
                     <option value="picking_up">Đang lấy hàng</option>
                     <option value="at_hub">Tại bưu cục</option>
                     <option value="shipping">Đang giao</option>
+                    <option value="returning">Đang hoàn hàng</option>
                 </select>
             </div>
             <div class="mb-3">
@@ -304,6 +305,12 @@
                     ⚠️
                 </div>
                 <small>Có sự cố</small>
+            </div>
+            <div class="legend-item">
+                <div class="legend-icon" style="background-color: #ffc107;">
+                    🔄
+                </div>
+                <small>Đang hoàn hàng</small>
             </div>
         </div>
     </div>
@@ -385,14 +392,16 @@ function addOrderMarkers() {
         'picking_up': '#0d6efd',
         'picked_up': '#6c757d',
         'at_hub': '#6f42c1',
-        'shipping': '#0dcaf0'
+        'shipping': '#0dcaf0',
+        'returning': '#ffc107'
     };
 
     const statusEmojis = {
         'picking_up': '📦',
         'picked_up': '📦',
         'at_hub': '🏢',
-        'shipping': '🚚'
+        'shipping': '🚚',
+        'returning': '🔄' 
     };
 
     mapData.markers.forEach(order => {
@@ -513,7 +522,9 @@ function getStatusBadge(status) {
         'picking_up': 'primary',
         'picked_up': 'secondary',
         'at_hub': 'dark',
-        'shipping': 'info'
+        'shipping': 'info',
+        'returning': 'warning', 
+        'returned': 'secondary' 
     };
     return badges[status] || 'secondary';
 }
@@ -523,7 +534,9 @@ function getStatusLabel(status) {
         'picking_up': 'Đang lấy',
         'picked_up': 'Đã lấy',
         'at_hub': 'Tại hub',
-        'shipping': 'Đang giao'
+        'shipping': 'Đang giao',
+        'returning': 'Đang hoàn',
+        'returned': 'Đã hoàn'      
     };
     return labels[status] || status;
 }
