@@ -56,6 +56,12 @@
                                     Có sự cố
                                 </span>
                             @endif
+                            @if($order->has_return)
+                                <span class="bg-warning">
+                                    <i class="bi bi-arrow-counterclockwise me-1"></i>
+                                    Có hoàn hàng
+                                </span>
+                            @endif
                         </div>
                     </td>
                     <td>
