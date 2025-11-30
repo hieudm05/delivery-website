@@ -367,13 +367,13 @@ Route::prefix('customer')
             // Danh sách giao dịch
             Route::get('/', [CustomerCodController::class, 'index'])->name('index');
 
+            Route::get('/statistics', [CustomerCodController::class, 'statistics'])->name('statistics');
             Route::get('/{id}/qr', [CustomerCodController::class, 'getQrCode'])->name('qr');
 
             // Chi tiết giao dịch
             Route::get('/{id}', [CustomerCodController::class, 'show'])->name('show');
 
             // Thống kê
-            Route::get('/statistics', [CustomerCodController::class, 'statistics'])->name('statistics');
 
             // ✅ NEW: Thanh toán phí hệ thống (Sender)
             Route::post('/{id}/pay-fee', [CustomerCodController::class, 'paySenderFee'])->name('pay-fee');
