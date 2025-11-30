@@ -26,15 +26,19 @@ class CustomerCodController extends Controller
         // Lọc theo tab
         switch ($tab) {
             case 'pending_fee':
-                // Chờ thanh toán phí
+                // ✅ FIX: Chỉ hiện những đơn CẦN thanh toán thực sự
                 $query->whereNull('sender_fee_paid_at')
-                      ->where('sender_fee_paid', '>', 0);
+                      ->where('sender_fee_paid', '>', 0)
+                      ->where('sender_debt_deducted', 0); // ← Chưa trừ nợ
                 break;
 
             case 'waiting_cod':
-                // Hub chưa gửi tiền cho customer
+                // Hub chưa gửi tiền cho customer (đã thanh toán phí HOẶC đã trừ nợ)
                 $query->where('sender_payment_status', 'pending')
-                      ->whereNotNull('sender_fee_paid_at'); // Đã thanh toán phí
+                      ->where(function($q) {
+                          $q->whereNotNull('sender_fee_paid_at') // Đã thanh toán
+                            ->orWhere('sender_debt_deducted', '>', 0); // Hoặc đã trừ nợ
+                      });
                 break;
 
             case 'received':
@@ -50,16 +54,20 @@ class CustomerCodController extends Controller
 
         $transactions = $query->latest()->paginate(20);
 
-        // Tính tổng tiền theo trạng thái
+        // ✅ FIX: Tính tổng tiền theo trạng thái
         $stats = [
             'pending_fee' => CodTransaction::where('sender_id', $customerId)
                 ->whereNull('sender_fee_paid_at')
                 ->where('sender_fee_paid', '>', 0)
+                ->where('sender_debt_deducted', 0) // ← Chưa trừ nợ
                 ->sum('sender_fee_paid'),
 
             'waiting_cod' => CodTransaction::where('sender_id', $customerId)
                 ->where('sender_payment_status', 'pending')
-                ->whereNotNull('sender_fee_paid_at')
+                ->where(function($q) {
+                    $q->whereNotNull('sender_fee_paid_at')
+                      ->orWhere('sender_debt_deducted', '>', 0);
+                })
                 ->sum('sender_receive_amount'),
 
             'received' => CodTransaction::where('sender_id', $customerId)
@@ -83,7 +91,9 @@ class CustomerCodController extends Controller
             'order',
             'driver',
             'hub',
-            'senderBankAccount'
+            'senderBankAccount',
+            'hubConfirmer',
+            'senderTransferer'
         ])
         ->where('sender_id', Auth::id())
         ->findOrFail($id);
@@ -91,7 +101,7 @@ class CustomerCodController extends Controller
         // Lấy thông tin chi tiết thanh toán
         $paymentDetails = $this->getPaymentDetails($transaction);
 
-        return view('customer.cod.show', compact('transaction', 'paymentDetails'));
+        return view('customer.dashboard.cod.show', compact('transaction', 'paymentDetails'));
     }
 
     /**
@@ -104,31 +114,47 @@ class CustomerCodController extends Controller
         $stats = [
             'total_orders' => CodTransaction::where('sender_id', $userId)->count(),
             'total_cod_amount' => CodTransaction::where('sender_id', $userId)->sum('cod_amount'),
+            
+            // ✅ FIX: Chỉ tính những phí đã thanh toán THỰC SỰ (không bao gồm trừ nợ)
             'total_fee_paid' => CodTransaction::where('sender_id', $userId)
                 ->whereNotNull('sender_fee_paid_at')
+                ->where('sender_debt_deducted', 0)
                 ->sum('sender_fee_paid'),
+                
+            'total_debt_deducted' => CodTransaction::where('sender_id', $userId)
+                ->sum('sender_debt_deducted'),
+
             'total_cod_received' => CodTransaction::where('sender_id', $userId)
                 ->where('sender_payment_status', 'completed')
                 ->sum('sender_receive_amount'),
 
+            // ✅ FIX: Pending fee (chưa trừ nợ)
             'pending_fee' => CodTransaction::where('sender_id', $userId)
                 ->whereNull('sender_fee_paid_at')
                 ->where('sender_fee_paid', '>', 0)
+                ->where('sender_debt_deducted', 0)
                 ->sum('sender_fee_paid'),
 
             'pending_cod' => CodTransaction::where('sender_id', $userId)
                 ->where('sender_payment_status', 'pending')
-                ->whereNotNull('sender_fee_paid_at')
+                ->where(function($q) {
+                    $q->whereNotNull('sender_fee_paid_at')
+                      ->orWhere('sender_debt_deducted', '>', 0);
+                })
                 ->sum('sender_receive_amount'),
 
             'count_pending_fee' => CodTransaction::where('sender_id', $userId)
                 ->whereNull('sender_fee_paid_at')
                 ->where('sender_fee_paid', '>', 0)
+                ->where('sender_debt_deducted', 0)
                 ->count(),
 
             'count_waiting_cod' => CodTransaction::where('sender_id', $userId)
                 ->where('sender_payment_status', 'pending')
-                ->whereNotNull('sender_fee_paid_at')
+                ->where(function($q) {
+                    $q->whereNotNull('sender_fee_paid_at')
+                      ->orWhere('sender_debt_deducted', '>', 0);
+                })
                 ->count(),
 
             'count_completed' => CodTransaction::where('sender_id', $userId)
@@ -147,28 +173,43 @@ class CustomerCodController extends Controller
 
         $stats['timeline'] = $timeline;
 
-        return view('customer.cod.statistics', compact('stats'));
+        return view('customer.dashboard.cod.statistics', compact('stats'));
     }
 
     /**
      * ✅ API: Lấy QR code để thanh toán phí cho Hub
-     * 
-     * LOGIC:
-     * - Tính phí dựa vào payer_shipping
-     * - Lấy bank account của Hub
-     * - Tạo QR code với nội dung chuyển khoản chuẩn
      */
     public function getQrCode($id)
     {
         try {
             $customerId = Auth::id();
 
-            // Lấy transaction
             $transaction = CodTransaction::with('hub')
                 ->where('sender_id', $customerId)
                 ->findOrFail($id);
 
-            // Kiểm tra hub_id
+            // ✅ FIX: Kiểm tra điều kiện cần thanh toán
+            if ($transaction->sender_debt_deducted > 0) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Phí đã được trừ tự động từ nợ cũ'
+                ], 400);
+            }
+
+            if ($transaction->sender_fee_paid <= 0) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Không có phí cần thanh toán'
+                ], 400);
+            }
+
+            if ($transaction->sender_fee_paid_at) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Phí đã được thanh toán rồi'
+                ], 400);
+            }
+
             if (!$transaction->hub_id) {
                 return response()->json([
                     'success' => false,
@@ -190,28 +231,8 @@ class CustomerCodController extends Controller
                 ], 404);
             }
 
-            // Tính phí cần thanh toán
             $expectedFee = $this->calculateExpectedFee($transaction);
-
-            if ($expectedFee <= 0) {
-                return response()->json([
-                    'success' => false,
-                    'error' => 'Không có phí cần thanh toán'
-                ], 400);
-            }
-
-            // Kiểm tra phí đã được thanh toán chưa
-            if ($transaction->sender_fee_paid_at) {
-                return response()->json([
-                    'success' => false,
-                    'error' => 'Phí đã được thanh toán rồi'
-                ], 400);
-            }
-
-            // Tạo nội dung chuyển khoản
             $transferContent = $this->generateTransferContent($transaction, $expectedFee);
-
-            // Tạo QR code
             $qrUrl = $hubBankAccount->generateQrCode($expectedFee, $transferContent);
 
             if (!$qrUrl) {
@@ -221,7 +242,6 @@ class CustomerCodController extends Controller
                 ], 500);
             }
 
-            // Trả dữ liệu
             return response()->json([
                 'success' => true,
                 'qr_url' => $qrUrl,
@@ -247,43 +267,19 @@ class CustomerCodController extends Controller
 
     /**
      * ✅ THANH TOÁN PHÍ - LUỒNG CHÍNH
-     * 
-     * LOGIC:
-     * 1. Validate phương thức thanh toán
-     * 2. Xác nhận phí cần thanh toán (xét payer_shipping)
-     * 3. Upload & lưu chứng từ
-     * 4. Cập nhật transaction status
-     * 5. Ghi log lịch sử
      */
     public function paySenderFee(Request $request, $id)
     {
         $method = $request->input('payment_method');
+        $transaction = CodTransaction::where('sender_id', Auth::id())->findOrFail($id);
 
-        // Lấy transaction
-        $transaction = CodTransaction::where('sender_id', Auth::id())
-            ->findOrFail($id);
-
-        // ============ VALIDATE PHƯƠNG THỨC ============
-        $rules = [
-            'payment_method' => 'required|in:bank_transfer,wallet,cash',
-        ];
-
-        $messages = [
-            'payment_method.required' => 'Vui lòng chọn phương thức thanh toán',
-        ];
-
-        // ============ VALIDATE CHỨNG TỪ ============
-        if (in_array($method, ['bank_transfer', 'wallet'])) {
-            $rules['proof'] = 'required|image|mimes:jpeg,png,jpg,gif|max:5120';
-            $messages['proof.required'] = 'Vui lòng tải lên ảnh chứng từ';
-            $messages['proof.image'] = 'File phải là ảnh';
-            $messages['proof.mimes'] = 'Chỉ chấp nhận ảnh PNG, JPG, JPEG hoặc GIF';
-            $messages['proof.max'] = 'Ảnh không được lớn hơn 5MB';
+        // ✅ FIX: Validate logic
+        if ($transaction->sender_debt_deducted > 0) {
+            return back()->withErrors([
+                'error' => 'Phí đã được trừ tự động từ nợ cũ (' . number_format($transaction->sender_debt_deducted) . '₫)'
+            ]);
         }
 
-        $request->validate($rules, $messages);
-
-        // ============ KIỂM TRA TRẠNG THÁI ============
         if ($transaction->sender_fee_paid <= 0) {
             return back()->withErrors([
                 'error' => 'Giao dịch này không cần thanh toán phí'
@@ -296,25 +292,39 @@ class CustomerCodController extends Controller
             ]);
         }
 
+        // Validate input
+        $rules = [
+            'payment_method' => 'required|in:bank_transfer,wallet,cash',
+        ];
+
+        $messages = [
+            'payment_method.required' => 'Vui lòng chọn phương thức thanh toán',
+        ];
+
+        if (in_array($method, ['bank_transfer', 'wallet'])) {
+            $rules['proof'] = 'required|image|mimes:jpeg,png,jpg,gif|max:5120';
+            $messages['proof.required'] = 'Vui lòng tải lên ảnh chứng từ';
+            $messages['proof.image'] = 'File phải là ảnh';
+            $messages['proof.mimes'] = 'Chỉ chấp nhận ảnh PNG, JPG, JPEG hoặc GIF';
+            $messages['proof.max'] = 'Ảnh không được lớn hơn 5MB';
+        }
+
+        $request->validate($rules, $messages);
+
         DB::beginTransaction();
         try {
-            // ============ XỬ LÝ CHỨNG TỪ ============
             $proofPath = null;
             if ($request->hasFile('proof')) {
                 $file = $request->file('proof');
-
                 if (!$file->isValid()) {
                     throw new \Exception('File không hợp lệ: ' . $file->getErrorMessage());
                 }
-
                 $proofPath = $file->store('fee_payments/customer', 'public');
-
                 if (!$proofPath) {
                     throw new \Exception('Không thể lưu chứng từ');
                 }
             }
 
-            // ============ CẬP NHẬT TRANSACTION ============
             $updateData = [
                 'sender_fee_payment_method' => $method,
                 'sender_fee_payment_proof' => $proofPath,
@@ -324,7 +334,6 @@ class CustomerCodController extends Controller
 
             $transaction->update($updateData);
 
-            // ============ GHI LOG ============
             Log::info('Customer paid fee', [
                 'transaction_id' => $transaction->id,
                 'order_id' => $transaction->order_id,
@@ -337,10 +346,9 @@ class CustomerCodController extends Controller
 
             DB::commit();
 
-            // ============ RESPONSE ============
             $message = $method === 'cash'
                 ? '✅ Đã ghi nhận thanh toán tiền mặt. Vui lòng đến bưu cục để hoàn tất.'
-                : '✅ Đã ghi nhận thanh toán ' . number_format($transaction->sender_fee_paid) . 'đ. Bưu cục sẽ xác nhận trong 24h.';
+                : '✅ Đã ghi nhận thanh toán ' . number_format($transaction->sender_fee_paid) . '₫. Bưu cục sẽ xác nhận trong 24h.';
 
             return redirect()->route('customer.cod.index', ['tab' => 'all'])
                 ->with('success', $message);
@@ -364,7 +372,6 @@ class CustomerCodController extends Controller
         $transaction = CodTransaction::where('sender_id', Auth::id())
             ->findOrFail($id);
 
-        // Chỉ yêu cầu ưu tiên khi chưa nhận COD
         if ($transaction->sender_payment_status !== 'pending') {
             return back()->withErrors([
                 'error' => 'Chỉ có thể yêu cầu ưu tiên khi COD chưa được chuyển'
@@ -378,25 +385,15 @@ class CustomerCodController extends Controller
 
     // ============ HELPER METHODS ============
 
-    /**
-     * Tính phí cần thanh toán dựa vào payer_shipping
-     */
     private function calculateExpectedFee(CodTransaction $transaction): float
     {
         $fee = (float)$transaction->platform_fee + (float)$transaction->cod_fee;
-
-        // Nếu customer trả shipping, cộng thêm
         if ($transaction->payer_shipping === 'sender') {
             $fee += (float)$transaction->shipping_fee;
         }
-
         return $fee;
     }
 
-    /**
-     * Tạo nội dung chuyển khoản chuẩn
-     * Format: PHI_DH{order_id}_KH{customer_id}_{amount}
-     */
     private function generateTransferContent(CodTransaction $transaction, float $amount): string
     {
         return sprintf(
@@ -407,9 +404,6 @@ class CustomerCodController extends Controller
         );
     }
 
-    /**
-     * Chi tiết breakdown phí cho customer
-     */
     private function getFeeBreakdown(CodTransaction $transaction): array
     {
         $breakdown = [
@@ -424,9 +418,6 @@ class CustomerCodController extends Controller
         return $breakdown;
     }
 
-    /**
-     * Lấy chi tiết thanh toán cho giao dịch
-     */
     private function getPaymentDetails(CodTransaction $transaction): array
     {
         return [
