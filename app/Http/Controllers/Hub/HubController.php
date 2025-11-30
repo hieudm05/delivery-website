@@ -467,23 +467,26 @@ class HubController extends Controller
      * ✅ ĐẾM SỐ LƯỢNG ĐƠN THEO TRẠNG THÁI
      */
     private function getHubStatusCounts($hub)
-    {
-        $counts = Order::where('post_office_id', $hub->post_office_id)
-            ->selectRaw('status, COUNT(*) as count')
-            ->groupBy('status')
-            ->pluck('count', 'status')
-            ->toArray();
+{
+    // ✅ Lấy đếm theo status thực tế
+    $counts = Order::where('post_office_id', $hub->post_office_id)
+        ->selectRaw('status, COUNT(*) as count')
+        ->groupBy('status')
+        ->pluck('count', 'status')
+        ->toArray();
 
-        return [
-            'pending' => $counts['pending'] ?? 0,
-            'confirmed' => $counts['confirmed'] ?? 0,
-            'picking_up' => $counts['picking_up'] ?? 0,
-            'picked_up' => $counts['picked_up'] ?? 0,
-            'at_hub' => $counts['at_hub'] ?? 0,
-            'shipping' => $counts['shipping'] ?? 0,
-            'delivered' => $counts['delivered'] ?? 0,
-            'cancelled' => $counts['cancelled'] ?? 0,
-        ];
+    return [
+        'pending' => $counts['pending'] ?? 0,
+        'confirmed' => $counts['confirmed'] ?? 0,
+        'picking_up' => $counts['picking_up'] ?? 0,
+        'picked_up' => $counts['picked_up'] ?? 0,
+        'at_hub' => $counts['at_hub'] ?? 0,
+        'shipping' => $counts['shipping'] ?? 0,
+        'delivered' => $counts['delivered'] ?? 0,
+        'cancelled' => $counts['cancelled'] ?? 0,
+        'returning' => $counts['returning'] ?? 0,   // ← PHẢI CÓ
+        'returned' => $counts['returned'] ?? 0,     // ← PHẢI CÓ
+    ];
     }
 
     private function getAvailableDrivers(Hub $hub, Order $order)

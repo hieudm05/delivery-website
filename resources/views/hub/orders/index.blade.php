@@ -36,12 +36,12 @@
 
     {{-- Thống kê nhanh --}}
     <div class="row g-3 mb-4">
-        <div class="col-md-3">
+        <div class="col-md-4">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
                     <div class="d-flex align-items-center">
                         <div class="flex-shrink-0">
-                            <div class="avatar-icon bg-warning bg-opacity-10 text-warning">
+                            <div class="avatar-icon bg-opacity-10 text-warning">
                                 <i class="bi bi-clock-history fs-4"></i>
                             </div>
                         </div>
@@ -53,12 +53,12 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
+        <div class="col-md-4">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
                     <div class="d-flex align-items-center">
                         <div class="flex-shrink-0">
-                            <div class="avatar-icon bg-dark bg-opacity-10 text-dark">
+                            <div class="avatar-icon bg-opacity-10 text-dark">
                                 <i class="bi bi-building fs-4"></i>
                             </div>
                         </div>
@@ -70,12 +70,12 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
+        <div class="col-md-4">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
                     <div class="d-flex align-items-center">
                         <div class="flex-shrink-0">
-                            <div class="avatar-icon bg-primary bg-opacity-10 text-primary">
+                            <div class="avatar-icon bg-opacity-10 text-primary">
                                 <i class="bi bi-truck fs-4"></i>
                             </div>
                         </div>
@@ -87,18 +87,52 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
+        <div class="col-md-4">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
                     <div class="d-flex align-items-center">
                         <div class="flex-shrink-0">
-                            <div class="avatar-icon bg-success bg-opacity-10 text-success">
+                            <div class="avatar-icon bg-opacity-10 text-success">
                                 <i class="bi bi-check-circle-fill fs-4"></i>
                             </div>
                         </div>
                         <div class="flex-grow-1 ms-3">
                             <h6 class="text-muted mb-1">Đã giao</h6>
                             <h4 class="mb-0">{{ $statusCounts['delivered'] }}</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-shrink-0">
+                        <div class="avatar-icon bg-opacity-10 text-warning">
+                            <i class="bi bi-arrow-counterclockwise fs-4"></i>
+                        </div>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <h6 class="text-muted mb-1">Đang hoàn hàng</h6>
+                        <h4 class="mb-0">{{ $statusCounts['returning'] ?? 0 }}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="avatar-icon bg-opacity-10 text-secondary">
+                                <i class="bi bi-box-arrow-in-left fs-4"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="text-muted mb-1">Đã hoàn về</h6>
+                            <h4 class="mb-0">{{ $statusCounts['returned'] ?? 0 }}</h4>
                         </div>
                     </div>
                 </div>
@@ -147,6 +181,12 @@
                                     </option>
                                     <option value="delivered" {{ request('status') == 'delivered' ? 'selected' : '' }}>
                                         Đã giao
+                                    </option>
+                                    <option value="returning" {{ request('status') == 'returning' ? 'selected' : '' }}>
+                                        Đang hoàn hàng
+                                    </option>
+                                    <option value="returned" {{ request('status') == 'returned' ? 'selected' : '' }}>
+                                        Đã hoàn về
                                     </option>
                                     <option value="cancelled" {{ request('status') == 'cancelled' ? 'selected' : '' }}>
                                         Đã hủy
