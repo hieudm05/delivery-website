@@ -143,12 +143,14 @@
                         <div class="position-absolute w-100" style="height: 2px; background: #dee2e6; top: 20px; left: 0; z-index: 0;"></div>
                         <div class="position-absolute" style="height: 2px; background: #0d6efd; top: 20px; left: 0; z-index: 1; width: {{ match($order->status) {
                             'pending' => '0%',
-                            'confirmed' => '14%',
-                            'picking_up' => '28%',
-                            'picked_up' => '42%',
-                            'at_hub' => '57%',
-                            'shipping' => '71%',
+                            'confirmed' => '12.5%',
+                            'picking_up' => '25%',
+                            'picked_up' => '37.5%',
+                            'at_hub' => '50%',
+                            'shipping' => '62.5%',
                             'delivered' => '100%',
+                            'returning' => '75%',     // ← THÊM
+                            'returned' => '87.5%',    // ← THÊM
                             'cancelled' => '0%',
                             default => '0%'
                         } }};"></div>
@@ -161,6 +163,8 @@
                             'at_hub' => ['icon' => 'building', 'label' => 'Tại hub'],
                             'shipping' => ['icon' => 'truck', 'label' => 'Đang giao'],
                             'delivered' => ['icon' => 'check-circle-fill', 'label' => 'Đã giao'],
+                            'returning' => ['icon' => 'arrow-counterclockwise', 'label' => 'Đang hoàn'], 
+                            'returned' => ['icon' => 'box-arrow-in-left', 'label' => 'Đã hoàn'],   
                         ] as $statusKey => $statusInfo)
                             @php
                                 $statusOrder = ['pending', 'confirmed', 'picking_up', 'picked_up', 'at_hub', 'shipping', 'delivered'];

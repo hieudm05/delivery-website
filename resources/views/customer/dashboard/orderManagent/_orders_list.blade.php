@@ -30,27 +30,31 @@
                         </small>
                     @endif
                 </h6>
-                <span class="badge 
-                    @if($order->status === 'pending') bg-warning
-                    @elseif($order->status === 'confirmed') bg-info
-                    @elseif($order->status === 'picking_up') bg-primary
-                    @elseif($order->status === 'picked_up') bg-secondary
-                    @elseif($order->status === 'at_hub') bg-dark
-                    @elseif($order->status === 'shipping') bg-primary
-                    @elseif($order->status === 'delivered') bg-success
-                    @elseif($order->status === 'cancelled') bg-danger
-                    @endif
-                ">
-                    @if($order->status === 'pending') Chờ xác nhận
-                    @elseif($order->status === 'confirmed') Đã xác nhận
-                    @elseif($order->status === 'picking_up') Đang lấy hàng
-                    @elseif($order->status === 'picked_up') Đã lấy hàng
-                    @elseif($order->status === 'at_hub') Tại bưu cục
-                    @elseif($order->status === 'shipping') Đang giao
-                    @elseif($order->status === 'delivered') Đã giao
-                    @elseif($order->status === 'cancelled') Đã hủy
-                    @endif
-                </span>
+              <span class="badge 
+                @if($order->status === 'pending') bg-warning
+                @elseif($order->status === 'confirmed') bg-info
+                @elseif($order->status === 'picking_up') bg-primary
+                @elseif($order->status === 'picked_up') bg-secondary
+                @elseif($order->status === 'at_hub') bg-dark
+                @elseif($order->status === 'shipping') bg-primary
+                @elseif($order->status === 'delivered') bg-success
+                @elseif($order->status === 'returning') bg-warning     {{-- ← THÊM --}}
+                @elseif($order->status === 'returned') bg-secondary    {{-- ← THÊM --}}
+                @elseif($order->status === 'cancelled') bg-danger
+                @endif
+            ">
+                @if($order->status === 'pending') Chờ xác nhận
+                @elseif($order->status === 'confirmed') Đã xác nhận
+                @elseif($order->status === 'picking_up') Đang lấy hàng
+                @elseif($order->status === 'picked_up') Đã lấy hàng
+                @elseif($order->status === 'at_hub') Tại bưu cục
+                @elseif($order->status === 'shipping') Đang giao
+                @elseif($order->status === 'delivered') Đã giao
+                @elseif($order->status === 'returning') Đang hoàn hàng    {{-- ← THÊM --}}
+                @elseif($order->status === 'returned') Đã hoàn về         {{-- ← THÊM --}}
+                @elseif($order->status === 'cancelled') Đã hủy
+                @endif
+            </span>
             </div>
 
             <!-- Cảnh báo nếu có sự cố -->

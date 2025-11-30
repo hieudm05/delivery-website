@@ -489,6 +489,8 @@ class OrderManagentController extends Controller
             'delivered' => $counts['delivered'] ?? 0,
             'cancelled' => $counts['cancelled'] ?? 0,
             'failed' => $failedCount,
+            'returning' => $counts['returning'] ?? 0,
+            'returned' => $counts['returned'] ?? 0,
         ];
     }
     public function getTrackingUpdates(Request $request, $orderId)
