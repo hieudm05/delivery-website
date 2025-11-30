@@ -304,11 +304,13 @@ $(document).ready(function() {
         });
     });
 
-    // Preview ảnh
-    $('input[name="images[]"]').change(function() {
+    // Preview ảnh cho form xác nhận lấy hàng
+    $('#confirmPickupForm input[name="images[]"]').change(function() {
         previewImages(this, '#imagePreview');
     });
-    $('input[name="issue_note"]').closest('form').find('input[name="images[]"]').change(function() {
+
+    // Preview ảnh cho form báo cáo vấn đề
+    $('#reportIssueForm input[name="images[]"]').change(function() {
         previewImages(this, '#issueImagePreview');
     });
 
@@ -332,37 +334,33 @@ $(document).ready(function() {
         }
     }
 
-
     // Xác nhận lấy hàng
     $('#confirmPickupForm').submit(function(e) {
         e.preventDefault();
-        submitPickupForm();
+        
+        const formData = new FormData(this);
+        const btn = $('#btnConfirmPickup');
+        btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Đang xử lý...');
 
-        function submitPickupForm() {
-            const formData = new FormData($('#confirmPickupForm')[0]);
-            const btn = $('#btnConfirmPickup');
-            btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Đang xử lý...');
-
-            $.ajax({
-                url: `/driver/pickup/${orderId}/confirm`,
-                method: 'POST',
-                data: formData,
-                processData: false,
-                contentType: false,
-                headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
-                success: function(response) {
-                    if (response.success) {
-                        Swal.fire('Thành công', response.message, 'success');
-                        setTimeout(() => window.location.href = '{{ route("driver.pickup.index") }}', 1500);
-                    }
-                },
-                error: function(xhr) {
-                    Swal.fire('Lỗi', xhr.responseJSON?.message || 'Có lỗi xảy ra', 'error');
-                    btn.prop('disabled', false)
-                        .html('<i class="fas fa-check"></i> Xác nhận đã lấy hàng');
+        $.ajax({
+            url: `/driver/pickup/${orderId}/confirm`,
+            method: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
+            success: function(response) {
+                if (response.success) {
+                    Swal.fire('Thành công', response.message, 'success');
+                    setTimeout(() => window.location.href = '{{ route("driver.pickup.index") }}', 1500);
                 }
-            });
-        }
+            },
+            error: function(xhr) {
+                Swal.fire('Lỗi', xhr.responseJSON?.message || 'Có lỗi xảy ra', 'error');
+                btn.prop('disabled', false)
+                    .html('<i class="fas fa-check"></i> Xác nhận đã lấy hàng');
+            }
+        });
     });
 
     // Báo cáo vấn đề
