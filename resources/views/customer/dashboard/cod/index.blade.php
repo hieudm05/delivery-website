@@ -3,361 +3,504 @@
 
 @section('content')
 <div class="container">
-    <!-- THỐNG KÊ TỔNG QUAN -->
+    <!-- ==================== THỐNG KÊ TỔNG QUAN ==================== -->
     <div class="row mb-4">
-        <div class="col-xl-4 col-md-6 mb-3">
-            <div class="card border-left-danger shadow h-100">
+        <!-- Card 1: Phí cần thanh toán -->
+        <div class="col-lg-4 col-md-6 mb-3">
+            <div class="card border-0 shadow-sm h-100" style="border-left: 4px solid #dc3545;">
                 <div class="card-body">
-                    <div class="row align-items-center">
-                        <div class="col">
-                            <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
-                                Phí cần thanh toán
-                            </div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">
-                                {{ number_format($totalFeeOwed) }}đ
-                            </div>
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <p class="text-muted text-uppercase fw-bold mb-2" style="font-size: 0.75rem;">
+                                <i class="bi bi-exclamation-circle"></i> Phí chờ thanh toán
+                            </p>
+                            <h3 class="text-danger fw-bold mb-0">
+                                {{ number_format($stats['pending_fee'] ?? 0) }}₫
+                            </h3>
                         </div>
-                        <div class="col-auto">
-                            <i class="bi bi-credit-card fa-2x text-gray-300"></i>
+                        <div class="badge bg-danger bg-opacity-10 text-danger p-3" style="font-size: 1.5rem;">
+                            <i class="bi bi-credit-card"></i>
                         </div>
                     </div>
+                    <small class="text-muted mt-2 d-block">
+                        {{ $transactions->where('sender_fee_paid_at', null)->where('sender_fee_paid', '>', 0)->count() }} đơn chờ thanh toán
+                    </small>
                 </div>
             </div>
         </div>
 
-        <div class="col-xl-4 col-md-6 mb-3">
-            <div class="card border-left-warning shadow h-100">
+        <!-- Card 2: COD chờ nhận -->
+        <div class="col-lg-4 col-md-6 mb-3">
+            <div class="card border-0 shadow-sm h-100" style="border-left: 4px solid #ffc107;">
                 <div class="card-body">
-                    <div class="row align-items-center">
-                        <div class="col">
-                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
-                                COD chờ nhận
-                            </div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">
-                                {{ number_format($totalCodPending) }}đ
-                            </div>
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <p class="text-muted text-uppercase fw-bold mb-2" style="font-size: 0.75rem;">
+                                <i class="bi bi-hourglass"></i> COD chờ nhận
+                            </p>
+                            <h3 class="text-warning fw-bold mb-0">
+                                {{ number_format($stats['waiting_cod'] ?? 0) }}₫
+                            </h3>
                         </div>
-                        <div class="col-auto">
-                            <i class="bi bi-hourglass-split fa-2x text-gray-300"></i>
+                        <div class="badge bg-warning bg-opacity-10 text-warning p-3" style="font-size: 1.5rem;">
+                            <i class="bi bi-hourglass-split"></i>
                         </div>
                     </div>
+                    <small class="text-muted mt-2 d-block">
+                        {{ $transactions->where('sender_payment_status', 'pending')->where('sender_fee_paid_at', '!=', null)->count() }} đơn đang xử lý
+                    </small>
                 </div>
             </div>
         </div>
 
-        <div class="col-xl-4 col-md-6 mb-3">
-            <div class="card border-left-success shadow h-100">
+        <!-- Card 3: COD đã nhận -->
+        <div class="col-lg-4 col-md-6 mb-3">
+            <div class="card border-0 shadow-sm h-100" style="border-left: 4px solid #28a745;">
                 <div class="card-body">
-                    <div class="row align-items-center">
-                        <div class="col">
-                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
-                                COD đã nhận
-                            </div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">
-                                {{ number_format($totalCodReceived) }}đ
-                            </div>
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <p class="text-muted text-uppercase fw-bold mb-2" style="font-size: 0.75rem;">
+                                <i class="bi bi-check-circle"></i> COD đã nhận
+                            </p>
+                            <h3 class="text-success fw-bold mb-0">
+                                {{ number_format($stats['received'] ?? 0) }}₫
+                            </h3>
                         </div>
-                        <div class="col-auto">
-                            <i class="bi bi-check-circle fa-2x text-gray-300"></i>
+                        <div class="badge bg-success bg-opacity-10 text-success p-3" style="font-size: 1.5rem;">
+                            <i class="bi bi-check-circle"></i>
                         </div>
                     </div>
+                    <small class="text-muted mt-2 d-block">
+                        {{ $transactions->where('sender_payment_status', 'completed')->count() }} đơn hoàn tất
+                    </small>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- BẢNG GIAO DỊCH -->
-    <div class="row">
-        <div class="col-12">
-            <div class="card shadow">
-                <div class="card-header py-3">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h5 class="m-0 font-weight-bold text-primary">
-                            <i class="bi bi-wallet2"></i> Quản lý tiền COD
-                        </h5>
-                        <a href="{{ route('customer.cod.statistics') }}" class="btn btn-sm btn-info">
-                            <i class="bi bi-graph-up"></i> Thống kê chi tiết
-                        </a>
-                    </div>
+    <!-- ==================== DANH SÁCH GIAO DỊCH ==================== -->
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-white border-bottom">
+            <div class="row align-items-center">
+                <div class="col">
+                    <h5 class="mb-0 fw-bold">
+                        <i class="bi bi-wallet2"></i> Danh sách giao dịch COD
+                    </h5>
                 </div>
-
-                <div class="card-body">
-                    <!-- TABS -->
-                    <ul class="nav nav-tabs mb-4" role="tablist">
-                        <li class="nav-item">
-                            <a class="nav-link {{ $tab === 'all' ? 'active' : '' }}" href="?tab=all">
-                                <i class="bi bi-list"></i> Tất cả
-                                <span class="badge bg-secondary ms-1">{{ $transactions->total() }}</span>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link {{ $tab === 'pending_payment' ? 'active' : '' }}" 
-                               href="?tab=pending_payment">
-                                <i class="bi bi-credit-card"></i> Chờ thanh toán phí
-                                <span class="badge bg-danger ms-1">
-                                    {{ $transactions->where('sender_fee_paid_at', null)->count() }}
-                                </span>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link {{ $tab === 'waiting_cod' ? 'active' : '' }}" 
-                               href="?tab=waiting_cod">
-                                <i class="bi bi-hourglass-split"></i> Chờ nhận COD
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link {{ $tab === 'received' ? 'active' : '' }}" 
-                               href="?tab=received">
-                                <i class="bi bi-check-circle"></i> Đã nhận COD
-                            </a>
-                        </li>
-                    </ul>
-
-                    <!-- BẢNG DỮ LIỆU -->
-                    @if($transactions->isEmpty())
-                        <div class="alert alert-info">
-                            <i class="bi bi-info-circle"></i> Không có giao dịch nào trong mục này
-                        </div>
-                    @else
-                        <div class="table-responsive">
-                            <table class="table table-hover align-middle">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>Đơn hàng</th>
-                                        <th>Tiền COD</th>
-                                        <th>Phí cần trả</th>
-                                        <th>Sẽ nhận</th>
-                                        <th>Trạng thái phí</th>
-                                        <th>Trạng thái COD</th>
-                                        <th class="text-center">Hành động</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach($transactions as $trans)
-                                    <tr>
-                                        <td>
-                                            <a href="{{ route('customer.orderManagent.show', $trans->order_id) }}" 
-                                               class="text-decoration-none">
-                                                <i class="bi bi-box-seam"></i> Đơn #{{ $trans->order_id }}
-                                            </a>
-                                            <br>
-                                            <small class="text-muted">{{ $trans->created_at->format('d/m/Y H:i') }}</small>
-                                        </td>
-                                        <td>
-                                            <strong class="text-primary">
-                                                {{ number_format($trans->cod_amount) }}đ
-                                            </strong>
-                                        </td>
-                                        <td>
-                                            @if($trans->sender_fee_paid > 0)
-                                                <strong class="text-danger">
-                                                    {{ number_format($trans->sender_fee_paid) }}đ
-                                                </strong>
-                                            @else
-                                                <span class="text-muted">-</span>
-                                            @endif
-                                        </td>
-                                        <td>
-                                            <strong class="text-success">
-                                                {{ number_format($trans->sender_receive_amount) }}đ
-                                            </strong>
-                                        </td>
-                                        <td>
-                                            @if($trans->sender_fee_paid_at)
-                                                <span class="badge bg-success">
-                                                    <i class="bi bi-check-circle"></i> Đã thanh toán
-                                                </span>
-                                            @elseif($trans->sender_fee_paid > 0)
-                                                <span class="badge bg-warning">
-                                                    <i class="bi bi-clock"></i> Chưa thanh toán
-                                                </span>
-                                            @else
-                                                <span class="badge bg-secondary">Không có phí</span>
-                                            @endif
-                                        </td>
-                                        <td>
-                                            <span class="badge bg-{{ $trans->sender_payment_status === 'completed' ? 'success' : ($trans->sender_payment_status === 'pending' ? 'warning' : 'secondary') }}">
-                                                {{ $trans->sender_status_label }}
-                                            </span>
-                                        </td>
-                                        <td class="text-center">
-                                            <div class="btn-group btn-group-sm" role="group">
-                                                <a href="{{ route('customer.cod.show', $trans->id) }}" 
-                                                   class="btn btn-outline-info"
-                                                   title="Xem chi tiết">
-                                                    <i class="bi bi-eye"></i>
-                                                </a>
-
-                                                @if(!$trans->sender_fee_paid_at && $trans->sender_fee_paid > 0)
-                                                    <button type="button" 
-                                                            class="btn btn-outline-primary" 
-                                                            onclick="openPayFeeModal({{ $trans->id }}, '{{ $trans->order_id }}', '{{ number_format($trans->sender_fee_paid) }}')"
-                                                            title="Thanh toán phí">
-                                                        <i class="bi bi-credit-card"></i>
-                                                    </button>
-                                                @endif
-
-                                                @if($trans->sender_payment_status === 'pending')
-                                                    <button type="button" 
-                                                            class="btn btn-outline-warning" 
-                                                            onclick="openPriorityModal({{ $trans->id }}, '{{ $trans->order_id }}')"
-                                                            title="Yêu cầu ưu tiên">
-                                                        <i class="bi bi-lightning"></i>
-                                                    </button>
-                                                @endif
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
-
-                        <!-- PAGINATION -->
-                        <div class="mt-4 d-flex justify-content-between align-items-center">
-                            <div class="text-muted">
-                                Hiển thị {{ $transactions->firstItem() }} - {{ $transactions->lastItem() }} 
-                                trong tổng số {{ $transactions->total() }} giao dịch
-                            </div>
-                            <div>
-                                {{ $transactions->appends(['tab' => $tab])->links() }}
-                            </div>
-                        </div>
-                    @endif
+                <div class="col-auto">
+                    <a href="{{ route('customer.cod.statistics') }}" class="btn btn-sm btn-outline-info">
+                        <i class="bi bi-graph-up"></i> Xem thống kê
+                    </a>
                 </div>
             </div>
+        </div>
+
+        <div class="card-body">
+            <!-- ==================== TABS ==================== -->
+            <ul class="nav nav-tabs mb-4 border-bottom-0" role="tablist">
+                <li class="nav-item">
+                    <a class="nav-link {{ $tab === 'all' ? 'active' : '' }}" href="?tab=all">
+                        <i class="bi bi-list"></i> Tất cả
+                        <span class="badge bg-secondary ms-2">{{ $transactions->total() }}</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ $tab === 'pending_fee' ? 'active' : '' }}" href="?tab=pending_fee">
+                        <i class="bi bi-clock-history"></i> Chờ thanh toán phí
+                        <span class="badge bg-danger ms-2">
+                            {{ $transactions->where('sender_fee_paid_at', null)->where('sender_fee_paid', '>', 0)->count() }}
+                        </span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ $tab === 'waiting_cod' ? 'active' : '' }}" href="?tab=waiting_cod">
+                        <i class="bi bi-hourglass-split"></i> Chờ nhận tiền
+                        <span class="badge bg-warning text-dark ms-2">
+                            {{ $transactions->where('sender_payment_status', 'pending')->where('sender_fee_paid_at', '!=', null)->count() }}
+                        </span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ $tab === 'received' ? 'active' : '' }}" href="?tab=received">
+                        <i class="bi bi-check-circle"></i> Đã nhận tiền
+                        <span class="badge bg-success ms-2">
+                            {{ $transactions->where('sender_payment_status', 'completed')->count() }}
+                        </span>
+                    </a>
+                </li>
+            </ul>
+
+            <!-- ==================== BẢNG DỮ LIỆU ==================== -->
+            @if($transactions->isEmpty())
+                <div class="alert alert-info border-0 mt-3" role="alert">
+                    <i class="bi bi-info-circle"></i>
+                    <strong>Không có giao dịch</strong> trong mục này
+                </div>
+            @else
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 18%;">Đơn hàng</th>
+                                <th style="width: 14%;">Tiền COD</th>
+                                <th style="width: 14%;">Phí thanh toán</th>
+                                <th style="width: 14%;">Sẽ nhận</th>
+                                <th style="width: 22%;">Trạng thái</th>
+                                <th style="width: 18%;">Hành động</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($transactions as $trans)
+                            <tr>
+                                <!-- Cột 1: Đơn hàng -->
+                                <td>
+                                    <div>
+                                        <a href="{{ route('customer.orderManagent.show', $trans->order_id) }}"
+                                           class="fw-bold text-primary text-decoration-none d-inline-flex align-items-center gap-1">
+                                            <i class="bi bi-box-seam"></i> #{{ $trans->order_id }}
+                                        </a>
+                                    </div>
+                                    <small class="text-muted">
+                                        <i class="bi bi-calendar"></i> {{ $trans->created_at->format('d/m/Y H:i') }}
+                                    </small>
+                                </td>
+
+                                <!-- Cột 2: Tiền COD -->
+                                <td>
+                                    <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-2 fw-bold">
+                                        {{ number_format($trans->cod_amount) }}₫
+                                    </span>
+                                </td>
+
+                                <!-- Cột 3: Phí thanh toán -->
+                                <td>
+                                    @if($trans->sender_fee_paid > 0)
+                                        <div class="d-flex flex-column gap-1">
+                                            <span class="badge bg-danger bg-opacity-10 text-danger px-3 py-2 fw-bold">
+                                                {{ number_format($trans->sender_fee_paid) }}₫
+                                            </span>
+                                            @if($trans->sender_fee_paid_at)
+                                                <small class="text-success">
+                                                    <i class="bi bi-check-circle-fill"></i> Đã thanh toán
+                                                </small>
+                                            @else
+                                                <small class="text-warning">
+                                                    <i class="bi bi-clock-fill"></i> Chưa thanh toán
+                                                </small>
+                                            @endif
+                                        </div>
+                                    @else
+                                        <span class="badge bg-secondary bg-opacity-10 text-secondary">
+                                            <i class="bi bi-dash-circle"></i> Không có
+                                        </span>
+                                    @endif
+                                </td>
+
+                                <!-- Cột 4: Sẽ nhận -->
+                                <td>
+                                    <div class="d-flex flex-column gap-1">
+                                        <span class="badge bg-success bg-opacity-10 text-success px-3 py-2 fw-bold">
+                                            {{ number_format($trans->sender_receive_amount) }}₫
+                                        </span>
+                                        @if($trans->sender_debt_deducted > 0)
+                                            <small class="text-danger">
+                                                <i class="bi bi-exclamation-triangle-fill"></i> 
+                                                Trừ: {{ number_format($trans->sender_debt_deducted) }}₫
+                                            </small>
+                                        @endif
+                                    </div>
+                                </td>
+
+                                <!-- Cột 5: Trạng thái -->
+                                <td>
+                                    <div class="d-flex flex-column gap-1">
+                                        <!-- Status Phí -->
+                                        @if($trans->sender_fee_paid_at)
+                                            <span class="badge bg-success">
+                                                <i class="bi bi-check-circle"></i> Phí: ✓ Thanh toán
+                                            </span>
+                                        @elseif($trans->sender_fee_paid > 0)
+                                            <span class="badge bg-warning text-dark">
+                                                <i class="bi bi-clock"></i> Phí: ⏳ Chờ
+                                            </span>
+                                        @else
+                                            <span class="badge bg-secondary">
+                                                <i class="bi bi-dash-circle"></i> Phí: Không có
+                                            </span>
+                                        @endif
+
+                                        <!-- Status COD -->
+                                        @if($trans->sender_payment_status === 'pending')
+                                            <span class="badge bg-info">
+                                                <i class="bi bi-hourglass-split"></i> COD: ⏳ Chờ nhận
+                                            </span>
+                                        @elseif($trans->sender_payment_status === 'completed')
+                                            <span class="badge bg-success">
+                                                <i class="bi bi-check-circle"></i> COD: ✓ Đã nhận
+                                            </span>
+                                        @else
+                                            <span class="badge bg-secondary">
+                                                <i class="bi bi-question-circle"></i> COD: {{ ucfirst($trans->sender_payment_status) }}
+                                            </span>
+                                        @endif
+                                    </div>
+                                </td>
+
+                                <!-- Cột 6: Hành động -->
+                                <td>
+                                    <div class="d-flex flex-wrap gap-1">
+                                        <!-- Nút Xem chi tiết -->
+                                        <a href="{{ route('customer.cod.show', $trans->id) }}"
+                                           class="btn btn-sm btn-outline-info"
+                                           title="Xem chi tiết">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+
+                                        <!-- Nút Thanh toán phí -->
+                                        @if(!$trans->sender_fee_paid_at && $trans->sender_fee_paid > 0)
+                                            <button type="button"
+                                                    class="btn btn-sm btn-outline-danger"
+                                                    onclick="openPayFeeModal({{ $trans->id }}, {{ $trans->order_id }}, {{ $trans->sender_fee_paid }}, '{{ $trans->payer_shipping }}')"
+                                                    title="Thanh toán phí">
+                                                <i class="bi bi-credit-card"></i>
+                                            </button>
+                                        @endif
+
+                                        <!-- Nút Yêu cầu ưu tiên -->
+                                        @if($trans->sender_payment_status === 'pending' && $trans->sender_fee_paid_at)
+                                            <button type="button"
+                                                    class="btn btn-sm btn-outline-warning"
+                                                    onclick="openPriorityModal({{ $trans->id }}, {{ $trans->order_id }})"
+                                                    title="Yêu cầu ưu tiên">
+                                                <i class="bi bi-lightning"></i>
+                                            </button>
+                                        @endif
+                                    </div>
+                                </td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- ==================== PAGINATION ==================== -->
+                <nav aria-label="Page navigation" class="mt-4">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <small class="text-muted">
+                            <i class="bi bi-info-circle"></i>
+                            Hiển thị {{ $transactions->firstItem() }} - {{ $transactions->lastItem() }}
+                            trong tổng số {{ $transactions->total() }} giao dịch
+                        </small>
+                        <div>
+                            {{ $transactions->appends(['tab' => $tab])->links('pagination::bootstrap-5') }}
+                        </div>
+                    </div>
+                </nav>
+            @endif
         </div>
     </div>
 </div>
 
-<!-- ============================================ -->
-<!-- MODAL THANH TOÁN PHÍ - CHỈ 1 MODAL DUY NHẤT -->
-<!-- ============================================ -->
-<div class="modal fade" id="payFeeModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+<!-- ==================== MODAL: THANH TOÁN PHÍ ==================== -->
+<div class="modal fade" id="payFeeModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog modal-dialog-centered modal-lg">
-        <div class="modal-content">
+        <div class="modal-content border-0 shadow-lg">
             <form id="payFeeForm" method="POST" enctype="multipart/form-data">
                 @csrf
-                <div class="modal-header  text-white">
-                    <h5 class="modal-title">
+
+                <!-- Header -->
+                <div class="modal-header bg-gradient text-white border-0" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                    <h5 class="modal-title fw-bold">
                         <i class="bi bi-credit-card"></i> Thanh toán phí hệ thống
                     </h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body">
-                    <div class="alert ">
-                        <h6 class="alert-heading">Thông tin thanh toán</h6>
-                        <hr>
-                        <p class="mb-2">
-                            <strong>Đơn hàng:</strong> #<span id="orderIdDisplay"></span>
-                        </p>
-                        <p class="mb-2">
-                            <strong>Số tiền cần thanh toán:</strong> 
-                            <span class="text-danger fs-5" id="feeAmountDisplay"></span>
-                        </p>
+
+                <!-- Body -->
+                <div class="modal-body p-4">
+                    <!-- THÔNG TIN GIAO DỊCH -->
+                    <div class="alert alert-info border-0 mb-4" style="background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);">
+                        <div class="row">
+                            <div class="col-6">
+                                <small class="text-muted d-block mb-1">Đơn hàng</small>
+                                <h6 class="mb-0 fw-bold text-primary">#<span id="orderIdDisplay">---</span></h6>
+                            </div>
+                            <div class="col-6 text-end">
+                                <small class="text-muted d-block mb-1">Phí cần trả</small>
+                                <h6 class="mb-0 fw-bold text-danger" id="feeAmountDisplay">0₫</h6>
+                            </div>
+                        </div>
                     </div>
 
-                    <div class="mb-3">
+                    <!-- CHI TIẾT PHÍ BREAKDOWN -->
+                    <div class="card border-light mb-4">
+                        <div class="card-header bg-light">
+                            <h6 class="mb-0">
+                                <i class="bi bi-list-check"></i> Chi tiết phí
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div id="feeBreakdown" class="space-y-2">
+                                <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                    <span class="visually-hidden">Đang tải...</span>
+                                </div>
+                            </div>
+                            <hr class="my-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <strong>Tổng cộng:</strong>
+                                <h5 class="mb-0 text-danger fw-bold" id="totalFeeDisplay">0₫</h5>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- PHƯƠNG THỨC THANH TOÁN -->
+                    <div class="mb-4">
                         <label class="form-label fw-bold">
-                            Phương thức thanh toán <span class="text-danger">*</span>
+                            <i class="bi bi-credit-card"></i> Phương thức thanh toán
+                            <span class="text-danger">*</span>
                         </label>
-                        <select name="payment_method" id="paymentMethodSelect" class="form-select" required>
+                        <select name="payment_method" id="paymentMethodSelect" class="form-select form-select-lg" required>
                             <option value="">-- Chọn phương thức --</option>
-                            <option value="bank_transfer">Chuyển khoản ngân hàng</option>
-                            <option value="wallet">Ví điện tử (Momo, ZaloPay...)</option>
-                            <option value="cash">Tiền mặt (tại bưu cục)</option>
+                            <option value="bank_transfer">🏦 Chuyển khoản ngân hàng</option>
+                            <option value="wallet">📱 Ví điện tử (Momo, ZaloPay...)</option>
+                            <option value="cash">💵 Tiền mặt (tại bưu cục)</option>
                         </select>
                     </div>
 
-                    <!-- ✅ SECTION: CHUYỂN KHOẢN NGÂN HÀNG -->
+                    <!-- SECTION: CHUYỂN KHOẢN -->
                     <div id="bankTransferSection" style="display: none;">
-                        <div id="hubBankInfo" class="alert alert-info">
-                            <h6 class="alert-heading">📌 Thông tin tài khoản Hub</h6>
-                            <hr>
-                            <p class="mb-1"><strong>Ngân hàng:</strong> <span id="hubBankName">Đang tải...</span></p>
-                            <p class="mb-1"><strong>Số TK:</strong> <span id="hubAccountNumber">Đang tải...</span></p>
-                            <p class="mb-1"><strong>Chủ TK:</strong> <span id="hubAccountName">Đang tải...</span></p>
-                            <hr>
-                            <p class="mb-0"><strong>Nội dung CK:</strong></p>
-                            <code id="transferContent" class="d-block bg-white p-2 rounded">Đang tải...</code>
+                        <!-- Thông tin tài khoản Hub -->
+                        <div class="card border-info mb-3">
+                            <div class="card-header bg-info bg-opacity-10 border-info">
+                                <h6 class="mb-0">
+                                    <i class="bi bi-building"></i> Thông tin tài khoản Hub
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row mb-2">
+                                    <div class="col-5">
+                                        <small class="text-muted">Ngân hàng</small>
+                                        <p class="mb-0 fw-bold" id="hubBankName">Đang tải...</p>
+                                    </div>
+                                    <div class="col-7">
+                                        <small class="text-muted">Số tài khoản</small>
+                                        <p class="mb-0 fw-bold" id="hubAccountNumber">Đang tải...</p>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-12">
+                                        <small class="text-muted">Chủ tài khoản</small>
+                                        <p class="mb-0 fw-bold" id="hubAccountName">Đang tải...</p>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
-                        <!-- QR CODE DISPLAY -->
-                        <div id="qrCodeDisplay" class="text-center mb-3" style="display: none;">
-                            <div class="card">
-                                <div class="card-body">
-                                    <h6 class="card-title">📱 Quét mã QR để chuyển khoản</h6>
-                                    <img id="qrCodeImage" 
-                                         src="" 
-                                         alt="QR Code" 
-                                         class="img-fluid" 
-                                         style="max-width: 300px; border: 2px solid #0d6efd; border-radius: 8px; padding: 10px;">
-                                    <p class="text-muted small mt-2 mb-0">
-                                        Mở app ngân hàng → Quét mã QR → Xác nhận thanh toán
+                        <!-- QR Code -->
+                        <div id="qrLoadingSpinner" class="text-center mb-3">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Đang tải...</span>
+                            </div>
+                            <p class="text-muted mt-2 mb-0">Đang tạo mã QR...</p>
+                        </div>
+
+                        <div id="qrCodeDisplay" class="text-center mb-4" style="display: none;">
+                            <div class="card border-primary shadow-sm">
+                                <div class="card-body p-3">
+                                    <h6 class="card-title mb-3">
+                                        <i class="bi bi-qr-code"></i> Quét mã QR để chuyển khoản
+                                    </h6>
+                                    <img id="qrCodeImage"
+                                         src=""
+                                         alt="QR Code"
+                                         class="img-fluid"
+                                         style="max-width: 280px; border: 3px solid #0d6efd; border-radius: 12px; padding: 8px; background: white;">
+                                    <p class="text-muted small mt-3 mb-0">
+                                        ✓ Mở app ngân hàng → Quét QR → Xác nhận thanh toán
                                     </p>
                                 </div>
                             </div>
                         </div>
 
-                        <div id="qrLoadingSpinner" class="text-center my-3" style="display: none;">
-                            <div class="spinner-border text-primary" role="status">
-                                <span class="visually-hidden">Đang tải QR Code...</span>
+                        <!-- Nội dung chuyển khoản -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Nội dung chuyển khoản</label>
+                            <div class="input-group">
+                                <input type="text"
+                                       id="transferContent"
+                                       class="form-control"
+                                       readonly
+                                       value="Đang tải...">
+                                <button class="btn btn-outline-secondary" type="button" onclick="copyToClipboard()">
+                                    <i class="bi bi-clipboard"></i> Sao chép
+                                </button>
                             </div>
-                            <p class="text-muted mt-2">Đang tải mã QR...</p>
                         </div>
 
+                        <!-- Upload chứng từ -->
                         <div class="mb-3">
                             <label class="form-label fw-bold">
-                                <i class="bi bi-image"></i> Ảnh chứng từ chuyển khoản <span class="text-danger">*</span>
+                                <i class="bi bi-image"></i> Ảnh chứng từ chuyển khoản
+                                <span class="text-danger">*</span>
                             </label>
-                            <input type="file" 
-                                   name="proof" 
+                            <input type="file"
                                    id="proofInputBankTransfer"
-                                   class="form-control" 
+                                   class="form-control"
                                    accept="image/*">
                             <small class="text-muted">
-                                Tải lên ảnh chụp biên lai chuyển khoản (JPG, PNG, GIF - Max 5MB)
+                                PNG, JPG, GIF - Tối đa 5MB. Ảnh rõ ràng biên lai hoặc lịch sử giao dịch
                             </small>
+                        </div>
+
+                        <!-- Lưu ý -->
+                        <div class="alert alert-warning border-0 mb-0">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            <strong>Lưu ý:</strong> Kiểm tra kỹ thông tin trước khi chuyển khoản
                         </div>
                     </div>
 
-                    <!-- ✅ SECTION: VÍ ĐIỆN TỬ -->
+                    <!-- SECTION: VÍ ĐIỆN TỬ -->
                     <div id="walletSection" style="display: none;">
-                        <div class="alert alert-warning">
-                            <i class="bi bi-wallet2"></i> Vui lòng chuyển khoản qua ví điện tử rồi upload ảnh chứng từ
+                        <div class="alert alert-info border-0 mb-3">
+                            <i class="bi bi-info-circle"></i>
+                            <strong>Hướng dẫn:</strong> Chuyển khoản qua ví điện tử rồi upload ảnh chứng từ
                         </div>
                         <div class="mb-3">
                             <label class="form-label fw-bold">
-                                <i class="bi bi-image"></i> Ảnh chứng từ <span class="text-danger">*</span>
+                                <i class="bi bi-image"></i> Ảnh chứng từ
+                                <span class="text-danger">*</span>
                             </label>
-                            <input type="file" 
-                                   name="proof" 
+                            <input type="file"
                                    id="proofInputWallet"
-                                   class="form-control" 
+                                   class="form-control"
                                    accept="image/*">
                             <small class="text-muted">
-                                Ảnh chụp lịch sử giao dịch từ ví điện tử
+                                Ảnh chụp lịch sử giao dịch từ ví điện tử (Momo, ZaloPay, v.v.)
                             </small>
                         </div>
                     </div>
 
-                    <!-- ✅ SECTION: TIỀN MẶT -->
+                    <!-- SECTION: TIỀN MẶT -->
                     <div id="cashSection" style="display: none;">
-                        <div class="alert alert-warning">
-                            <i class="bi bi-exclamation-triangle"></i> 
-                            Vui lòng đến bưu cục để thanh toán tiền mặt trực tiếp
+                        <div class="alert alert-warning border-0 mb-0">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            <strong>Lưu ý:</strong> Vui lòng đến bưu cục gần nhất để thanh toán tiền mặt trực tiếp
                         </div>
                     </div>
 
-                    <div class="alert alert-warning mt-3">
-                        <strong>⚠️ Lưu ý:</strong> Vui lòng thanh toán trong 24h để đơn hàng được xử lý nhanh nhất.
+                    <!-- Cảnh báo chung -->
+                    <div class="alert alert-danger border-0 mt-3 mb-0">
+                        <i class="bi bi-clock"></i>
+                        <strong>⏰ Hạn cuối:</strong> Vui lòng thanh toán trong 24h để đơn hàng được xử lý nhanh nhất
                     </div>
                 </div>
-                <div class="modal-footer">
+
+                <!-- Footer -->
+                <div class="modal-footer border-top-0 pt-0">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                         <i class="bi bi-x-circle"></i> Hủy
                     </button>
-                    <button type="submit" class="btn btn-primary">
+                    <button type="submit" class="btn btn-primary btn-lg">
                         <i class="bi bi-check-circle"></i> Xác nhận đã thanh toán
                     </button>
                 </div>
@@ -366,42 +509,49 @@
     </div>
 </div>
 
-<!-- ============================================ -->
-<!-- MODAL YÊU CẦU ƯU TIÊN - CHỈ 1 MODAL DUY NHẤT -->
-<!-- ============================================ -->
-<div class="modal fade" id="priorityModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+<!-- ==================== MODAL: YÊU CẦU ƯU TIÊN ==================== -->
+<div class="modal fade" id="priorityModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
+        <div class="modal-content border-0 shadow-lg">
             <form id="priorityForm" method="POST">
                 @csrf
-                <div class="modal-header bg-warning text-dark">
-                    <h5 class="modal-title">
+
+                <!-- Header -->
+                <div class="modal-header bg-warning bg-opacity-10 border-warning" style="border-bottom: 2px solid #ffc107;">
+                    <h5 class="modal-title fw-bold">
                         <i class="bi bi-lightning"></i> Yêu cầu xử lý ưu tiên
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body">
-                    <div class="alert alert-info">
-                        <strong>Đơn hàng:</strong> #<span id="priorityOrderIdDisplay"></span>
+
+                <!-- Body -->
+                <div class="modal-body p-4">
+                    <div class="alert alert-info border-0 mb-3">
+                        <strong>Đơn hàng:</strong> #<span id="priorityOrderIdDisplay">---</span>
                     </div>
-                    
-                    <div class="alert alert-info">
-                        <strong>Lưu ý:</strong> Yêu cầu ưu tiên sẽ được gửi đến bưu cục. Họ sẽ liên hệ với bạn sớm nhất.
+
+                    <div class="alert alert-warning border-0 mb-3">
+                        <i class="bi bi-info-circle"></i>
+                        <strong>Thông tin:</strong> Yêu cầu sẽ được gửi tới bưu cục. Họ sẽ ưu tiên xử lý và liên hệ bạn trong 24h
                     </div>
 
                     <div class="mb-3">
                         <label class="form-label fw-bold">
-                            Lý do yêu cầu ưu tiên <span class="text-danger">*</span>
+                            <i class="bi bi-chat-dots"></i> Lý do yêu cầu
+                            <span class="text-danger">*</span>
                         </label>
-                        <textarea name="reason" 
+                        <textarea name="reason"
                                   id="priorityReason"
-                                  class="form-control" 
-                                  rows="3" 
-                                  required
-                                  placeholder="VD: Cần gấp tiền để chi trả..."></textarea>
+                                  class="form-control"
+                                  rows="4"
+                                  placeholder="VD: Cần gấp tiền để chi trả cho nhân viên..."
+                                  required></textarea>
+                        <small class="text-muted">Tối đa 500 ký tự</small>
                     </div>
                 </div>
-                <div class="modal-footer">
+
+                <!-- Footer -->
+                <div class="modal-footer border-top-0">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                         <i class="bi bi-x-circle"></i> Hủy
                     </button>
@@ -415,142 +565,141 @@
 </div>
 
 <style>
-.border-left-danger {
-    border-left: 4px solid #e74a3b !important;
-}
-.border-left-warning {
-    border-left: 4px solid #f6c23e !important;
-}
-.border-left-success {
-    border-left: 4px solid #1cc88a !important;
-}
-.card {
-    transition: transform 0.2s;
-}
-.card:hover {
-    transform: translateY(-2px);
-}
+    /* Smooth transitions */
+    .nav-link {
+        transition: all 0.3s ease;
+    }
 
-/* FIX MODAL NHẤP NHÁY */
-.modal {
-    pointer-events: none;
-}
-.modal.show {
-    pointer-events: auto;
-}
-.modal.fade .modal-dialog {
-    transition: transform 0.15s ease-out;
-    transform: translate(0, -50px);
-}
-.modal.show .modal-dialog {
-    transform: none;
-}
+    .nav-link:hover {
+        color: #0d6efd !important;
+    }
+
+    .nav-link.active {
+        border-bottom: 3px solid #0d6efd !important;
+        color: #0d6efd !important;
+    }
+
+    .btn-group-sm .btn {
+        padding: 0.4rem 0.6rem;
+        font-size: 0.875rem;
+    }
+
+    /* Card hover effect */
+    .card {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.15);
+    }
+
+    /* Table row hover */
+    .table-hover tbody tr:hover {
+        background-color: rgba(0, 123, 255, 0.05) !important;
+    }
+
+    /* Badge styling */
+    .badge {
+        font-weight: 500;
+        letter-spacing: 0.5px;
+    }
+
+    /* Modal animation */
+    .modal.fade .modal-dialog {
+        transition: transform 0.3s ease;
+        transform: scale(0.95) translateY(-50px);
+    }
+
+    .modal.show .modal-dialog {
+        transform: scale(1) translateY(0);
+    }
+
+    /* QR Code styling */
+    #qrCodeImage {
+        transition: transform 0.2s ease;
+        cursor: pointer;
+    }
+
+    #qrCodeImage:hover {
+        transform: scale(1.05);
+    }
+
+    /* Form inputs */
+    .form-control:focus,
+    .form-select:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    }
+
+    /* Alert borders */
+    .alert-info {
+        border-left: 4px solid #0dcaf0;
+    }
+
+    .alert-warning {
+        border-left: 4px solid #ffc107;
+    }
+
+    .alert-danger {
+        border-left: 4px solid #dc3545;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .modal-lg {
+            max-width: 95vw;
+        }
+
+        .btn-group-sm {
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+
+        table {
+            font-size: 0.875rem;
+        }
+
+        .table th {
+            font-size: 0.75rem;
+        }
+
+        .d-flex.flex-wrap {
+            gap: 4px;
+        }
+    }
 </style>
 
-<script>
-// Hàm mở modal thanh toán phí
-function openPayFeeModal(transId, orderId, feeAmount) {
-    const form = document.getElementById('payFeeForm');
-    form.action = "{{ url('customer/cod') }}/" + transId + "/pay-fee";
-    
-    document.getElementById('orderIdDisplay').textContent = orderId;
-    document.getElementById('feeAmountDisplay').textContent = feeAmount + 'đ';
-    
-    // Reset form trước khi mở
-    form.querySelector('select[name="payment_method"]').value = '';
-    form.querySelector('input[name="proof"]').value = '';
-    
-    const modal = new bootstrap.Modal(document.getElementById('payFeeModal'));
-    modal.show();
-}
-
-// Hàm mở modal yêu cầu ưu tiên
-function openPriorityModal(transId, orderId) {
-    const form = document.getElementById('priorityForm');
-    form.action = "{{ url('customer/cod') }}/" + transId + "/request-priority";
-    
-    document.getElementById('priorityOrderIdDisplay').textContent = orderId;
-    
-    // Reset form trước khi mở
-    document.getElementById('priorityReason').value = '';
-    
-    const modal = new bootstrap.Modal(document.getElementById('priorityModal'));
-    modal.show();
-}
-
-// Reset form khi đóng modal
-document.getElementById('payFeeModal').addEventListener('hidden.bs.modal', function () {
-    document.getElementById('payFeeForm').reset();
-});
-
-document.getElementById('priorityModal').addEventListener('hidden.bs.modal', function () {
-    document.getElementById('priorityForm').reset();
-});
-</script>
-
+<!-- ==================== JAVASCRIPT ==================== -->
 <script>
 let currentTransactionId = null;
+let currentPayerShipping = null;
 
-// Hàm mở modal thanh toán phí
-function openPayFeeModal(transId, orderId, feeAmount) {
+/**
+ * Mở modal thanh toán phí
+ */
+function openPayFeeModal(transId, orderId, feeAmount, payerShipping) {
     currentTransactionId = transId;
-    
-    const form = document.getElementById('payFeeForm');
-    form.action = "{{ url('customer/cod') }}/" + transId + "/pay-fee";
-    
+    currentPayerShipping = payerShipping;
+
+    document.getElementById('payFeeForm').action = `{{ url('customer/cod') }}/${transId}/pay-fee`;
     document.getElementById('orderIdDisplay').textContent = orderId;
-    document.getElementById('feeAmountDisplay').textContent = feeAmount + 'đ';
-    
-    // Reset form trước khi mở
-    form.querySelector('#paymentMethodSelect').value = '';
+    document.getElementById('feeAmountDisplay').textContent = number_format(feeAmount) + '₫';
+    document.getElementById('totalFeeDisplay').textContent = number_format(feeAmount) + '₫';
+
+    document.getElementById('paymentMethodSelect').value = '';
     hideAllPaymentSections();
-    
-    const modal = new bootstrap.Modal(document.getElementById('payFeeModal'));
-    modal.show();
+
+    loadFeeDetails(transId);
+
+    new bootstrap.Modal(document.getElementById('payFeeModal')).show();
 }
 
-// Hàm ẩn tất cả sections
-function hideAllPaymentSections() {
-    document.getElementById('bankTransferSection').style.display = 'none';
-    document.getElementById('walletSection').style.display = 'none';
-    document.getElementById('cashSection').style.display = 'none';
-    document.getElementById('qrCodeDisplay').style.display = 'none';
-    document.getElementById('qrLoadingSpinner').style.display = 'none';
-    
-    // Remove name attribute to prevent multiple file inputs
-    const proofBank = document.getElementById('proofInputBankTransfer');
-    const proofWallet = document.getElementById('proofInputWallet');
-    
-    if (proofBank) {
-        proofBank.removeAttribute('name');
-        proofBank.value = '';
-        proofBank.required = false;
-    }
-    if (proofWallet) {
-        proofWallet.removeAttribute('name');
-        proofWallet.value = '';
-        proofWallet.required = false;
-    }
-}
-
-// Hàm load QR code
-function loadQrCode() {
-    if (!currentTransactionId) {
-        console.error('No transaction ID');
-        return;
-    }
-
-    console.log('Loading QR code for transaction:', currentTransactionId);
-    
-    const qrDisplay = document.getElementById('qrCodeDisplay');
-    const qrImage = document.getElementById('qrCodeImage');
-    const qrSpinner = document.getElementById('qrLoadingSpinner');
-    
-    // Show loading spinner
-    qrSpinner.style.display = 'block';
-    qrDisplay.style.display = 'none';
-
-    fetch(`{{ url('customer/cod') }}/${currentTransactionId}/qr`, {
+/**
+ * Load fee details
+ */
+function loadFeeDetails(transId) {
+    fetch(`{{ url('customer/cod') }}/${transId}/qr`, {
         method: 'GET',
         headers: {
             'Accept': 'application/json',
@@ -559,104 +708,165 @@ function loadQrCode() {
     })
     .then(res => res.json())
     .then(data => {
-        console.log('QR Response:', data);
-        
-        if (data.error) {
-            alert('❌ ' + data.error);
-            qrSpinner.style.display = 'none';
-            return;
-        }
-        
-        if (data.qr_url) {
-            // Update bank info
-            document.getElementById('hubBankName').textContent = data.bank_name;
-            document.getElementById('hubAccountNumber').textContent = data.account_number;
-            document.getElementById('hubAccountName').textContent = data.account_name;
-            document.getElementById('transferContent').textContent = data.content;
-            
-            // Show QR code
-            qrImage.src = data.qr_url;
-            qrSpinner.style.display = 'none';
-            qrDisplay.style.display = 'block';
+        if (data.success) {
+            window.feeData = data;
+            displayFeeBreakdown(data.fee_breakdown);
         } else {
-            console.error('No QR URL in response');
-            qrSpinner.style.display = 'none';
-            alert('❌ Không thể tải mã QR. Vui lòng thử lại!');
+            console.error(data.error);
+            document.getElementById('feeBreakdown').innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
         }
     })
     .catch(err => {
-        console.error('Error loading QR:', err);
-        qrSpinner.style.display = 'none';
-        alert('❌ Lỗi kết nối. Vui lòng thử lại!');
+        console.error('Error:', err);
+        document.getElementById('feeBreakdown').innerHTML = '<div class="alert alert-danger">Lỗi khi tải dữ liệu</div>';
     });
 }
 
-// Event listener cho payment method
+/**
+ * Display fee breakdown
+ */
+function displayFeeBreakdown(breakdown) {
+    const container = document.getElementById('feeBreakdown');
+    container.innerHTML = '';
+    let total = 0;
+
+    if (breakdown.platform_fee) {
+        container.innerHTML += `
+            <div class="d-flex justify-content-between mb-2">
+                <span><i class="bi bi-gear"></i> Phí nền tảng:</span>
+                <strong class="text-primary">${number_format(breakdown.platform_fee)}₫</strong>
+            </div>
+        `;
+        total += breakdown.platform_fee;
+    }
+
+    if (breakdown.cod_fee) {
+        container.innerHTML += `
+            <div class="d-flex justify-content-between mb-2">
+                <span><i class="bi bi-box"></i> Phí COD:</span>
+                <strong class="text-primary">${number_format(breakdown.cod_fee)}₫</strong>
+            </div>
+        `;
+        total += breakdown.cod_fee;
+    }
+
+    if (breakdown.shipping_fee) {
+        container.innerHTML += `
+            <div class="d-flex justify-content-between mb-2">
+                <span><i class="bi bi-truck"></i> Phí vận chuyển:</span>
+                <strong class="text-primary">${number_format(breakdown.shipping_fee)}₫</strong>
+            </div>
+        `;
+        total += breakdown.shipping_fee;
+    }
+
+    document.getElementById('totalFeeDisplay').textContent = number_format(total) + '₫';
+}
+
+/**
+ * Payment method change
+ */
 document.getElementById('paymentMethodSelect').addEventListener('change', function() {
     const method = this.value;
-    console.log('Payment method changed to:', method);
-    
     hideAllPaymentSections();
-    
-    const proofBank = document.getElementById('proofInputBankTransfer');
-    const proofWallet = document.getElementById('proofInputWallet');
-    
+
     if (method === 'bank_transfer') {
         document.getElementById('bankTransferSection').style.display = 'block';
-        proofBank.setAttribute('name', 'proof');
-        proofBank.required = true;
+        document.getElementById('proofInputBankTransfer').setAttribute('name', 'proof');
+        document.getElementById('proofInputBankTransfer').required = true;
         loadQrCode();
     } else if (method === 'wallet') {
         document.getElementById('walletSection').style.display = 'block';
-        proofWallet.setAttribute('name', 'proof');
-        proofWallet.required = true;
+        document.getElementById('proofInputWallet').setAttribute('name', 'proof');
+        document.getElementById('proofInputWallet').required = true;
     } else if (method === 'cash') {
         document.getElementById('cashSection').style.display = 'block';
     }
 });
 
-// Reset form khi đóng modal
-document.getElementById('payFeeModal').addEventListener('hidden.bs.modal', function () {
+/**
+ * Load QR code
+ */
+function loadQrCode() {
+    if (!currentTransactionId || !window.feeData) return;
+
+    const data = window.feeData;
+    document.getElementById('hubBankName').textContent = data.bank_info.bank_name;
+    document.getElementById('hubAccountNumber').textContent = data.bank_info.account_number;
+    document.getElementById('hubAccountName').textContent = data.bank_info.account_name;
+    document.getElementById('transferContent').value = data.content;
+
+    const image = document.getElementById('qrCodeImage');
+    image.src = data.qr_url;
+    image.onload = function() {
+        document.getElementById('qrLoadingSpinner').style.display = 'none';
+        document.getElementById('qrCodeDisplay').style.display = 'block';
+    };
+}
+
+/**
+ * Hide all payment sections
+ */
+function hideAllPaymentSections() {
+    ['bankTransferSection', 'walletSection', 'cashSection', 'qrCodeDisplay'].forEach(id => {
+        document.getElementById(id).style.display = 'none';
+    });
+
+    ['proofInputBankTransfer', 'proofInputWallet'].forEach(id => {
+        const input = document.getElementById(id);
+        if (input) {
+            input.removeAttribute('name');
+            input.value = '';
+            input.required = false;
+        }
+    });
+
+    document.getElementById('qrLoadingSpinner').style.display = 'block';
+}
+
+/**
+ * Copy to clipboard
+ */
+function copyToClipboard() {
+    const content = document.getElementById('transferContent').value;
+    navigator.clipboard.writeText(content).then(() => {
+        alert('✅ Đã sao chép nội dung chuyển khoản');
+    }).catch(() => {
+        alert('❌ Không thể sao chép');
+    });
+}
+
+/**
+ * Open priority modal
+ */
+function openPriorityModal(transId, orderId) {
+    document.getElementById('priorityForm').action = `{{ url('customer/cod') }}/${transId}/request-priority`;
+    document.getElementById('priorityOrderIdDisplay').textContent = orderId;
+    document.getElementById('priorityReason').value = '';
+    new bootstrap.Modal(document.getElementById('priorityModal')).show();
+}
+
+/**
+ * Number format
+ */
+function number_format(number) {
+    return new Intl.NumberFormat('vi-VN').format(number);
+}
+
+/**
+ * Reset modals
+ */
+document.getElementById('payFeeModal').addEventListener('hidden.bs.modal', function() {
     document.getElementById('payFeeForm').reset();
     hideAllPaymentSections();
     currentTransactionId = null;
+    currentPayerShipping = null;
+    window.feeData = null;
+});
+
+document.getElementById('priorityModal').addEventListener('hidden.bs.modal', function() {
+    document.getElementById('priorityForm').reset();
 });
 </script>
-
-<style>
-#qrCodeDisplay .card {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    border: none;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-}
-
-#qrCodeDisplay .card-body {
-    padding: 1.5rem;
-}
-
-#qrCodeImage {
-    background: white;
-    transition: transform 0.2s;
-}
-
-#qrCodeImage:hover {
-    transform: scale(1.02);
-}
-
-#hubBankInfo {
-    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-    border: none;
-    border-radius: 8px;
-}
-
-#transferContent {
-    background: white !important;
-    border: 2px dashed #0d6efd;
-    font-size: 14px;
-    font-weight: bold;
-    color: #0d6efd;
-}
-</style>
 
 @endsection

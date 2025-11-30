@@ -481,7 +481,7 @@ public function activityLogs(Request $request)
 }
 
 /**
- * ✅ Export Activity Logs to Excel
+ * Export Activity Logs to Excel
  */
 public function exportActivityLogs(Request $request)
 {

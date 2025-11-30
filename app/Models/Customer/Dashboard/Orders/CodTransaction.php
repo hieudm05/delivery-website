@@ -41,6 +41,13 @@ class CodTransaction extends Model
         // Sender/Recipient platform fee
         'sender_fee_paid', 'sender_fee_paid_at', 'sender_fee_payment_method',
         'recipient_fee_paid', 'recipient_fee_paid_at', 'recipient_fee_payment_method',
+
+        'sender_fee_status',
+        'sender_fee_payment_proof',
+        'sender_fee_confirmed_by',
+        'sender_fee_confirmed_at',
+        'sender_fee_rejection_reason',
+        'debt_processed',
         
         'created_by', 'updated_by',
     ];
@@ -68,6 +75,8 @@ class CodTransaction extends Model
         'system_confirm_time' => 'datetime',
         'sender_fee_paid_at' => 'datetime',
         'recipient_fee_paid_at' => 'datetime',
+        'sender_fee_confirmed_at' => 'datetime',
+        'debt_processed' => 'boolean',
     ];
 
     // ============ RELATIONSHIPS ============
@@ -582,5 +591,24 @@ class CodTransaction extends Model
             'paid' => 'Đã thanh toán',
             default => 'Không xác định'
         };
+    }
+    public function disputes()
+    {
+        return $this->hasMany(\App\Models\CodDispute::class);
+    }
+
+    public function feeConfirmer()
+    {
+        return $this->belongsTo(User::class, 'sender_fee_confirmed_by');
+    }
+    public function hubConfirmSenderReceived($hubAdminId, $proofFile = null)
+    {
+        // Xác thực Hub đã chuyển tiền cho Sender
+        return $this->update([
+            'sender_payment_status' => 'completed',
+            'sender_transfer_proof' => $proofFile,
+            'sender_transfer_by' => $hubAdminId,
+            'sender_transfer_time' => now(),
+        ]);
     }
 }
