@@ -102,6 +102,7 @@ class PickupController extends Controller
     public function confirmPickup(Request $request, $id)
     {
         $request->validate([
+            'images' => 'required|array|min:1',
             'images.*' => 'required|image|mimes:jpeg,png,jpg|max:5120',
             'actual_packages' => 'required|integer|min:1',
             'actual_weight' => 'nullable|numeric|min:0',
@@ -165,6 +166,7 @@ class PickupController extends Controller
         $request->validate([
             'issue_type' => 'required|in:shop_closed,wrong_address,no_goods,customer_cancel,other',
             'issue_note' => 'required|string|max:500',
+            'images' => 'required|array|min:1',
             'images.*' => 'nullable|image|mimes:jpeg,png,jpg|max:5120',
         ]);
 
