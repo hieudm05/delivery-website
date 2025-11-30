@@ -18,7 +18,7 @@
                                 {{ number_format($stats['pending_fee'] ?? 0) }}₫
                             </h3>
                         </div>
-                        <div class="badge bg-danger bg-opacity-10 text-danger p-3" style="font-size: 1.5rem;">
+                        <div class=" bg-opacity-10 text-danger p-3" style="font-size: 1.5rem;">
                             <i class="bi bi-credit-card"></i>
                         </div>
                     </div>
@@ -42,7 +42,7 @@
                                 {{ number_format($stats['waiting_cod'] ?? 0) }}₫
                             </h3>
                         </div>
-                        <div class="badge bg-warning bg-opacity-10 text-warning p-3" style="font-size: 1.5rem;">
+                        <div class=" bg-opacity-10 text-warning p-3" style="font-size: 1.5rem;">
                             <i class="bi bi-hourglass-split"></i>
                         </div>
                     </div>
@@ -66,7 +66,7 @@
                                 {{ number_format($stats['received'] ?? 0) }}₫
                             </h3>
                         </div>
-                        <div class="badge bg-success bg-opacity-10 text-success p-3" style="font-size: 1.5rem;">
+                        <div class=" bg-opacity-10 text-success p-3" style="font-size: 1.5rem;">
                             <i class="bi bi-check-circle"></i>
                         </div>
                     </div>
@@ -145,8 +145,8 @@
                                 <th style="width: 14%;">Tiền COD</th>
                                 <th style="width: 14%;">Phí thanh toán</th>
                                 <th style="width: 14%;">Sẽ nhận</th>
-                                <th style="width: 22%;">Trạng thái</th>
-                                <th style="width: 18%;">Hành động</th>
+                                <th style="width: 32%;">Trạng thái</th>
+                                <th style="width: 8%;">Hành động</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -167,7 +167,7 @@
 
                                 <!-- Cột 2: Tiền COD -->
                                 <td>
-                                    <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-2 fw-bold">
+                                    <span class=" bg-opacity-10 text-primary px-3 py-2 fw-bold">
                                         {{ number_format($trans->cod_amount) }}₫
                                     </span>
                                 </td>
@@ -176,7 +176,7 @@
                                 <td>
                                     @if($trans->sender_fee_paid > 0)
                                         <div class="d-flex flex-column gap-1">
-                                            <span class="badge bg-danger bg-opacity-10 text-danger px-3 py-2 fw-bold">
+                                            <span class=" bg-opacity-10 text-danger px-3 py-2 fw-bold">
                                                 {{ number_format($trans->sender_fee_paid) }}₫
                                             </span>
                                             @if($trans->sender_fee_paid_at)
@@ -190,7 +190,7 @@
                                             @endif
                                         </div>
                                     @else
-                                        <span class="badge bg-secondary bg-opacity-10 text-secondary">
+                                        <span class="badge bg-opacity-10 text-secondary">
                                             <i class="bi bi-dash-circle"></i> Không có
                                         </span>
                                     @endif
@@ -199,7 +199,7 @@
                                 <!-- Cột 4: Sẽ nhận -->
                                 <td>
                                     <div class="d-flex flex-column gap-1">
-                                        <span class="badge bg-success bg-opacity-10 text-success px-3 py-2 fw-bold">
+                                        <span class="badg bg-opacity-10 text-success px-3 py-2 fw-bold">
                                             {{ number_format($trans->sender_receive_amount) }}₫
                                         </span>
                                         @if($trans->sender_debt_deducted > 0)
@@ -220,11 +220,11 @@
                                                 <i class="bi bi-check-circle"></i> Phí: ✓ Thanh toán
                                             </span>
                                         @elseif($trans->sender_fee_paid > 0)
-                                            <span class="badge bg-warning text-dark">
+                                            <span class=" text-dark">
                                                 <i class="bi bi-clock"></i> Phí: ⏳ Chờ
                                             </span>
                                         @else
-                                            <span class="badge bg-secondary">
+                                            <span class="">
                                                 <i class="bi bi-dash-circle"></i> Phí: Không có
                                             </span>
                                         @endif
