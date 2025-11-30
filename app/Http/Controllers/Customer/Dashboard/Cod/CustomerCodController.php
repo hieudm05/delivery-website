@@ -26,19 +26,26 @@ class CustomerCodController extends Controller
         // Lọc theo tab
         switch ($tab) {
             case 'pending_fee':
-                // ✅ FIX: Chỉ hiện những đơn CẦN thanh toán thực sự
+                // Chỉ hiện những đơn KHÔNG có COD và chưa thanh toán
                 $query->whereNull('sender_fee_paid_at')
-                      ->where('sender_fee_paid', '>', 0)
-                      ->where('sender_debt_deducted', 0); // ← Chưa trừ nợ
+                    ->where('sender_fee_paid', '>', 0)
+                    ->where('cod_amount', 0);
+                break;
+
+            case 'fee_deducted':
+                // ✅ THÊM CASE MỚI: Phí đã khấu trừ (có COD)
+                $query->where('cod_amount', '>', 0)
+                    ->where('sender_fee_paid', '>', 0);
                 break;
 
             case 'waiting_cod':
-                // Hub chưa gửi tiền cho customer (đã thanh toán phí HOẶC đã trừ nợ)
+                // Hub chưa gửi tiền cho customer
                 $query->where('sender_payment_status', 'pending')
-                      ->where(function($q) {
-                          $q->whereNotNull('sender_fee_paid_at') // Đã thanh toán
-                            ->orWhere('sender_debt_deducted', '>', 0); // Hoặc đã trừ nợ
-                      });
+                    ->where(function($q) {
+                        $q->whereNotNull('sender_fee_paid_at')
+                            ->orWhere('sender_debt_deducted', '>', 0)
+                            ->orWhere('cod_amount', '>', 0);
+                    });
                 break;
 
             case 'received':
@@ -51,28 +58,64 @@ class CustomerCodController extends Controller
                 // Tất cả giao dịch
                 break;
         }
-
         $transactions = $query->latest()->paginate(20);
 
-        // ✅ FIX: Tính tổng tiền theo trạng thái
+
         $stats = [
+            // ===== TỔNG QUAN =====
+            'total_transactions' => CodTransaction::where('sender_id', $customerId)->count(),
+
+            // ===== PHÍ ĐÃ KHẤU TRỪ (từ COD) =====
+            'fee_deducted' => CodTransaction::where('sender_id', $customerId)
+                ->where('cod_amount', '>', 0)
+                ->where('sender_fee_paid', '>', 0)
+                ->sum('sender_fee_paid'),
+
+            'count_fee_deducted' => CodTransaction::where('sender_id', $customerId)
+                ->where('cod_amount', '>', 0)
+                ->where('sender_fee_paid', '>', 0)
+                ->count(),
+
+            // ===== PHÍ CHỜ THANH TOÁN (không có COD) =====
             'pending_fee' => CodTransaction::where('sender_id', $customerId)
                 ->whereNull('sender_fee_paid_at')
                 ->where('sender_fee_paid', '>', 0)
-                ->where('sender_debt_deducted', 0) // ← Chưa trừ nợ
+                ->where('cod_amount', 0)
                 ->sum('sender_fee_paid'),
 
+            'count_pending_fee' => CodTransaction::where('sender_id', $customerId)
+                ->whereNull('sender_fee_paid_at')
+                ->where('sender_fee_paid', '>', 0)
+                ->where('cod_amount', 0)
+                ->count(),
+
+            // ===== COD CHỜ NHẬN =====
             'waiting_cod' => CodTransaction::where('sender_id', $customerId)
                 ->where('sender_payment_status', 'pending')
-                ->where(function($q) {
+                ->where(function ($q) {
                     $q->whereNotNull('sender_fee_paid_at')
-                      ->orWhere('sender_debt_deducted', '>', 0);
+                        ->orWhere('sender_debt_deducted', '>', 0)
+                        ->orWhere('cod_amount', '>', 0);
                 })
                 ->sum('sender_receive_amount'),
 
+            'count_waiting_cod' => CodTransaction::where('sender_id', $customerId)
+                ->where('sender_payment_status', 'pending')
+                ->where(function ($q) {
+                    $q->whereNotNull('sender_fee_paid_at')
+                        ->orWhere('sender_debt_deducted', '>', 0)
+                        ->orWhere('cod_amount', '>', 0);
+                })
+                ->count(),
+
+            // ===== COD ĐÃ NHẬN =====
             'received' => CodTransaction::where('sender_id', $customerId)
                 ->where('sender_payment_status', 'completed')
                 ->sum('sender_receive_amount'),
+
+            'count_received' => CodTransaction::where('sender_id', $customerId)
+                ->where('sender_payment_status', 'completed')
+                ->count(),
         ];
 
         return view('customer.dashboard.cod.index', compact(
@@ -95,8 +138,8 @@ class CustomerCodController extends Controller
             'hubConfirmer',
             'senderTransferer'
         ])
-        ->where('sender_id', Auth::id())
-        ->findOrFail($id);
+            ->where('sender_id', Auth::id())
+            ->findOrFail($id);
 
         // Lấy thông tin chi tiết thanh toán
         $paymentDetails = $this->getPaymentDetails($transaction);
@@ -114,13 +157,13 @@ class CustomerCodController extends Controller
         $stats = [
             'total_orders' => CodTransaction::where('sender_id', $userId)->count(),
             'total_cod_amount' => CodTransaction::where('sender_id', $userId)->sum('cod_amount'),
-            
+
             // ✅ FIX: Chỉ tính những phí đã thanh toán THỰC SỰ (không bao gồm trừ nợ)
             'total_fee_paid' => CodTransaction::where('sender_id', $userId)
                 ->whereNotNull('sender_fee_paid_at')
                 ->where('sender_debt_deducted', 0)
                 ->sum('sender_fee_paid'),
-                
+
             'total_debt_deducted' => CodTransaction::where('sender_id', $userId)
                 ->sum('sender_debt_deducted'),
 
@@ -128,32 +171,34 @@ class CustomerCodController extends Controller
                 ->where('sender_payment_status', 'completed')
                 ->sum('sender_receive_amount'),
 
-            // ✅ FIX: Pending fee (chưa trừ nợ)
+            //FIX: Pending fee (chưa trừ nợ)
             'pending_fee' => CodTransaction::where('sender_id', $userId)
                 ->whereNull('sender_fee_paid_at')
                 ->where('sender_fee_paid', '>', 0)
-                ->where('sender_debt_deducted', 0)
+                ->where('cod_amount', 0) // ← Chỉ tính đơn không có COD
                 ->sum('sender_fee_paid'),
-
-            'pending_cod' => CodTransaction::where('sender_id', $userId)
-                ->where('sender_payment_status', 'pending')
-                ->where(function($q) {
-                    $q->whereNotNull('sender_fee_paid_at')
-                      ->orWhere('sender_debt_deducted', '>', 0);
-                })
-                ->sum('sender_receive_amount'),
 
             'count_pending_fee' => CodTransaction::where('sender_id', $userId)
                 ->whereNull('sender_fee_paid_at')
                 ->where('sender_fee_paid', '>', 0)
-                ->where('sender_debt_deducted', 0)
+                ->where('cod_amount', 0) // ← Chỉ tính đơn không có COD
                 ->count(),
+
+            'pending_cod' => CodTransaction::where('sender_id', $userId)
+                ->where('sender_payment_status', 'pending')
+                ->where(function ($q) {
+                    $q->whereNotNull('sender_fee_paid_at')
+                        ->orWhere('sender_debt_deducted', '>', 0);
+                })
+                ->sum('sender_receive_amount'),
+
+
 
             'count_waiting_cod' => CodTransaction::where('sender_id', $userId)
                 ->where('sender_payment_status', 'pending')
-                ->where(function($q) {
+                ->where(function ($q) {
                     $q->whereNotNull('sender_fee_paid_at')
-                      ->orWhere('sender_debt_deducted', '>', 0);
+                        ->orWhere('sender_debt_deducted', '>', 0);
                 })
                 ->count(),
 
@@ -387,9 +432,9 @@ class CustomerCodController extends Controller
 
     private function calculateExpectedFee(CodTransaction $transaction): float
     {
-        $fee = (float)$transaction->platform_fee + (float)$transaction->cod_fee;
+        $fee = (float) $transaction->platform_fee + (float) $transaction->cod_fee;
         if ($transaction->payer_shipping === 'sender') {
-            $fee += (float)$transaction->shipping_fee;
+            $fee += (float) $transaction->shipping_fee;
         }
         return $fee;
     }
@@ -400,19 +445,19 @@ class CustomerCodController extends Controller
             "PHI_DH%d_KH%d_%s",
             $transaction->order_id,
             Auth::id(),
-            (int)$amount
+            (int) $amount
         );
     }
 
     private function getFeeBreakdown(CodTransaction $transaction): array
     {
         $breakdown = [
-            'platform_fee' => (float)$transaction->platform_fee,
-            'cod_fee' => (float)$transaction->cod_fee,
+            'platform_fee' => (float) $transaction->platform_fee,
+            'cod_fee' => (float) $transaction->cod_fee,
         ];
 
         if ($transaction->payer_shipping === 'sender') {
-            $breakdown['shipping_fee'] = (float)$transaction->shipping_fee;
+            $breakdown['shipping_fee'] = (float) $transaction->shipping_fee;
         }
 
         return $breakdown;
@@ -421,11 +466,11 @@ class CustomerCodController extends Controller
     private function getPaymentDetails(CodTransaction $transaction): array
     {
         return [
-            'cod_amount' => (float)$transaction->cod_amount,
+            'cod_amount' => (float) $transaction->cod_amount,
             'expected_fee' => $this->calculateExpectedFee($transaction),
             'fee_breakdown' => $this->getFeeBreakdown($transaction),
-            'debt_deducted' => (float)$transaction->sender_debt_deducted,
-            'will_receive' => (float)$transaction->sender_receive_amount,
+            'debt_deducted' => (float) $transaction->sender_debt_deducted,
+            'will_receive' => (float) $transaction->sender_receive_amount,
             'payer_shipping' => $transaction->payer_shipping === 'sender' ? 'Người gửi' : 'Người nhận',
             'fee_status' => [
                 'is_paid' => !!$transaction->sender_fee_paid_at,

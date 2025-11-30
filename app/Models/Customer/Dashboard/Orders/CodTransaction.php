@@ -184,7 +184,7 @@ class CodTransaction extends Model
      *    - driver_commission = shipping_fee * 50% (min: 5K, max: 50K)
      * 
      * 3. Tính tiền Sender nhận (từ COD):
-     *    - sender_receive_before_debt = cod_amount - platform_fee - cod_fee
+     *    - sender_receive_before_debt = cod_amount - cod_fee
      *    - Trừ nợ (nếu có): sender_receive_amount = sender_receive_before_debt - debt
      * 
      * 4. Tính phần còn lại để chia Hub & Admin:
@@ -238,8 +238,8 @@ class CodTransaction extends Model
         }
         
         // ========== 5. TÍNH TIỀN SENDER NHẬN ==========
-        // Sender nhận = COD - platform_fee - cod_fee - nợ
-        $senderReceiveBeforeDebt = $codAmount - $platformFee - $codFee;
+        // Sender nhận = COD  - cod_fee - nợ
+        $senderReceiveBeforeDebt = $codAmount - $codFee;
         $senderReceiveAmount = $senderReceiveBeforeDebt - $senderDebt;
         
         // Nếu âm → tạo nợ mới

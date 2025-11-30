@@ -322,7 +322,6 @@
                                         {{ number_format($transaction->sender_receive_amount) }}đ</h4>
                                     <small class="text-muted d-block">
                                         = {{ number_format($transaction->cod_amount) }}đ<br>
-                                        - {{ number_format($transaction->platform_fee) }}đ (phí hệ thống)<br>
                                         - {{ number_format($transaction->cod_fee) }}đ (phí COD)
                                         @if ($transaction->sender_debt_deducted > 0)
                                             <br>- {{ number_format($transaction->sender_debt_deducted) }}đ (trừ nợ)
@@ -421,7 +420,6 @@
 
                             2. Sender Receive = {{ number_format($transaction->sender_receive_amount) }}đ
                             = COD ({{ number_format($transaction->cod_amount) }})
-                            - Platform Fee ({{ number_format($transaction->platform_fee) }})
                             - COD Fee ({{ number_format($transaction->cod_fee) }})
                             @if ($transaction->sender_debt_deducted > 0)
                             - Debt ({{ number_format($transaction->sender_debt_deducted) }})
