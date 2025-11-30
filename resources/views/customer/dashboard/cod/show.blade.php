@@ -116,17 +116,6 @@
                                 </td>
                             </tr>
                             <tr>
-                                <td colspan="2"><hr class="my-2"></td>
-                            </tr>
-                            <tr>
-                                <td class="text-muted ps-3">
-                                    <small><i class="bi bi-dash-circle"></i> Phí nền tảng</small>
-                                </td>
-                                <td class="text-end text-danger">
-                                    -{{ number_format($paymentDetails['fee_breakdown']['platform_fee'] ?? 0) }}₫
-                                </td>
-                            </tr>
-                            <tr>
                                 <td class="text-muted ps-3">
                                     <small><i class="bi bi-dash-circle"></i> Phí COD</small>
                                 </td>
@@ -144,19 +133,18 @@
                                 </td>
                             </tr>
                             @endif
-                            
-                            @if($paymentDetails['debt_deducted'] > 0)
-                            <tr>
-                                <td class="text-muted ps-3">
-                                    <small>
-                                        <i class="bi bi-arrow-down-circle text-info"></i> 
-                                        Trừ nợ cũ (tự động)
-                                    </small>
-                                </td>
-                                <td class="text-end text-info">
-                                    -{{ number_format($paymentDetails['debt_deducted']) }}₫
-                                </td>
-                            </tr>
+
+                            @if($transaction->sender_fee_paid > 0)
+                                <span class="badge bg-success fs-6">
+                                    <i class="bi bi-check-circle"></i> Đã khấu trừ tự động
+                                </span>
+                                <small class="text-muted d-block mt-1">
+                                    ({{ number_format($transaction->sender_fee_paid) }}₫)
+                                </small>
+                            @else
+                                <span class="badge bg-secondary fs-6">
+                                    <i class="bi bi-dash-circle"></i> Không có phí
+                                </span>
                             @endif
                             
                             <tr class="table-light">
@@ -293,27 +281,38 @@
                     </h6>
                 </div>
                 <div class="card-body">
-                    <div class="mb-3">
+                   <div class="mb-3">
                         <label class="text-muted small d-block mb-2">Trạng thái phí</label>
-                        @if($paymentDetails['debt_deducted'] > 0)
-                            <span class="badge bg-info fs-6">
-                                <i class="bi bi-arrow-down-circle"></i> Đã trừ nợ tự động
-                            </span>
-                        @elseif($paymentDetails['fee_status']['is_paid'])
-                            <span class="badge bg-success fs-6">
-                                <i class="bi bi-check-circle"></i> Đã thanh toán
-                            </span>
-                        @elseif($transaction->sender_fee_paid > 0)
-                            <span class="badge bg-warning text-dark fs-6">
-                                <i class="bi bi-clock"></i> Chờ thanh toán
-                            </span>
+                        @if($transaction->sender_fee_paid > 0)
+                            @if($transaction->cod_amount > 0)
+                                <!-- Có COD: Đã khấu trừ -->
+                                <span class="badge bg-success fs-6">
+                                    <i class="bi bi-check-circle"></i> Đã khấu trừ tự động từ COD
+                                </span>
+                               
+                            @elseif($transaction->sender_fee_paid_at)
+                                <!-- ✅ Không COD: Đã thanh toán -->
+                                <span class="badge bg-success fs-6">
+                                    <i class="bi bi-check-circle"></i> Đã thanh toán
+                                </span>
+                                <small class="text-muted d-block mt-1">
+                                    {{ number_format($transaction->sender_fee_paid) }}₫ vào {{ $transaction->sender_fee_paid_at->format('d/m/Y H:i') }}
+                                </small>
+                            @else
+                                <!-- ❌ Không COD: Chờ thanh toán -->
+                                <span class="badge bg-warning text-dark fs-6">
+                                    <i class="bi bi-clock"></i> Chờ thanh toán
+                                </span>
+                                <small class="text-danger d-block mt-1">
+                                    Cần thanh toán {{ number_format($transaction->sender_fee_paid) }}₫
+                                </small>
+                            @endif
                         @else
                             <span class="badge bg-secondary fs-6">
                                 <i class="bi bi-dash-circle"></i> Không có phí
                             </span>
                         @endif
                     </div>
-
                     <div class="mb-3">
                         <label class="text-muted small d-block mb-2">Trạng thái COD</label>
                         @if($transaction->sender_payment_status === 'completed')
@@ -351,12 +350,13 @@
                 </div>
                 <div class="card-body">
                     <!-- Thanh toán phí -->
-                    @php
-                        $needPayment = !$transaction->sender_fee_paid_at 
-                            && $transaction->sender_fee_paid > 0 
-                            && $transaction->sender_debt_deducted == 0;
+                @php
+                        // CHỈ cần thanh toán khi: Không có COD và chưa thanh toán
+                        $needPayment = $transaction->sender_fee_paid > 0 
+                            && $transaction->cod_amount == 0 
+                            && !$transaction->sender_fee_paid_at;
                     @endphp
-                    
+
                     @if($needPayment)
                         <button type="button" 
                                 class="btn btn-danger w-100 mb-2"
@@ -364,7 +364,6 @@
                             <i class="bi bi-credit-card"></i> Thanh toán phí
                         </button>
                     @endif
-
                     <!-- Yêu cầu ưu tiên -->
                     @if($transaction->sender_payment_status === 'pending' && 
                         ($transaction->sender_fee_paid_at || $transaction->sender_debt_deducted > 0))
@@ -651,15 +650,6 @@ function displayFeeBreakdown(breakdown) {
     let html = '';
     let total = 0;
 
-    if (breakdown.platform_fee) {
-        html += `
-            <div class="d-flex justify-content-between mb-2">
-                <span><i class="bi bi-gear text-primary"></i> Phí nền tảng:</span>
-                <strong class="text-danger">${formatMoney(breakdown.platform_fee)}₫</strong>
-            </div>
-        `;
-        total += parseFloat(breakdown.platform_fee);
-    }
 
     if (breakdown.cod_fee) {
         html += `

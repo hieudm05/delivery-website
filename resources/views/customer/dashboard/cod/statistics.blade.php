@@ -146,21 +146,22 @@
             </div>
         </div>
 
-        <div class="col-lg-4 col-md-6">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body">
-                    <h6 class="text-success fw-bold mb-3">
-                        <i class="bi bi-check-circle"></i> Đã hoàn tất
-                    </h6>
-                    <h3 class="text-success mb-2">{{ $stats['count_completed'] }}</h3>
-                    <p class="text-muted mb-0">đơn hoàn tất</p>
-                    <a href="{{ route('customer.cod.index', ['tab' => 'received']) }}" 
-                       class="btn btn-sm btn-outline-success mt-3">
-                        Xem chi tiết <i class="bi bi-arrow-right"></i>
-                    </a>
+       <!-- ✅ GIỮ NGUYÊN card "Phí chờ thanh toán" -->
+            <div class="col-lg-4 col-md-6">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <h6 class="text-danger fw-bold mb-3">
+                            <i class="bi bi-exclamation-circle"></i> Phí chờ thanh toán
+                        </h6>
+                        <h3 class="text-danger mb-2">{{ number_format($stats['pending_fee']) }}₫</h3>
+                        <p class="text-muted mb-0">{{ $stats['count_pending_fee'] }} đơn không COD</p>
+                        <a href="{{ route('customer.cod.index', ['tab' => 'pending_fee']) }}" 
+                        class="btn btn-sm btn-outline-danger mt-3">
+                            Xem chi tiết <i class="bi bi-arrow-right"></i>
+                        </a>
+                    </div>
                 </div>
             </div>
-        </div>
     </div>
 
     <!-- ==================== BIỂU ĐỒ TIMELINE ==================== -->
