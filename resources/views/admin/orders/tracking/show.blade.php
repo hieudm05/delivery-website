@@ -368,6 +368,80 @@
                 </div>
             </div>
 
+            {{-- Thông tin hoàn hàng --}}
+            @if($order->has_return && $order->latestReturn)
+            <div class="col-lg-12">
+                <div class="card border-0 shadow-sm border-warning">
+                    <div class="card-header bg-warning text-dark py-3">
+                        <h5 class="mb-0">
+                            <i class="bi bi-arrow-counterclockwise me-2"></i>
+                            Thông tin hoàn hàng
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="info-row">
+                                    <div class="info-label">Trạng thái hoàn:</div>
+                                    <div class="info-value">
+                                        <span class="badge bg-warning">
+                                            {{ $order->latestReturn->status_label ?? 'N/A' }}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="info-row">
+                                    <div class="info-label">Lý do hoàn:</div>
+                                    <div class="info-value">
+                                        <strong>{{ $order->latestReturn->reason_type ?? 'N/A' }}</strong>
+                                    </div>
+                                </div>
+                                @if($order->latestReturn->reason_detail)
+                                <div class="info-row">
+                                    <div class="info-label">Chi tiết:</div>
+                                    <div class="info-value">
+                                        <div class="alert alert-light mb-0">
+                                            {{ $order->latestReturn->reason_detail }}
+                                        </div>
+                                    </div>
+                                </div>
+                                @endif
+                            </div>
+                            <div class="col-md-6">
+                                @if($order->latestReturn->initiated_at)
+                                <div class="info-row">
+                                    <div class="info-label">Thời gian khởi tạo:</div>
+                                    <div class="info-value">
+                                        <small class="text-muted">
+                                            {{ $order->latestReturn->initiated_at->format('H:i d/m/Y') }}
+                                        </small>
+                                    </div>
+                                </div>
+                                @endif
+                                @if($order->latestReturn->return_driver_id)
+                                <div class="info-row">
+                                    <div class="info-label">Tài xế hoàn:</div>
+                                    <div class="info-value">
+                                        {{ $order->latestReturn->returnDriver->full_name ?? 'N/A' }}
+                                    </div>
+                                </div>
+                                @endif
+                                @if($order->latestReturn->estimated_return_fee)
+                                <div class="info-row">
+                                    <div class="info-label">Phí hoàn dự kiến:</div>
+                                    <div class="info-value">
+                                        <span class="fw-bold text-danger">
+                                            {{ number_format($order->latestReturn->estimated_return_fee) }}đ
+                                        </span>
+                                    </div>
+                                </div>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            @endif
+
             {{-- Hình ảnh --}}
             @if($order->images->count() > 0 || $order->deliveryImages->count() > 0)
                 <div class="card border-0 shadow-sm">

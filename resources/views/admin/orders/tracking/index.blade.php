@@ -29,12 +29,12 @@
 
     {{-- Thống kê nhanh --}}
     <div class="row g-3 mb-4">
-        <div class="col-md-3">
-            <div class="card border-0 shadow-sm h-100 bg-gradient-info text-white">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm bg-gradient-info text-white">
                 <div class="card-body">
                     <div class="d-flex align-items-center">
                         <div class="flex-shrink-0">
-                            <div class="avatar-icon bg-white bg-opacity-25">
+                            <div class="avatar-icon bg-opacity-25">
                                 <i class="bi bi-box-seam fs-3"></i>
                             </div>
                         </div>
@@ -51,12 +51,12 @@
             </div>
         </div>
 
-        <div class="col-md-3">
-            <div class="card border-0 shadow-sm h-100 bg-gradient-warning text-white">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm bg-gradient-warning text-white">
                 <div class="card-body">
                     <div class="d-flex align-items-center">
                         <div class="flex-shrink-0">
-                            <div class="avatar-icon bg-white bg-opacity-25">
+                            <div class="avatar-icon bg-opacity-25">
                                 <i class="bi bi-truck fs-3"></i>
                             </div>
                         </div>
@@ -73,12 +73,12 @@
             </div>
         </div>
 
-        <div class="col-md-3">
-            <div class="card border-0 shadow-sm h-100 bg-gradient-success text-white">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm bg-gradient-success text-white">
                 <div class="card-body">
                     <div class="d-flex align-items-center">
                         <div class="flex-shrink-0">
-                            <div class="avatar-icon bg-white bg-opacity-25">
+                            <div class="avatar-icon bg-opacity-25">
                                 <i class="bi bi-cash-stack fs-3"></i>
                             </div>
                         </div>
@@ -94,12 +94,12 @@
             </div>
         </div>
 
-        <div class="col-md-3">
-            <div class="card border-0 shadow-sm h-100 bg-gradient-danger text-white">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm bg-gradient-danger text-white">
                 <div class="card-body">
                     <div class="d-flex align-items-center">
                         <div class="flex-shrink-0">
-                            <div class="avatar-icon bg-white bg-opacity-25">
+                            <div class="avatar-icon bg-opacity-25">
                                 <i class="bi bi-wallet2 fs-3"></i>
                             </div>
                         </div>
@@ -115,6 +115,28 @@
                 </div>
             </div>
         </div>
+
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm bg-gradient-secondary text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="avatar-icon bg-opacity-25">
+                                <i class="bi bi-arrow-counterclockwise fs-3"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="mb-1 opacity-75">Đang hoàn hàng</h6>
+                            <h3 class="mb-0">{{ $statistics['today']['returning'] ?? 0 }}</h3>
+                            <small class="opacity-75">
+                                <i class="bi bi-check-circle me-1"></i>
+                                Đã hoàn: {{ $statistics['today']['returned'] ?? 0 }}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     {{-- Thống kê theo trạng thái --}}
@@ -124,7 +146,7 @@
                 <div class="card-body">
                     <h6 class="mb-3">Trạng thái đơn hàng</h6>
                     <div class="row g-3">
-                        @php
+                      @php
                             $statusConfig = [
                                 'pending' => ['label' => 'Chờ xác nhận', 'color' => 'warning', 'icon' => 'clock-history'],
                                 'confirmed' => ['label' => 'Đã xác nhận', 'color' => 'info', 'icon' => 'check-circle'],
@@ -133,6 +155,8 @@
                                 'at_hub' => ['label' => 'Tại bưu cục', 'color' => 'dark', 'icon' => 'building'],
                                 'shipping' => ['label' => 'Đang giao', 'color' => 'primary', 'icon' => 'truck'],
                                 'delivered' => ['label' => 'Đã giao', 'color' => 'success', 'icon' => 'check-circle-fill'],
+                                'returning' => ['label' => 'Đang hoàn hàng', 'color' => 'warning', 'icon' => 'arrow-counterclockwise'],
+                                'returned' => ['label' => 'Đã hoàn về', 'color' => 'secondary', 'icon' => 'box-arrow-in-left'],          
                                 'cancelled' => ['label' => 'Đã hủy', 'color' => 'danger', 'icon' => 'x-circle'],
                             ];
                         @endphp
@@ -262,6 +286,10 @@
 
 .bg-gradient-danger {
     background: linear-gradient(135deg, #dc3545 0%, #bb2d3b 100%);
+}
+
+.bg-gradient-secondary {
+    background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
 }
 
 .hover-shadow {
