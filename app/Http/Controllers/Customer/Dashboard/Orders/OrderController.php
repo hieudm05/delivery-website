@@ -32,9 +32,8 @@ class OrderController extends Controller
     /**
      * ✅ STORE - HỖ TRỢ CẢ ĐƠN ĐƠN GIẢN & ĐƠN NHIỀU NGƯỜI NHẬN
      */
-public function store(Request $request)
-{
-    // ✅ DEBUG: Bỏ comment để xem data
+    public function store(Request $request)
+    {
     // dd($request->all(), $request->allFiles());
     
     try {
@@ -98,92 +97,68 @@ public function store(Request $request)
         
         // ✅ SINGLE MODE: 1 người gửi → 1 người nhận
         if ($orderMode === 'single' && count($recipients) === 1) {
-            $recipientData = $recipients[array_key_first($recipients)];
-            
-            // Validate products_json
-            $products = json_decode($recipientData['products_json'], true);
-            if (!$products || !is_array($products) || empty($products)) {
-                throw new \Exception('Vui lòng thêm ít nhất 1 sản phẩm');
-            }
-            
-            $order = $this->createStandaloneOrder($request, $recipientData);
-            
-            DB::commit();
-            // \Log::info("✅ Standalone order created: #{$order->id}");
-            
-            return response()->json([
-                'success' => true,
-                'message' => 'Tạo đơn hàng thành công!',
-                'order_id' => $order->id,
-                'redirect' => route('customer.orders.create')
-            ]);
-        }
-        
-        // ✅ MULTI MODE: 1 người gửi → Nhiều người nhận
-        if ($orderMode === 'multi' && count($recipients) > 1) {
-            // Validate shared product
-            if ($request->shared_product_json) {
-                $sharedProduct = json_decode($request->shared_product_json, true);
-                if (!$sharedProduct || !is_array($sharedProduct)) {
-                    throw new \Exception('Thông tin hàng hóa chung không hợp lệ');
-                }
-            }
-            
-            $orderGroup = $this->createOrderGroup($request);
-            // \Log::info("Order group created: #{$orderGroup->id}");
-            
-            $createdOrders = [];
-            foreach ($recipients as $index => $recipientData) {
-                // Validate products_json for each recipient
+                $recipientData = $recipients[array_key_first($recipients)];
+                
+                // Validate products
                 $products = json_decode($recipientData['products_json'], true);
                 if (!$products || !is_array($products) || empty($products)) {
-                    throw new \Exception("Người nhận #" . ($index + 1) . " chưa có thông tin sản phẩm");
+                    throw new \Exception('Vui lòng thêm ít nhất 1 sản phẩm');
                 }
                 
-                $order = $this->createGroupOrder($orderGroup, $request, $recipientData);
-                $createdOrders[] = $order;
-                // \Log::info("Group order #{$order->id} created for recipient #{$index}");
+                $order = $this->createStandaloneOrder($request, $recipientData);
+                
+                DB::commit();
+                
+                return redirect()->route('customer.orders.create')
+                ->with('success', '✅ Tạo đơn hàng thành công! Mã đơn: #' . $order->id);
             }
-            
-            // Cập nhật tổng kết cho order group
-            $orderGroup->recalculateTotals();
-            
-            DB::commit();
-            // \Log::info("✅ Order group completed: #{$orderGroup->id}");
-            
-            return response()->json([
-                'success' => true,
-                'message' => "Tạo đơn hàng gộp thành công! Gửi cho {$orderGroup->total_recipients} người nhận",
-                'order_group_id' => $orderGroup->id,
-                'orders_count' => count($createdOrders),
-                'redirect' => route('customer.orders.create')
-            ]);
-        }
+        
+        // ✅ MULTI MODE: 1 người gửi → Nhiều người nhận
+       if ($orderMode === 'multi' && count($recipients) > 1) {
+                $orderGroup = $this->createOrderGroup($request);
+                
+                $createdOrders = [];
+                foreach ($recipients as $index => $recipientData) {
+                    // Validate products for each recipient
+                    $products = json_decode($recipientData['products_json'], true);
+                    if (!$products || !is_array($products) || empty($products)) {
+                        throw new \Exception("Người nhận #" . ($index + 1) . " chưa có thông tin sản phẩm");
+                    }
+                    
+                    $order = $this->createGroupOrder($orderGroup, $request, $recipientData);
+                    $createdOrders[] = $order;
+                }
+                
+                $orderGroup->recalculateTotals();
+                
+                DB::commit();
+                
+              return redirect()->route('customer.orders.create')
+                ->with('success', "✅ Tạo nhóm đơn #{$orderGroup->id} thành công với {$orderGroup->total_recipients} người nhận!");
+            }
         
         // ✅ Trường hợp không hợp lệ
         throw new \Exception('Chế độ tạo đơn không hợp lệ. Vui lòng thử lại.');
         
     } catch (\Illuminate\Validation\ValidationException $e) {
-        DB::rollBack();
-        // \Log::error('❌ Validation failed:', $e->errors());
+        $errorMsg = 'Dữ liệu không hợp lệ: ' . implode(', ', array_map(fn($err) => implode(', ', $err), $e->errors()));
         
-        return response()->json([
-            'success' => false,
-            'message' => 'Dữ liệu không hợp lệ',
-            'errors' => $e->errors()
-        ], 422);
+        return redirect()->back()
+            ->withInput()
+            ->with('error', $errorMsg);
+
         
-    } catch (\Exception $e) {
+        } catch (\Exception $e) {
         DB::rollBack();
         // \Log::error('❌ Order creation failed: ' . $e->getMessage());
         // \Log::error($e->getTraceAsString());
         
-        return response()->json([
-            'success' => false,
-            'message' => $e->getMessage()
-        ], 500);
+        return redirect()->back()
+                    ->withInput()
+                    ->with('error', '❌ ' . $e->getMessage());
+            }
     }
-}
+
 
 /**
  * ✅ TẠO ĐƠN ĐƠN GIẢN (1 người gửi → 1 người nhận)
@@ -457,10 +432,6 @@ private function saveRecipientAddress($recipientData)
 {
     // ✅ Validate input
     if (!is_array($products)) {
-        \Log::error('calculateOrderFees: products không phải array', [
-            'type' => gettype($products),
-            'value' => $products
-        ]);
         $products = [];
     }
 
@@ -497,10 +468,12 @@ private function saveRecipientAddress($recipientData)
     
     $allSpecials = array_unique($allSpecials);
     
+    $baseFee = (float) config('delivery.shipping.base_fee', 20000);
+    $extraWeightFee = (float) config('delivery.shipping.extra_weight_fee', 5);
     // Tính cước cơ bản
-    $base = 20000;
-    if ($totalWeight > 1000) {
-        $base += ($totalWeight - 1000) * 5;
+    $base = $baseFee;
+        if ($totalWeight > 1000) {
+            $base += ($totalWeight - 1000) * $extraWeightFee;
     }
     
     // Tính phụ phí theo đặc tính hàng hóa
@@ -524,11 +497,6 @@ private function saveRecipientAddress($recipientData)
         $services = [];
     }
 
-    // 🐛 DEBUG
-    \Log::info('Services in calculateOrderFees:', [
-        'services' => $services,
-        'has_cod' => in_array('cod', $services),
-    ]);
 
     // Tính phụ phí theo dịch vụ (TRỪ COD - COD tính riêng)
     foreach ($services as $service) {
@@ -537,37 +505,27 @@ private function saveRecipientAddress($recipientData)
         }
         
         $extra += match ($service) {
-            'priority' => round($base * 0.25),
-            'fast' => round($base * 0.15),
-            'insurance' => round($totalValue * 0.01),
-            default => 0,
-        };
+                'priority' => round($base * (float) config('delivery.fees.priority_percent', 0.25)),
+                'fast' => round($base * (float) config('delivery.fees.fast_percent', 0.15)),
+                'insurance' => round($totalValue * (float) config('delivery.fees.insurance_percent', 0.01)),
+                default => 0,
+            };
     }
     
     $shippingFee = round($base + $extra);
-    
-    // ✅ QUAN TRỌNG: Tính COD fee
-    // Lấy cod_amount từ recipientData
-    $codAmount = $recipientData['cod_amount'] ?? 0;
-    $codAmount = max(0, (float)$codAmount); // Đảm bảo >= 0
+    $codAmount = max(0, (float)($recipientData['cod_amount'] ?? 0));
+     $codFee = 0;
     
     // Kiểm tra:
     // 1. 'cod' phải có trong services
     // 2. codAmount phải > 0
     
-    if ($codAmount > 0) {
-        // ✅ Công thức: 1000 + (codAmount * 0.01)
-        // Ví dụ: codAmount = 89000 → codFee = 1000 + 890 = 1890
-        $codFee = round(1000 + ($codAmount * 0.01));
-    } else {
-        $codFee = 0;
-    }
+     if ($codAmount > 0) {
+            $codBaseFee = (float) config('delivery.fees.cod_base_fee', 1000);
+            $codPercent = (float) config('delivery.fees.cod_percent', 0.01);
+            $codFee = round($codBaseFee + ($codAmount * $codPercent));
+        }
 
-    \Log::info('COD Calculation:', [
-        'codAmount' => $codAmount,
-        'hasCOD' => true,
-        'codFee' => $codFee,
-    ]);
     
     // Tính tiền người gửi và người nhận trả
     $payer = $recipientData['payer'] ?? 'sender';
@@ -594,91 +552,74 @@ private function saveRecipientAddress($recipientData)
         'recipient_pays' => $recipientPays,
     ];
 
-    \Log::info('Final calculation result:', $result);
     
     return $result;
 }
 
-    public function calculate(Request $request)
-{
-    try {
-        // ✅ Xử lý products_json
-        $products = [];
-        if ($request->has('products_json') && !empty($request->products_json)) {
-            $products = json_decode($request->products_json, true) ?? [];
-        }
+   public function calculate(Request $request)
+    {
+        try {
+            $products = [];
+            if ($request->has('products_json') && !empty($request->products_json)) {
+                $products = json_decode($request->products_json, true) ?? [];
+            }
 
-        // ✅ Validate products
-        if (!is_array($products) || empty($products)) {
+            if (!is_array($products) || empty($products)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Vui lòng thêm ít nhất 1 sản phẩm'
+                ], 422);
+            }
+
+            // Services
+            $services = [];
+            if ($request->has('services')) {
+                $servicesInput = $request->services;
+                if (is_string($servicesInput)) {
+                    $services = json_decode($servicesInput, true) ?? [];
+                } elseif (is_array($servicesInput)) {
+                    $services = $servicesInput;
+                }
+            }
+
+            // COD amount
+            $codAmount = 0;
+            if ($request->has('cod_amount') && !empty($request->cod_amount)) {
+                $codAmount = (float) $request->cod_amount;
+            }
+
+            $payer = $request->input('payer', 'sender');
+            
+            $recipientData = [
+                'services' => $services,
+                'cod_amount' => $codAmount,
+                'payer' => $payer,
+                'item_type' => $request->input('item_type', 'package')
+            ];
+
+            $result = $this->calculateOrderFees($products, $recipientData);
+
+            return response()->json([
+                'success' => true,
+                'base_cost' => $result['base_cost'],
+                'extra_cost' => $result['extra_cost'],
+                'shipping_fee' => $result['shipping_fee'],
+                'cod_fee' => $result['cod_fee'],
+                'total' => $result['shipping_fee'] + $result['cod_fee'],
+                'payer' => $payer,
+                'has_cod' => in_array('cod', $services),
+                'cod_amount' => $result['cod_amount'],
+                'sender_pays' => $result['sender_pays'],
+                'recipient_pays' => $result['recipient_pays'],
+            ]);
+
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Vui lòng thêm ít nhất 1 sản phẩm'
-            ], 422);
+                'message' => 'Lỗi tính toán: ' . $e->getMessage()
+            ], 500);
         }
-
-        // ✅ Xử lý services
-        $services = [];
-        if ($request->has('services')) {
-            $servicesInput = $request->services;
-            if (is_string($servicesInput)) {
-                $services = json_decode($servicesInput, true) ?? [];
-            } elseif (is_array($servicesInput)) {
-                $services = $servicesInput;
-            }
-        }
-
-        // ✅ Xử lý COD amount - QUAN TRỌNG
-        $codAmount = 0;
-        if ($request->has('cod_amount') && !empty($request->cod_amount)) {
-            $codAmount = (float) $request->cod_amount;
-        }
-
-        // 🐛 DEBUG
-        \Log::info('Calculate request:', [
-            'services' => $services,
-            'cod_amount' => $codAmount,
-            'has_cod_in_services' => in_array('cod', $services),
-        ]);
-
-        // ✅ Xử lý payer
-        $payer = $request->input('payer', 'sender');
-
-        // ✅ Chuẩn bị dữ liệu cho calculateOrderFees
-        $recipientData = [
-            'services' => $services,
-            'cod_amount' => $codAmount,
-            'payer' => $payer,
-            'item_type' => $request->input('item_type', 'package')
-        ];
-
-        $result = $this->calculateOrderFees($products, $recipientData);
-
-        \Log::info('Calculate result:', $result);
-
-        return response()->json([
-            'success' => true,
-            'base_cost' => $result['base_cost'],
-            'extra_cost' => $result['extra_cost'],
-            'shipping_fee' => $result['shipping_fee'],
-            'cod_fee' => $result['cod_fee'],  // ✅ Kiểm tra giá trị này
-            'total' => $result['shipping_fee'] + $result['cod_fee'],
-            'payer' => $payer,
-            'has_cod' => in_array('cod', $services),
-            'cod_amount' => $result['cod_amount'],
-            'sender_pays' => $result['sender_pays'],
-            'recipient_pays' => $result['recipient_pays'],
-        ]);
-
-    } catch (\Exception $e) {
-        \Log::error('Calculate error: ' . $e->getMessage(), [
-            'trace' => $e->getTraceAsString()
-        ]);
-        return response()->json([
-            'success' => false,
-            'message' => 'Lỗi tính toán chi phí: ' . $e->getMessage()
-        ], 500);
     }
-}
 
 
     public function getNearby(Request $request)
