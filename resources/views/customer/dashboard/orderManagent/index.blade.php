@@ -97,6 +97,18 @@
                         Đã hủy <span class="badge bg-danger ms-1">{{ $statusCounts['cancelled'] }}</span>
                     </button>
                 </li>
+                <li class="nav-item mb-2">
+                    <button class="nav-link {{ request('status') === 'returning' ? 'active' : '' }}" 
+                            data-status="returning">
+                        Đang hoàn hàng <span class="badge bg-warning ms-1">{{ $statusCounts['returning'] ?? 0 }}</span>
+                    </button>
+                </li>
+                <li class="nav-item mb-2">
+                    <button class="nav-link {{ request('status') === 'returned' ? 'active' : '' }}" 
+                            data-status="returned">
+                        Đã hoàn về <span class="badge bg-secondary ms-1">{{ $statusCounts['returned'] ?? 0 }}</span>
+                    </button>
+                </li>
             </ul>
         </div>
     </div>

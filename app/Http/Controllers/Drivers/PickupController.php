@@ -180,7 +180,7 @@ class PickupController extends Controller
 
             // Cập nhật trạng thái về confirmed và ghi chú vấn đề
             $order->update([
-                'status' => 'confirmed', // Trả về trạng thái chờ xử lý
+                'status' => 'cancelled', // Trả về trạng thái chờ xử lý
                 'pickup_issue_type' => $request->issue_type,
                 'pickup_issue_note' => $request->issue_note,
                 'pickup_issue_time' => now(),
