@@ -252,6 +252,32 @@
     color: #1976d2;
     margin-bottom: 15px;
   }
+  input[id*="value"],
+  input[id*="cod-amount"],
+  input[id*="product-value"],
+  input[id*="document-value"],
+  input[id*="shared-product-value"],
+  input[id*="shared-document-value"] {
+      text-align: right;
+      font-weight: 500;
+      letter-spacing: 0.5px;
+  }
+
+  input[id*="value"]:focus,
+  input[id*="cod-amount"]:focus,
+  input[id*="product-value"]:focus,
+  input[id*="document-value"]:focus,
+  input[id*="shared-product-value"]:focus,
+  input[id*="shared-document-value"]:focus {
+      box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.15);
+      border-color: #dc3545;
+  }
+
+  input[id*="value"]:not(:placeholder-shown),
+  input[id*="cod-amount"]:not(:placeholder-shown) {
+      background-color: #fafbfc;
+      font-size: 15px;
+  }
 </style>
 
 <div class="container-fluid py-4">
@@ -385,7 +411,7 @@
                 </div>
                 <div class="col-4">
                   <label class="form-label">Giá trị (VNĐ) <span class="text-danger">*</span></label>
-                  <input type="number" class="form-control" id="shared-product-value" value="" min="0">
+                  <input type="text" class="form-control" id="shared-product-value" value="" min="0">
                 </div>
               </div>
               
@@ -461,7 +487,7 @@
                 </div>
                 <div class="col-4">
                   <label class="form-label">Giá trị (VNĐ) <span class="text-danger">*</span></label>
-                  <input type="number" class="form-control" id="shared-document-value" value="" min="0">
+                  <input type="text" class="form-control" id="shared-document-value" value="" min="0">
                 </div>
               </div>
               
@@ -565,7 +591,6 @@ let provincesLoaded = false; // Flag để track trạng thái load
 
 $(document).ready(function() {
     console.log('🚀 Bắt đầu khởi tạo...');
-    
     loadProvinces()
         .then(() => {
             console.log('✅ Provinces loaded, initializing app...');
@@ -574,6 +599,7 @@ $(document).ready(function() {
             setDefaultDateTime();
             setupGoongAutocomplete();
             setupToggleForms();
+            setupCurrencyFormatting();
             setupModeSelector();
             setupSharedProductForm();
             addRecipient(); // Sẽ tự động populate provinces
@@ -685,8 +711,8 @@ function applyMode(newMode, init = false) {
     }
 
     // Recalculate costs and update UI
-    recipientsList.forEach(recipient => {
-        calculateCost(recipient.id);
+   recipientsList.forEach(recipient => {
+        calculateCost(recipient.id); 
     });
     updateSummary();
 }
@@ -699,18 +725,35 @@ function setupModeSelector() {
         // Prevent re-clicking the same mode
         if (newMode === orderMode) return;
 
+         const hasData = recipientsList.some(r => {
+            // Check nếu có products
+            if (r.products && r.products.length > 0) return true;
+            
+            // Check nếu có thông tin người nhận
+            if ($(`.recipient-name[data-recipient-id="${r.id}"]`).val() ||
+                $(`.recipient-phone[data-recipient-id="${r.id}"]`).val()) {
+                return true;
+            }
+            
+            // Check nếu có COD amount
+            if ($(`.cod-amount-raw[data-recipient-id="${r.id}"]`).val()) {
+                return true;
+            }
+            
+            return false;
+        });
+          // Check shared product data trong multi mode
+        const hasSharedData = (orderMode === 'multi' && sharedProductData && sharedProductData.name);
+        
+        if ((hasData || hasSharedData) && !confirm('⚠️ Chuyển chế độ sẽ xóa toàn bộ dữ liệu đã nhập. Bạn có chắc chắn?')) {
+            return;
+        }
         // If switching from multi -> single and there are multiple recipients, confirm
         if (newMode === 'single' && orderMode === 'multi' && recipientsList.length > 1) {
-            if (!confirm('⚠️ Chuyển về chế độ đơn giản sẽ xóa tất cả người nhận (trừ người đầu tiên). Tiếp tục?')) {
-                // revert active class
-                $('.mode-option').removeClass('active');
-                $(`.mode-option[data-mode="${orderMode}"]`).addClass('active');
-                return;
-            }
-            // remove other recipients keeping first
+            // Giữ lại người nhận đầu tiên, xóa các người khác
             recipientsList = [recipientsList[0]];
-            renderRecipients();
         }
+          resetAllFormData();
 
         // Update active class
         $('.mode-option').removeClass('active');
@@ -719,6 +762,89 @@ function setupModeSelector() {
         // Apply mode
         applyMode(newMode, false);
     });
+}
+function resetAllFormData() {
+    console.log('🧹 Đang xóa toàn bộ dữ liệu form...');
+    
+    recipientsList.forEach(recipient => {
+        // Reset recipient info
+        $(`.recipient-name[data-recipient-id="${recipient.id}"]`).val('');
+        $(`.recipient-phone[data-recipient-id="${recipient.id}"]`).val('');
+        
+        // Reset address
+        $(`.province-select[data-recipient-id="${recipient.id}"]`).val('').trigger('change');
+        $(`.district-select[data-recipient-id="${recipient.id}"]`).html('<option value="">Quận/Huyện</option>').prop('disabled', true);
+        $(`.ward-select[data-recipient-id="${recipient.id}"]`).html('<option value="">Phường/Xã</option>').prop('disabled', true);
+        $(`.address-detail[data-recipient-id="${recipient.id}"]`).val('');
+        $(`.full-address-${recipient.id}`).text('Chưa có địa chỉ đầy đủ');
+        
+        // Reset coordinates
+        $(`.recipient-lat-${recipient.id}`).val('');
+        $(`.recipient-lng-${recipient.id}`).val('');
+        $(`.recipient-full-address-${recipient.id}`).val('');
+        
+        // Reset delivery time
+        $(`.delivery-time-input[data-recipient-id="${recipient.id}"]`).val('');
+        $(`.delivery-time-formatted[data-recipient-id="${recipient.id}"]`).val('');
+        
+        // Reset products (single mode)
+        recipient.products = [];
+        renderProductsList(recipient.id);
+        
+        // Reset product form inputs
+        resetProductForm(recipient.id);
+        resetDocumentForm(recipient.id);
+        
+        // Reset services
+        $(`.service-checkbox[data-recipient-id="${recipient.id}"]`).prop('checked', false);
+        $(`.cod-checkbox[data-recipient-id="${recipient.id}"]`).prop('checked', false);
+        
+        // Reset COD amount
+        $(`.cod-amount-display[data-recipient-id="${recipient.id}"]`).val('');
+        $(`.cod-amount-raw[data-recipient-id="${recipient.id}"]`).val('');
+        $(`.cod-amount-container-${recipient.id}`).addClass('d-none');
+        
+        // Reset payer (default to sender)
+        $(`#payer-sender-${recipient.id}`).prop('checked', true);
+        
+        // Reset costs display
+        resetCostDisplay(recipient.id);
+        
+        // Reset images
+        recipient.selectedImages = [];
+        renderImagePreviews(recipient.id);
+        
+        // Reset notes
+        $(`textarea[name="recipients[${recipient.id}][note]"]`).val('');
+        
+        // Reset services JSON
+        $(`.services-json-${recipient.id}`).val('[]');
+    });
+    
+    // ✅ Reset shared product data (multi mode)
+    sharedProductData = null;
+    $('#shared-product-name').val('');
+    $('#shared-product-quantity').val('1');
+    $('#shared-product-weight').val('');
+    $('#shared-product-value').val('');
+    $('#shared-product-length').val('');
+    $('#shared-product-width').val('');
+    $('#shared-product-height').val('');
+    $('.shared-special-checkbox').prop('checked', false);
+    
+    $('#shared-document-name').val('');
+    $('#shared-document-quantity').val('1');
+    $('#shared-document-weight').val('');
+    $('#shared-document-value').val('');
+    $('#shared-document-length').val('');
+    $('#shared-document-width').val('');
+    $('#shared-document-height').val('');
+    $('.shared-doc-special-checkbox').prop('checked', false);
+    
+    // Reset common note
+    $('#common-note').val('');
+    
+    console.log('✅ Đã xóa toàn bộ dữ liệu form');
 }
 // ============ SHARED PRODUCT FORM ============
 function setupSharedProductForm() {
@@ -750,13 +876,15 @@ function updateSharedProductData() {
         $('.shared-special-checkbox:checked').each(function() {
             specials.push($(this).val());
         });
+
+        const value = getCurrencyValue($('#shared-product-value'));
         
         sharedProductData = {
             type: 'package',
             name: $('#shared-product-name').val().trim(),
             quantity: parseInt($('#shared-product-quantity').val()) || 1,
             weight: parseFloat($('#shared-product-weight').val()) || 0,
-            value: parseFloat($('#shared-product-value').val()) || 0,
+            value: value,
             length: parseFloat($('#shared-product-length').val()) || 0,
             width: parseFloat($('#shared-product-width').val()) || 0,
             height: parseFloat($('#shared-product-height').val()) || 0,
@@ -767,13 +895,15 @@ function updateSharedProductData() {
         $('.shared-doc-special-checkbox:checked').each(function() {
             specials.push($(this).val());
         });
+
+        const value = getCurrencyValue($('#shared-document-value'));
         
         sharedProductData = {
             type: 'document',
             name: $('#shared-document-name').val().trim(),
             quantity: parseInt($('#shared-document-quantity').val()) || 1,
             weight: parseFloat($('#shared-document-weight').val()) || 0,
-            value: parseFloat($('#shared-document-value').val()) || 0,
+            value: value || 0,
             length: parseFloat($('#shared-document-length').val()) || 0,
             width: parseFloat($('#shared-document-width').val()) || 0,
             height: parseFloat($('#shared-document-height').val()) || 0,
@@ -1034,7 +1164,7 @@ function createRecipientCard(recipient, index) {
                             </div>
                             <div class="col-12">
                                 <label class="form-label">Giá trị (VNĐ) <span class="text-danger">*</span></label>
-                                <input type="number" class="form-control product-value-${recipient.id}" data-recipient-id="${recipient.id}" value="${d.product_value || 0}" min="0">
+                                <input type="text" class="form-control product-value-${recipient.id}" data-recipient-id="${recipient.id}" value="${d.product_value || 0}" min="0">
                             </div>
                         </div>
                         
@@ -1112,7 +1242,7 @@ function createRecipientCard(recipient, index) {
                             </div>
                             <div class="col-4">
                                 <label class="form-label">Giá trị (VNĐ) <span class="text-danger">*</span></label>
-                                <input type="number" class="form-control document-value-${recipient.id}" data-recipient-id="${recipient.id}" value="${d.document_value || 0}" min="0">
+                                <input type="text" class="form-control document-value-${recipient.id}" data-recipient-id="${recipient.id}" value="${d.document_value || 0}" min="0">
                             </div>
                         </div>
                         
@@ -1183,12 +1313,17 @@ function createRecipientCard(recipient, index) {
 
                         <div class="cod-amount-container-${recipient.id} ${d.cod_amount ? '' : 'd-none'} mt-2">
                             <label class="form-label">Số tiền thu hộ (VNĐ)</label>
-                            <input type="number" 
-                                class="form-control cod-amount" 
+                           <input type="text" 
+                                class="form-control cod-amount cod-amount-display" 
                                 data-recipient-id="${recipient.id}" 
-                                name="recipients[${recipient.id}][cod_amount]" 
-                                min="0" 
                                 placeholder="Nhập số tiền"
+                                value="${esc(d.cod_amount)}">
+
+                            <!-- Hidden input chứa giá trị thực để submit -->
+                            <input type="hidden" 
+                                class="cod-amount-raw" 
+                                data-recipient-id="${recipient.id}"
+                                name="recipients[${recipient.id}][cod_amount]" 
                                 value="${esc(d.cod_amount)}">
                         </div>
                     </div>
@@ -1321,44 +1456,34 @@ function setupRecipientEventHandlers() {
     // Services
     $(document).off('change', '.service-checkbox').on('change', '.service-checkbox', function() {
         const recipientId = $(this).data('recipient-id');
-        const serviceName = $(this).val();
-        const isChecked = $(this).is(':checked');
-        
-        console.log(`🔄 Service '${serviceName}' checkbox changed #${recipientId}: ${isChecked}`);
-        
-        calculateCost(recipientId);
+        console.log(`🔄 Service checkbox changed #${recipientId}`);
+        calculateCost(recipientId); // Sẽ gọi calculateCostWithProperCurrency
     });
     
-   $(document).off('change', '.cod-checkbox').on('change', '.cod-checkbox', function() {
+$(document).off('change', '.cod-checkbox').on('change', '.cod-checkbox', function() {
     const id = $(this).data('recipient-id');
     const isChecked = $(this).is(':checked');
 
-    console.log(`🔄 COD Checkbox #${id} changed: ${isChecked}`);
-
-    // ✅ Enable/Disable hidden input để gửi services[]
     $(`.cod-services-input-${id}`).prop('disabled', !isChecked);
 
     if (isChecked) {
-        // Hiện input nhập tiền
         $(`.cod-amount-container-${id}`).removeClass('d-none');
-        console.log(`👁️ Show cod_amount input`);
     } else {
-        // Ẩn input nhập tiền + reset
         $(`.cod-amount-container-${id}`).addClass('d-none');
         $(`.cod-amount[data-recipient-id="${id}"]`).val('');
-        console.log(`🙈 Hide cod_amount input + clear value`);
     }
 
-    // Tính toán lại
-    calculateCost(id);
+    calculateCost(id); // Sẽ gọi calculateCostWithProperCurrency
 });
 
     
     $(document).off('input', '.cod-amount').on('input', '.cod-amount', function() {
         const recipientId = $(this).data('recipient-id');
-        const newValue = $(this).val();
-
-        console.log(`💰 COD Amount input #${recipientId}: ${newValue}`);
+        
+        // Format tiền tự động
+        const formatted = formatCurrencyDisplay($(this).val());
+        $(this).val(formatted);
+        $(this).data('actual-value', getActualValue(formatted));
 
         // Clear debounce cũ
         if (window[`cod_debounce_${recipientId}`]) {
@@ -1367,24 +1492,21 @@ function setupRecipientEventHandlers() {
 
         // Debounce 1 giây
         window[`cod_debounce_${recipientId}`] = setTimeout(() => {
-            console.log(`⏱️ Debounce finished, calling calculateCost`);
             calculateCost(recipientId);
         }, 1000);
     });
 
     
-       $('.payer-radio').off('change').on('change', function() {
+    $('.payer-radio').off('change').on('change', function() {
         const id = $(this).data('recipient-id');
         const value = $(this).val();
         const rec = recipientsList.find(r => r.id == id);
         
-        // 🔥 LƯU PAYER VÀO DATA
         if (rec) {
             rec.data.payer = value;
-            console.log(`💳 Payer changed for #${id}: ${value}`);
         }
 
-        calculateCost(id);
+        calculateCost(id); // Sẽ gọi calculateCostWithProperCurrency
     });
     
     // Images
@@ -1757,7 +1879,7 @@ function addProduct(recipientId) {
     const name = $(`.product-name-${recipientId}`).val().trim();
     const quantity = parseInt($(`.product-quantity-${recipientId}`).val()) || 1;
     const weight = parseFloat($(`.product-weight-${recipientId}`).val()) || 0;
-    const value = parseFloat($(`.product-value-${recipientId}`).val()) || 0;
+    const value = getCurrencyValue($(`.product-value-${recipientId}`));
     const length = parseFloat($(`.product-length-${recipientId}`).val()) || 0;
     const width = parseFloat($(`.product-width-${recipientId}`).val()) || 0;
     const height = parseFloat($(`.product-height-${recipientId}`).val()) || 0;
@@ -1802,7 +1924,7 @@ function addDocument(recipientId) {
     const name = $(`.document-name-${recipientId}`).val().trim();
     const quantity = parseInt($(`.document-quantity-${recipientId}`).val()) || 1;
     const weight = parseFloat($(`.document-weight-${recipientId}`).val()) || 0;
-    const value = parseFloat($(`.document-value-${recipientId}`).val()) || 0;
+    const value = getCurrencyValue($(`.document-value-${recipientId}`));
     const length = parseFloat($(`.document-length-${recipientId}`).val()) || 0;
     const width = parseFloat($(`.document-width-${recipientId}`).val()) || 0;
     const height = parseFloat($(`.document-height-${recipientId}`).val()) || 0;
@@ -1996,14 +2118,14 @@ function calculateCost(recipientId) {
     
     // ✅ Lấy cod_amount từ input
     let codAmount = 0;
-    const codInput = $(`.cod-amount[data-recipient-id="${recipientId}"]`).val();
-    if (codInput && codInput.trim()) {
-        codAmount = parseFloat(codInput);
+    const codRawInput = $(`.cod-amount-raw[data-recipient-id="${recipientId}"]`).val();
+    if (codRawInput && codRawInput.trim()) {
+        codAmount = parseFloat(codRawInput);
     }
 
     console.log(`💵 COD Amount: ${codAmount}`);
     
-    // ✅ Lấy tất cả services từ form checkboxes + hidden input
+    // ✅ Lấy tất cả services từ form checkboxes
     const services = [];
     
     // Service checkboxes (priority, insurance)
@@ -2011,19 +2133,14 @@ function calculateCost(recipientId) {
         services.push($(this).val());
     });
     
-    // ✅ Check hidden COD input (nếu enabled = checkbox được bật)
-    // hidden input nhận từ HTML
-    const codHiddenInput = $(`.cod-services-input-${recipientId}`);
-
-    // nếu checkbox COD bật => hidden input không disabled
-    if (!codHiddenInput.prop('disabled')) {
+    // ✅ Check if COD checkbox is checked
+    const codCheckbox = $(`.cod-checkbox[data-recipient-id="${recipientId}"]`);
+    if (codCheckbox.is(':checked')) {
         if (!services.includes('cod')) {
             services.push('cod');
         }
         console.log(`✅ 'cod' added to services`);
     }
-
-
 
     console.log(`📋 Final services:`, services);
     
@@ -2066,14 +2183,26 @@ function calculateCost(recipientId) {
                 $(`.sender-pays-${recipientId}`).text((res.sender_pays || 0).toLocaleString('vi-VN') + ' đ');
                 $(`.recipient-pays-${recipientId}`).text((res.recipient_pays || 0).toLocaleString('vi-VN') + ' đ');
                 
-                // ✅ Save services to hidden input
+                // ✅ Save services to hidden input (JSON format)
                 $(`.services-json-${recipientId}`).val(JSON.stringify(services));
+                
+                // ✅ Save recipient data for debugging
+                const recipient = recipientsList.find(r => r.id === recipientId);
+                if (recipient) {
+                    recipient.data.last_calculated = {
+                        services: services,
+                        cod_amount: codAmount,
+                        payer: payer,
+                        result: res
+                    };
+                }
                 
                 updateSummary();
             }
         },
         error: function(xhr) {
             console.error('❌ AJAX Error:', xhr.responseText);
+            returnBackendError(xhr);
         }
     });
 }
@@ -2407,10 +2536,25 @@ $('#orderForm').on('submit', function(e) {
         }
     });
     
+    // ✅ Ensure each recipient has services array
+    recipientsList.forEach(recipient => {
+        const servicesJson = $(`.services-json-${recipient.id}`).val();
+        if (!servicesJson || servicesJson === '[]') {
+            // Get services from checkboxes
+            const services = [];
+            $(`.service-checkbox[data-recipient-id="${recipient.id}"]:checked`).each(function() {
+                services.push($(this).val());
+            });
+            if ($(`.cod-checkbox[data-recipient-id="${recipient.id}"]`).is(':checked')) {
+                services.push('cod');
+            }
+            $(`.services-json-${recipient.id}`).val(JSON.stringify(services));
+        }
+    });
+    
     // ✅ Format pickup time
     const pickupValue = $('#pickup-time').val();
     $('#pickup_time_formatted').val(formatDatetimeForDatabase(pickupValue));
-    
     
     const formData = new FormData(this);
     
@@ -2423,7 +2567,6 @@ $('#orderForm').on('submit', function(e) {
         }
     });
     
-    // 🐛 DEBUG: Log form data
     console.log('📦 Data being sent:');
     for (let pair of formData.entries()) {
         if (pair[1] instanceof File) {
@@ -2436,49 +2579,42 @@ $('#orderForm').on('submit', function(e) {
     $('#submitOrder').prop('disabled', true)
         .html('<span class="spinner-border spinner-border-sm me-2"></span>Đang xử lý...');
     
-    $.ajax({
-        url: $(this).attr('action'),
-        type: 'POST',
-        data: formData,
-        processData: false,
-        contentType: false,
-        success: function(response) {
-            console.log('✅ Response:', response);
-            if (response.success) {
-                alert('✅ Tạo đơn hàng thành công!');
-                window.location.href = response.redirect || '{{ route("customer.orders.create") }}';
-            } else {
-                alert('❌ ' + (response.message || 'Có lỗi xảy ra'));
-                $('#submitOrder').prop('disabled', false)
-                    .html('<i class="bi bi-check-circle"></i> Tạo đơn hàng');
-            }
-        },
-        error: function(xhr) {
-            console.error('❌ Full Error:', xhr);
-            console.error('❌ Response Text:', xhr.responseText);
-            
-            let errorMsg = 'Có lỗi xảy ra khi tạo đơn hàng.';
-            
-            try {
-                const response = JSON.parse(xhr.responseText);
-                if (response.message) {
-                    errorMsg = response.message;
-                } else if (response.errors) {
-                    errorMsg = Object.values(response.errors).flat().join('\n');
-                }
-            } catch (e) {
-                // Response không phải JSON (như trường hợp Symfony dump)
-                errorMsg = 'Lỗi server. Vui lòng kiểm tra console và Laravel log.';
-            }
-            
-            alert('❌ ' + errorMsg);
-            $('#submitOrder').prop('disabled', false)
-                .html('<i class="bi bi-check-circle"></i> Tạo đơn hàng');
-        }
-    });
-    
+    this.submit();
     return false;
 });
+
+// ============ HANDLE BACKEND ERRORS ============
+function returnBackendError(xhr) {
+    let errorMsg = 'Có lỗi xảy ra khi tạo đơn hàng.';
+    
+    try {
+        if (xhr.responseJSON) {
+            const response = xhr.responseJSON;
+            if (response.message) {
+                errorMsg = response.message;
+            } else if (response.errors) {
+                errorMsg = Object.values(response.errors).flat().join('\n');
+            }
+        } else {
+            const response = JSON.parse(xhr.responseText);
+            if (response.message) {
+                errorMsg = response.message;
+            } else if (response.errors) {
+                errorMsg = Object.values(response.errors).flat().join('\n');
+            }
+        }
+    } catch (e) {
+        errorMsg = 'Lỗi server. Vui lòng kiểm tra console.';
+    }
+    
+    // Return error data for SweetAlert handling
+    const errorData = {
+        success: false,
+        message: errorMsg
+    };
+    
+    console.error('Error to display:', errorData);
+}
 // ============ POST OFFICE ============
 function fetchNearbyPostOffices(lat, lng) {
     $.get('{{ route("customer.orders.getNearby") }}', {
@@ -2500,6 +2636,139 @@ function fetchNearbyPostOffices(lat, lng) {
     }).fail(function() {
         console.error('❌ Không thể tải bưu cục');
     });
+}
+</script>
+<script>
+ // ============ CURRENCY FORMATTING WITH LIVE DISPLAY ============
+
+/**
+ * Format số thành tiền tệ Việt Nam (thêm dấu chấm)
+ */
+function formatCurrencyDisplay(value) {
+    if (!value || value === '') return '';
+    const numStr = String(value).replace(/\D/g, '');
+    if (!numStr) return '';
+    return parseInt(numStr).toLocaleString('vi-VN');
+}
+
+/**
+ * Lấy giá trị thực (số thuần) từ input đã format
+ */
+function getActualValue(formatted) {
+    if (!formatted || formatted === '') return 0;
+    return parseInt(String(formatted).replace(/\D/g, '')) || 0;
+}
+
+/**
+ * Setup currency formatting
+ */
+function setupCurrencyFormatting() {
+    const currencySelectors = [
+        'input[id*="product-value"]',
+        'input[id*="document-value"]',
+        'input[id*="shared-product-value"]',
+        'input[id*="shared-document-value"]',
+        'input[id*="cod-amount"]',
+        'input[class*="product-value-"]',
+        'input[class*="document-value-"]'
+    ];
+
+    const selector = currencySelectors.join(', ');
+
+    $(document).on('input', selector, function(e) {
+        const $input = $(this);
+        const input = this;
+        
+        const cursorPosition = input.selectionStart;
+        const oldValue = $input.val();
+        const dotsBeforeCursor = (oldValue.substring(0, cursorPosition).match(/\./g) || []).length;
+        
+        const rawValue = oldValue.replace(/\D/g, '');
+        const formatted = formatCurrencyDisplay(rawValue);
+        const actual = getActualValue(formatted);
+
+        $input.val(formatted);
+        $input.data('actual-value', actual);
+
+        if (formatted !== oldValue) {
+            const newDotsBeforeCursor = (formatted.substring(0, cursorPosition).match(/\./g) || []).length;
+            const dotDifference = newDotsBeforeCursor - dotsBeforeCursor;
+            let newPosition = cursorPosition + dotDifference;
+            
+            newPosition = Math.min(newPosition, formatted.length);
+            newPosition = Math.max(0, newPosition);
+            
+            if (input.setSelectionRange) {
+                setTimeout(() => {
+                    input.setSelectionRange(newPosition, newPosition);
+                }, 0);
+            }
+        }
+    });
+
+    $(document).on('focus', selector, function() {
+        const $input = $(this);
+        const value = $input.val();
+        if (value && value !== '') {
+            const formatted = formatCurrencyDisplay(value);
+            const actual = getActualValue(formatted);
+            $input.val(formatted);
+            $input.data('actual-value', actual);
+        }
+    });
+
+    $(document).on('paste', selector, function(e) {
+        e.preventDefault();
+        const pastedText = (e.originalEvent || e).clipboardData.getData('text/plain');
+        const formatted = formatCurrencyDisplay(pastedText);
+        const actual = getActualValue(formatted);
+        $(this).val(formatted);
+        $(this).data('actual-value', actual);
+    });
+
+    $(document).on('blur', selector, function() {
+        const $input = $(this);
+        const value = $input.val();
+        if (value && value !== '') {
+            const formatted = formatCurrencyDisplay(value);
+            const actual = getActualValue(formatted);
+            $input.val(formatted);
+            $input.data('actual-value', actual);
+        }
+    });
+}
+
+// ============ COD AMOUNT DEBOUNCE (Called after currency formatting) ============
+$(document).on('input', '.cod-amount-display', function() {
+    const recipientId = $(this).data('recipient-id');
+    const rawValue = getActualValue($(this).val());
+    
+    // Update hidden input
+    $(`.cod-amount-raw[data-recipient-id="${recipientId}"]`).val(rawValue);
+    
+    // Debounce calculate
+    if (window[`cod_debounce_${recipientId}`]) {
+        clearTimeout(window[`cod_debounce_${recipientId}`]);
+    }
+    window[`cod_debounce_${recipientId}`] = setTimeout(() => {
+        calculateCost(recipientId);
+    }, 1000);
+});
+function getCurrencyValue(element) {
+    const $el = typeof element === 'string' ? $(element) : element;
+    const actualValue = $el.data('actual-value');
+    if (typeof actualValue === 'number') {
+        return actualValue;
+    }
+    return getActualValue($el.val());
+}
+
+function setCurrencyValue(element, value) {
+    const $el = typeof element === 'string' ? $(element) : element;
+    const formatted = formatCurrencyDisplay(value);
+    const actual = getActualValue(formatted);
+    $el.val(formatted);
+    $el.data('actual-value', actual);
 }
 </script>
 
