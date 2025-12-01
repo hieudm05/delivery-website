@@ -16,6 +16,7 @@ class OrderDelivery extends Model
     protected $fillable = [
         'order_id',
         'delivery_driver_id',
+        'attempt_number', 
         'actual_delivery_start_time',
         'actual_delivery_time',
         'delivery_latitude',
@@ -25,6 +26,7 @@ class OrderDelivery extends Model
         'received_by_phone',
         'received_by_relation',
         'delivery_note',
+        'is_successful', 
         'cod_collected_amount',
         'cod_collected_at',
     ];
@@ -34,6 +36,7 @@ class OrderDelivery extends Model
         'actual_delivery_time' => 'datetime',
         'cod_collected_at' => 'datetime',
         'cod_collected_amount' => 'decimal:2',
+        'is_successful' => 'boolean',
     ];
 
     public function order()
@@ -65,5 +68,27 @@ class OrderDelivery extends Model
     {
         if (!$this->delivery_latitude || !$this->delivery_longitude) return null;
         return "https://www.google.com/maps?q={$this->delivery_latitude},{$this->delivery_longitude}";
+    }
+    // Lấy lần thử mới nhất cho đơn hàng
+      public static function getLatestAttempt($orderId)
+    {
+        return self::where('order_id', $orderId)
+            ->orderBy('attempt_number', 'desc')
+            ->first();
+    }
+
+    // Tạo lần thử mới
+    public static function createNewAttempt($orderId, $driverId)
+    {
+        $lastAttempt = self::getLatestAttempt($orderId);
+        $attemptNumber = $lastAttempt ? $lastAttempt->attempt_number + 1 : 1;
+
+        return self::create([
+            'order_id' => $orderId,
+            'delivery_driver_id' => $driverId,
+            'attempt_number' => $attemptNumber,
+            'actual_delivery_start_time' => now(),
+            'is_successful' => false,
+        ]);
     }
 }

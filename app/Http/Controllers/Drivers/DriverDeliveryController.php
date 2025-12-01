@@ -25,17 +25,17 @@ class DriverDeliveryController extends Controller
         $status = $request->get('status', 'all');
         $search = $request->get('search');
         $hubId = DriverProfile::where('user_id', operator: Auth::id())->value('post_office_id');
-        if(!$hubId){
+        if (!$hubId) {
             return redirect()->back()->with('error', 'Chưa có thông tin bưu cục. Vui lòng cập nhật hồ sơ tài xế.');
         }
         $orders = Order::query()
             ->whereIn('status', [Order::STATUS_AT_HUB, Order::STATUS_SHIPPING])
-            ->where('driver_id',Auth::id())
-            ->when($status !== 'all', function($q) use ($status) {
+            ->where('driver_id', Auth::id())
+            ->when($status !== 'all', function ($q) use ($status) {
                 $q->where('status', $status);
             })
-            ->when($search, function($q) use ($search) {
-                $q->where(function($query) use ($search) {
+            ->when($search, function ($q) use ($search) {
+                $q->where(function ($query) use ($search) {
                     $query->where('id', 'like', "%{$search}%")
                         ->orWhere('recipient_name', 'like', "%{$search}%")
                         ->orWhere('recipient_phone', 'like', "%{$search}%");
@@ -55,19 +55,19 @@ class DriverDeliveryController extends Controller
     public function show($id)
     {
         $order = Order::with([
-            'orderGroup', 
-            'products', 
-            'delivery.images', 
+            'orderGroup',
+            'products',
+            'delivery.images',
             'delivery.issues',
             'delivery.driver'
         ])->findOrFail($id);
-        
+
         // ✅ SỬA: Kiểm tra xem tài xế có phải là người được phân giao không
-        if($order->driver_id !== Auth::id()){
+        if ($order->driver_id !== Auth::id()) {
             return redirect()->route('driver.delivery.index')
-                ->with('error',"Bạn không có quyền truy cập đơn hàng này");
+                ->with('error', "Bạn không có quyền truy cập đơn hàng này");
         }
-        
+
         // Kiểm tra trạng thái
         if (!in_array($order->status, [Order::STATUS_AT_HUB, Order::STATUS_SHIPPING])) {
             return redirect()->route('driver.delivery.index')
@@ -97,12 +97,8 @@ class DriverDeliveryController extends Controller
                 'status' => Order::STATUS_SHIPPING,
             ]);
 
-            // Tạo bản ghi delivery
-            OrderDelivery::create([
-                'order_id' => $order->id,
-                'delivery_driver_id' => auth()->id(),
-                'actual_delivery_start_time' => now(),
-            ]);
+            // ✅ SỬA: Tạo lần thử mới thay vì create trực tiếp
+            OrderDelivery::createNewAttempt($order->id, auth()->id());
 
             // Cập nhật trạng thái group nếu có
             if ($order->isPartOfGroup()) {
@@ -186,24 +182,23 @@ class DriverDeliveryController extends Controller
             // Xử lý COD nếu có
             $codCollected = 0;
             $paymentDetails = $order->payment_details;
-            
+
             if ($paymentDetails['has_cod'] && $paymentDetails['payer'] === 'recipient') {
                 $codCollected = $paymentDetails['recipient_pays'];
             }
 
-            // Cập nhật bản ghi delivery
-            $delivery = $order->delivery;
+            // ✅ SỬA: Lấy lần thử mới nhất
+            $delivery = OrderDelivery::getLatestAttempt($order->id);
+
             if (!$delivery) {
-                // Tạo mới nếu chưa có (fallback)
-                $delivery = OrderDelivery::create([
-                    'order_id' => $order->id,
-                    'delivery_driver_id' => auth()->id(),
-                    'actual_delivery_start_time' => now(),
-                ]);
+                // Fallback: tạo mới nếu chưa có
+                $delivery = OrderDelivery::createNewAttempt($order->id, auth()->id());
             }
 
+            // ✅ THÊM: Đánh dấu giao hàng thành công
             $delivery->update([
                 'actual_delivery_time' => now(),
+                'is_successful' => true, // ✅ QUAN TRỌNG
                 'received_by_name' => $request->received_by_name,
                 'received_by_phone' => $request->received_by_phone,
                 'received_by_relation' => $request->received_by_relation,
@@ -221,7 +216,7 @@ class DriverDeliveryController extends Controller
             if ($request->hasFile('images')) {
                 foreach ($request->file('images') as $index => $image) {
                     $path = $image->store('delivery_images/' . date('Y/m'), 'public');
-                    
+
                     OrderDeliveryImage::create([
                         'order_id' => $order->id,
                         'image_path' => $path,
@@ -251,7 +246,7 @@ class DriverDeliveryController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            
+
             return back()
                 ->withInput()
                 ->with('error', 'Có lỗi xảy ra khi lưu thông tin giao hàng. Vui lòng thử lại!')
@@ -291,95 +286,154 @@ class DriverDeliveryController extends Controller
     /**
      * Xử lý giao hàng thất bại
      */
-   /**
- * Xử lý giao hàng thất bại
- */
-public function reportFailure(Request $request, $id)
-{
-    $order = Order::with('delivery')->findOrFail($id);
+    /**
+     * Xử lý giao hàng thất bại
+     */
+    public function reportFailure(Request $request, $id)
+    {
+        $order = Order::with('delivery')->findOrFail($id);
 
-    // Validate
-    $validator = Validator::make($request->all(), [
-        'issue_type' => 'required|in:recipient_not_home,wrong_address,refused_package,unable_to_contact,address_too_far,dangerous_area,other',
-        'issue_note' => 'required|string|max:1000',
-        'images' => 'nullable|array',
-        'images.*' => 'image|mimes:jpeg,png,jpg|max:5120',
-        'image_notes' => 'nullable|array',
-    ], [
-        'issue_type.required' => 'Vui lòng chọn lý do giao hàng thất bại',
-        'issue_note.required' => 'Vui lòng mô tả chi tiết lý do',
-    ]);
-
-    if ($validator->fails()) {
-        return back()
-            ->withErrors($validator)
-            ->withInput()
-            ->with('error', 'Vui lòng kiểm tra lại thông tin!')
-            ->with('alert_type', 'error');
-    }
-
-    try {
-        DB::beginTransaction();
-
-        // Tạo bản ghi issue (không cần GPS)
-        OrderDeliveryIssue::create([
-            'order_id' => $order->id,
-            'issue_type' => $request->issue_type,
-            'issue_note' => $request->issue_note,
-            'issue_time' => now(),
-            'reported_by' => auth()->id(),
+        // Validate
+        $validator = Validator::make($request->all(), [
+            'issue_type' => 'required|in:recipient_not_home,wrong_address,refused_package,unable_to_contact,address_too_far,dangerous_area,other',
+            'issue_note' => 'required|string|max:1000',
+            'images' => 'nullable|array',
+            'images.*' => 'image|mimes:jpeg,png,jpg|max:5120',
+            'image_notes' => 'nullable|array',
+        ], [
+            'issue_type.required' => 'Vui lòng chọn lý do giao hàng thất bại',
+            'issue_note.required' => 'Vui lòng mô tả chi tiết lý do',
         ]);
 
-        // Cập nhật trạng thái order về hub
-        $order->update([
-            'status' => Order::STATUS_AT_HUB,
-        ]);
+        if ($validator->fails()) {
+            return back()
+                ->withErrors($validator)
+                ->withInput()
+                ->with('error', 'Vui lòng kiểm tra lại thông tin!')
+                ->with('alert_type', 'error');
+        }
 
-        // Lưu ảnh nếu có
-        if ($request->hasFile('images')) {
-            foreach ($request->file('images') as $index => $image) {
-                $path = $image->store('delivery_failure/' . date('Y/m'), 'public');
-                
-                OrderDeliveryImage::create([
-                    'order_id' => $order->id,
-                    'image_path' => $path,
-                    'type' => OrderDeliveryImage::TYPE_DELIVERY_PROOF,
-                    'note' => $request->image_notes[$index] ?? 'Ảnh giao hàng thất bại - ' . $request->issue_type,
+        try {
+            DB::beginTransaction();
+
+            // ✅ THÊM: Đánh dấu lần thử hiện tại là thất bại
+            $delivery = OrderDelivery::getLatestAttempt($order->id);
+            if ($delivery) {
+                $delivery->update([
+                    'is_successful' => false,
+                    'actual_delivery_time' => now(),
                 ]);
             }
+
+            // ✅ SỬA: Tăng delivery_attempt_count TRƯỚC khi tạo issue
+            $order->increment('delivery_attempt_count');
+            $attemptCount = $order->delivery_attempt_count;
+
+            // Lấy label lý do
+            $issueLabels = [
+                'recipient_not_home' => 'Người nhận không có nhà',
+                'wrong_address' => 'Địa chỉ sai/không tìm thấy',
+                'refused_package' => 'Người nhận từ chối nhận hàng',
+                'unable_to_contact' => 'Không liên lạc được',
+                'address_too_far' => 'Địa chỉ quá xa',
+                'dangerous_area' => 'Khu vực nguy hiểm',
+                'other' => 'Lý do khác',
+            ];
+
+            // ✅ KIỂM TRA: Nếu đã thất bại 3 lần → TẠO HOÀN HÀNG TỰ ĐỘNG
+            if ($attemptCount >= 3) {
+                // Tạo bản ghi issue
+                $issue = OrderDeliveryIssue::create([
+                    'order_id' => $order->id,
+                    'issue_type' => $request->issue_type,
+                    'issue_note' => $request->issue_note,
+                    'issue_time' => now(),
+                    'reported_by' => auth()->id(),
+                    'resolution_action' => OrderDeliveryIssue::ACTION_RETURN, // ✅ Tự động hoàn
+                ]);
+
+                // ✅ TẠO HOÀN HÀNG TỰ ĐỘNG
+                $orderReturn = OrderReturn::createFromOrder(
+                    $order,
+                    OrderReturn::REASON_AUTO_FAILED,
+                    "Tự động hoàn hàng do giao thất bại {$attemptCount} lần. Lần cuối: {$issueLabels[$request->issue_type]}. Chi tiết: {$request->issue_note}",
+                    auth()->id()
+                );
+
+                // ✅ Cập nhật issue với order_return_id
+                $issue->update(['order_return_id' => $orderReturn->id]);
+
+                // ✅ Cập nhật trạng thái order
+                $order->update([
+                    'status' => Order::STATUS_RETURNING, // Trạng thái hoàn hàng
+                ]);
+
+                $warningMessage = '🔴 <strong>Đơn hàng #' . $order->id . ' đã thất bại 3 lần!</strong><br>' .
+                    'Hệ thống đã TỰ ĐỘNG tạo lệnh hoàn hàng.<br>' .
+                    'Lý do lần cuối: ' . $issueLabels[$request->issue_type] . '<br>' .
+                    'Vui lòng mang đơn hàng về bưu cục để hoàn trả.';
+
+                $alertType = 'error';
+                $alertTitle = '🔴 Tự động hoàn hàng';
+
+            } else {
+                // ✅ Chưa đủ 3 lần → Tạo issue bình thường
+                OrderDeliveryIssue::create([
+                    'order_id' => $order->id,
+                    'issue_type' => $request->issue_type,
+                    'issue_note' => $request->issue_note,
+                    'issue_time' => now(),
+                    'reported_by' => auth()->id(),
+                    'resolution_action' => OrderDeliveryIssue::ACTION_PENDING,
+                ]);
+
+                // Cập nhật trạng thái order về hub
+                $order->update([
+                    'status' => Order::STATUS_AT_HUB,
+                ]);
+
+                $warningMessage = 'Đã ghi nhận giao hàng thất bại đơn #' . $order->id . ' (Lần ' . $attemptCount . '/3)<br>' .
+                    'Lý do: ' . $issueLabels[$request->issue_type] . '<br>' .
+                    'Đơn hàng đã được chuyển về bưu cục để thử lại.';
+
+                $alertType = 'warning';
+                $alertTitle = '⚠️ Giao hàng thất bại';
+            }
+
+            // Lưu ảnh nếu có
+            if ($request->hasFile('images')) {
+                foreach ($request->file('images') as $index => $image) {
+                    $path = $image->store('delivery_failure/' . date('Y/m'), 'public');
+
+                    OrderDeliveryImage::create([
+                        'order_id' => $order->id,
+                        'image_path' => $path,
+                        'type' => OrderDeliveryImage::TYPE_DELIVERY_PROOF,
+                        'note' => $request->image_notes[$index] ?? 'Ảnh giao hàng thất bại - ' . $request->issue_type,
+                    ]);
+                }
+            }
+
+            // Cập nhật group status
+            if ($order->isPartOfGroup()) {
+                $order->orderGroup->updateGroupStatus();
+            }
+
+            DB::commit();
+
+            return redirect()->route('driver.delivery.index')
+                ->with('warning', $warningMessage)
+                ->with('alert_type', $alertType)
+                ->with('alert_title', $alertTitle);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()
+                ->withInput()
+                ->with('error', 'Có lỗi xảy ra: ' . $e->getMessage())
+                ->with('alert_type', 'error');
         }
-
-        // Cập nhật group status
-        if ($order->isPartOfGroup()) {
-            $order->orderGroup->updateGroupStatus();
-        }
-
-        DB::commit();
-
-        // Lấy label lý do
-        $issueLabels = [
-            'recipient_not_home' => 'Người nhận không có nhà',
-            'wrong_address' => 'Địa chỉ sai/không tìm thấy',
-            'refused_package' => 'Người nhận từ chối nhận hàng',
-            'unable_to_contact' => 'Không liên lạc được',
-            'address_too_far' => 'Địa chỉ quá xa',
-            'dangerous_area' => 'Khu vực nguy hiểm',
-            'other' => 'Lý do khác',
-        ];
-
-        return redirect()->route('driver.delivery.index')
-            ->with('warning', 'Đã ghi nhận giao hàng thất bại đơn #' . $order->id . '<br>Lý do: ' . $issueLabels[$request->issue_type] . '<br>Đơn hàng đã được chuyển về bưu cục.')
-            ->with('alert_type', 'warning')
-            ->with('alert_title', '⚠️ Giao hàng thất bại');
-
-    } catch (\Exception $e) {
-        DB::rollBack();
-        return back()
-            ->withInput()
-            ->with('error', 'Có lỗi xảy ra khi ghi nhận thất bại. Vui lòng thử lại!')
-            ->with('alert_type', 'error');
     }
-}
 
     /**
      * Tính khoảng cách giữa 2 điểm (km) - Haversine formula
@@ -409,56 +463,56 @@ public function reportFailure(Request $request, $id)
      */
     public function initiateReturn($id)
     {
-    $order = Order::with(['deliveryIssues'])->findOrFail($id);
+        $order = Order::with(['deliveryIssues'])->findOrFail($id);
 
-    // Validate trạng thái
-    if (!in_array($order->status, [Order::STATUS_SHIPPING])) {
-        return back()->with('error', 'Chỉ có thể khởi tạo hoàn hàng khi đang giao.');
-    }
+        // Validate trạng thái
+        if (!in_array($order->status, [Order::STATUS_SHIPPING])) {
+            return back()->with('error', 'Chỉ có thể khởi tạo hoàn hàng khi đang giao.');
+        }
 
-    // Kiểm tra đã có OrderReturn chưa
-    if ($order->has_return) {
-        return redirect()->route('driver.returns.show', $order->activeReturn->id)
-            ->with('info', 'Đơn hàng này đã có yêu cầu hoàn trước đó');
-    }
+        // Kiểm tra đã có OrderReturn chưa
+        if ($order->has_return) {
+            return redirect()->route('driver.returns.show', $order->activeReturn->id)
+                ->with('info', 'Đơn hàng này đã có yêu cầu hoàn trước đó');
+        }
 
-    try {
-        DB::beginTransaction();
+        try {
+            DB::beginTransaction();
 
-        // Lấy issue gần nhất (nếu có)
-        $latestIssue = $order->deliveryIssues()->latest('issue_time')->first();
-        
-        $reasonType = $latestIssue 
-            ? OrderReturn::REASON_HUB_DECISION 
-            : OrderReturn::REASON_OTHER;
-        
-        $reasonDetail = $latestIssue 
-            ? "Giao hàng thất bại: {$latestIssue->issue_type_label}. {$latestIssue->issue_note}"
-            : "Tài xế quyết định hoàn hàng";
+            // Lấy issue gần nhất (nếu có)
+            $latestIssue = $order->deliveryIssues()->latest('issue_time')->first();
 
-        // ✅ CHỈ TẠO OrderReturn, KHÔNG TỰ ASSIGN
-        $return = OrderReturn::createFromOrder(
-            $order,
-            $reasonType,
-            $reasonDetail,
-            Auth::id()
-        );
+            $reasonType = $latestIssue
+                ? OrderReturn::REASON_HUB_DECISION
+                : OrderReturn::REASON_OTHER;
 
-        // ✅ Đơn về hub, chờ Hub phân công
-        $order->update([
-            'status' => Order::STATUS_AT_HUB,
-        ]);
+            $reasonDetail = $latestIssue
+                ? "Giao hàng thất bại: {$latestIssue->issue_type_label}. {$latestIssue->issue_note}"
+                : "Tài xế quyết định hoàn hàng";
 
-        DB::commit();
+            // ✅ CHỈ TẠO OrderReturn, KHÔNG TỰ ASSIGN
+            $return = OrderReturn::createFromOrder(
+                $order,
+                $reasonType,
+                $reasonDetail,
+                Auth::id()
+            );
 
-        // ✅ Thông báo cho tài xế biết đơn đã được chuyển về hub
-        return redirect()->route('driver.delivery.index')
-            ->with('success', 'Đã khởi tạo hoàn hàng thành công. Đơn đã được chuyển về hub để phân công.')
-            ->with('alert_type', 'success');
+            // ✅ Đơn về hub, chờ Hub phân công
+            $order->update([
+                'status' => Order::STATUS_AT_HUB,
+            ]);
 
-    } catch (\Exception $e) {
-        DB::rollBack();
-        return back()->with('error', 'Có lỗi: ' . $e->getMessage());
-    }
+            DB::commit();
+
+            // ✅ Thông báo cho tài xế biết đơn đã được chuyển về hub
+            return redirect()->route('driver.delivery.index')
+                ->with('success', 'Đã khởi tạo hoàn hàng thành công. Đơn đã được chuyển về hub để phân công.')
+                ->with('alert_type', 'success');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->with('error', 'Có lỗi: ' . $e->getMessage());
+        }
     }
 }

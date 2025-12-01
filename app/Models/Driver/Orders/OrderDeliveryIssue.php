@@ -69,65 +69,67 @@ class OrderDeliveryIssue extends Model
     /**
      * ✅ CẬP NHẬT PHƯƠNG THỨC RESOLVE
      */
-   public function resolve($action, $resolvedBy, $note = null)
-{
-    if (!in_array($action, [self::ACTION_RETRY, self::ACTION_RETURN, self::ACTION_HOLD])) {
-        throw new \InvalidArgumentException("Invalid resolution action: {$action}");
-    }
+    public function resolve($action, $resolvedBy, $note = null)
+    {
+        if (!in_array($action, [self::ACTION_RETRY, self::ACTION_RETURN, self::ACTION_HOLD])) {
+            throw new \InvalidArgumentException("Invalid resolution action: {$action}");
+        }
 
-    try {
-        $this->update([
-            'resolution_action' => $action,
-            'resolved_by' => $resolvedBy,
-            'resolved_at' => now(),
-            'resolution_note' => $note,
-        ]);
+        try {
+            $this->update([
+                'resolution_action' => $action,
+                'resolved_by' => $resolvedBy,
+                'resolved_at' => now(),
+                'resolution_note' => $note,
+            ]);
 
-        $order = $this->order;
+            $order = $this->order;
 
-        switch ($action) {
-            case self::ACTION_RETRY:
-                // ✅ THÊM: Kiểm tra số lần thử
-                $attemptCount = $order->delivery_attempt_count ?? 0;
-                
-                if ($attemptCount >= 3) {
-                    // Đã thất bại 3 lần → tự động chuyển sang hoàn hàng
+            switch ($action) {
+                case self::ACTION_RETRY:
+                    // ✅ Kiểm tra số lần thử
+                    $attemptCount = $order->deliveryAttempts()->count();
+                    
+                    if ($attemptCount >= 3) {
+                        // Đã thất bại 3 lần → tự động chuyển sang hoàn hàng
+                        $orderReturn = \App\Models\Driver\Orders\OrderReturn::createFromOrder(
+                            $order,
+                            \App\Models\Driver\Orders\OrderReturn::REASON_AUTO_FAILED,
+                            "Tự động hoàn hàng do thất bại {$attemptCount} lần",
+                            $resolvedBy
+                        );
+                        
+                        $this->update(['order_return_id' => $orderReturn->id]);
+                        
+                        throw new \Exception("Đơn hàng đã thất bại {$attemptCount} lần. Hệ thống tự động chuyển sang hoàn hàng.");
+                    }
+                    
+                    // ✅ KHÔNG cần xóa, chỉ reset status để tài xế giao lại
+                    $order->update([
+                        'status' => Order::STATUS_AT_HUB,
+                        'delivery_attempt_count' => $attemptCount + 1
+                    ]);
+                    break;
+
+                case self::ACTION_RETURN:
                     $orderReturn = \App\Models\Driver\Orders\OrderReturn::createFromOrder(
                         $order,
-                        \App\Models\Driver\Orders\OrderReturn::REASON_AUTO_FAILED,
-                        "Tự động hoàn hàng do thất bại {$attemptCount} lần",
+                        \App\Models\Driver\Orders\OrderReturn::REASON_HUB_DECISION,
+                        "Hub quyết định hoàn hàng do: {$this->issue_type_label}",
                         $resolvedBy
                     );
-                    
                     $this->update(['order_return_id' => $orderReturn->id]);
-                    
-                    throw new \Exception("Đơn hàng đã thất bại {$attemptCount} lần. Hệ thống tự động chuyển sang hoàn hàng.");
-                }
-                
-                // Tăng số lần thử
-                $order->increment('delivery_attempt_count');
-                $order->update(['status' => Order::STATUS_AT_HUB]);
-                break;
+                    break;
 
-            case self::ACTION_RETURN:
-                $orderReturn = \App\Models\Driver\Orders\OrderReturn::createFromOrder(
-                    $order,
-                    \App\Models\Driver\Orders\OrderReturn::REASON_HUB_DECISION,
-                    "Hub quyết định hoàn hàng do: {$this->issue_type_label}",
-                    $resolvedBy
-                );
-                $this->update(['order_return_id' => $orderReturn->id]);
-                break;
+                case self::ACTION_HOLD:
+                    $order->update(['status' => Order::STATUS_AT_HUB]);
+                    break;
+            }
+            
+            return true;
 
-            case self::ACTION_HOLD:
-                $order->update(['status' => Order::STATUS_AT_HUB]);
-                break;
+        } catch (\Exception $e) {
+            throw $e;
         }
-        
-        return true;
-
-    } catch (\Exception $e) {
-        throw $e;
     }
-}
 }
