@@ -70,9 +70,22 @@
                 <h5 class="mb-0">
                     <i class="bi bi-box-seam"></i> Danh sách đơn hàng
                 </h5>
+                <div class="btn-group">
+                {{-- ✅ NÚT MỚI: GOM ĐƠN HÀNG LOẠT --}}
+                @if($orders->where('driver_id', null)->count() > 1)
+                <a href="{{ route('hub.orders.batch.assign.form') }}" 
+                   class="btn btn-sm btn-success me-2">
+                    <i class="bi bi-layers"></i> Gom đơn hàng loạt
+                    <span class="badge bg-white text-success">
+                        {{ $orders->where('driver_id', null)->count() }}
+                    </span>
+                </a>
+                @endif
+                
                 <button class="btn btn-sm btn-outline-primary" onclick="location.reload()">
                     <i class="bi bi-arrow-clockwise"></i> Làm mới
                 </button>
+            </div>
             </div>
         </div>
         <div class="card-body p-0">
