@@ -396,7 +396,21 @@ Route::prefix('hub')
         Route::get('orders', [HubController::class, 'orders'])->name('orders.index');
         Route::get('orders/{orderId}', [HubController::class, 'showOrder'])->name('orders.show');
 
-        // Phát đơn cho tài xế,,
+        Route::prefix('orders/batch')->name('orders.batch.')->group(function () {
+        // Trang gom đơn
+            Route::get('/assign', [HubController::class, 'batchAssignForm'])->name('assign.form');
+            
+            // API: Lấy danh sách tài xế phù hợp cho nhiều đơn
+            Route::post('/available-drivers', [HubController::class, 'getBatchAvailableDrivers'])->name('available-drivers');
+            
+            // Xử lý phát đơn hàng loạt
+            Route::post('/assign', [HubController::class, 'batchAssignOrders'])->name('assign');
+            
+            // API: Gợi ý gom đơn theo khu vực
+            Route::post('/suggest-groups', [HubController::class, 'suggestOrderGroups'])->name('suggest-groups');
+        });
+
+        // Phát đơn cho tài xế,
         Route::get('/orders/{orderId}/assign', [HubController::class, 'assignOrderForm'])->name('orders.assign.form');
         Route::post('/orders/{orderId}/assign', [HubController::class, 'assignOrder'])->name('orders.assign');
 
