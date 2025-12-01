@@ -239,18 +239,6 @@
                         <span>Phí hoàn hàng:</span>
                         <strong class="text-danger">{{ number_format($return->return_fee) }}đ</strong>
                     </div>
-                    @if($return->cod_amount > 0)
-                        <hr>
-                        <div class="d-flex justify-content-between mb-2">
-                            <span>Tiền COD cần trả:</span>
-                            <strong class="text-warning">{{ number_format($return->cod_amount) }}đ</strong>
-                        </div>
-                        @if($return->cod_returned)
-                            <div class="alert alert-success border-success mb-0 mt-2">
-                                <i class="fas fa-check-circle"></i> Đã trả COD lúc {{ $return->cod_returned_at->format('H:i d/m') }}
-                            </div>
-                        @endif
-                    @endif
                 </div>
             </div>
 

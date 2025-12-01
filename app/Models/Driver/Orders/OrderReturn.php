@@ -3,6 +3,7 @@
 namespace App\Models\Driver\Orders;
 
 use App\Models\Customer\Dashboard\Orders\Order;
+use App\Models\Hub\Hub;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -292,6 +293,20 @@ class OrderReturn extends Model
             $this->order->update([
                 'status' => Order::STATUS_RETURNED,
             ]);
+
+             if ($this->return_fee > 0 && $this->order->sender_id && $this->order->post_office_id) {
+            $hub = Hub::where('post_office_id', $this->order->post_office_id)->first();
+            
+            if ($hub) {
+                \App\Models\SenderDebt::createDebt(
+                    $this->order->sender_id,
+                    $hub->user_id,
+                    $this->return_fee,
+                    $this->order_id,
+                    "Phí hoàn hàng đơn #{$this->order_id}"
+                );
+            }
+        }
 
             // Timeline
             $this->addTimelineEvent(

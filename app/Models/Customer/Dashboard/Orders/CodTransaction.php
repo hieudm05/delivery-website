@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Log;
 
 class CodTransaction extends Model
 {
+    protected $appends = ['is_returned_order'];
     protected $fillable = [
         'order_id', 'driver_id', 'sender_id', 'hub_id',
         'cod_amount', 'shipping_fee', 'platform_fee', 'cod_fee',
@@ -610,5 +611,40 @@ class CodTransaction extends Model
             'sender_transfer_by' => $hubAdminId,
             'sender_transfer_time' => now(),
         ]);
+    }
+    /**
+     * Kiểm tra đơn có bị hoàn về không
+     */
+    public function getIsReturnedOrderAttribute()
+    {
+        return $this->order && $this->order->has_return && 
+            $this->order->activeReturn()->exists();
+    }
+
+    /**
+     * Driver có cần nộp tiền không
+     */
+    public function driverMustPayCod()
+    {
+        // Nếu đơn đang hoàn về → Driver KHÔNG cần nộp
+        if ($this->is_returned_order) {
+            return false;
+        }
+        
+        return $this->shipper_payment_status === 'pending';
+    }
+
+    /**
+     * Customer có được nhận COD không
+     */
+    public function customerCanReceiveCod()
+    {
+        // Nếu đơn bị hoàn về → Customer KHÔNG nhận COD
+        if ($this->is_returned_order) {
+            return false;
+        }
+        
+        return $this->sender_receive_amount > 0 && 
+            $this->sender_payment_status === 'pending';
     }
 }

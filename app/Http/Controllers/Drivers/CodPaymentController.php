@@ -22,7 +22,11 @@ class CodPaymentController extends Controller
         $date = $request->get('date');
 
         $query = CodTransaction::with(['order', 'sender', 'hub', 'shipperBankAccount'])
-            ->byDriver($driverId);
+            ->byDriver($driverId)
+            ->whereDoesntHave('order', function($q) {
+            $q->where('has_return', true)
+              ->whereHas('activeReturn');
+        });
 
         switch ($status) {
             case 'pending':
@@ -64,6 +68,10 @@ class CodPaymentController extends Controller
             ->byDriver($driverId)
             ->where('shipper_payment_status', 'pending')
             ->whereDate('created_at', $date)
+            ->whereDoesntHave('order', function($q) {
+            $q->where('has_return', true)
+              ->whereHas('activeReturn');
+             })
             ->latest()
             ->get();
 
@@ -262,6 +270,10 @@ class CodPaymentController extends Controller
         $driverId = Auth::id();
         $transaction = CodTransaction::byDriver($driverId)->findOrFail($id);
 
+        if ($transaction->is_returned_order) {
+            throw new \Exception('Đơn hàng đã bị hoàn về, không cần nộp tiền COD');
+        }
+
         if (!$transaction->canDriverTransfer()) {
             return back()->withErrors(['error' => 'Giao dịch không thể chuyển tiền ở trạng thái hiện tại']);
         }
@@ -319,7 +331,7 @@ class CodPaymentController extends Controller
         Log::error('Transfer error: ' . $e->getMessage());
         return back()->withErrors(['error' => $e->getMessage()])->withInput();
     }
-}
+    }
 
     /**
      * API: Lấy QR code từng giao dịch

@@ -21,7 +21,11 @@ class CustomerCodController extends Controller
         $customerId = Auth::id();
 
         $query = CodTransaction::with(['order', 'driver', 'hub'])
-            ->where('sender_id', $customerId);
+            ->where('sender_id', $customerId)
+            ->whereDoesntHave('order', function($q) {
+            $q->where('has_return', true)
+              ->whereHas('activeReturn');
+        });
 
         // Lọc theo tab
         switch ($tab) {
@@ -153,16 +157,21 @@ class CustomerCodController extends Controller
     public function statistics()
     {
         $userId = Auth::id();
+        $baseQuery = CodTransaction::where('sender_id', $userId)
+        ->whereDoesntHave('order', function($q) {
+            $q->where('has_return', true)
+              ->whereHas('activeReturn');
+        });
 
         $stats = [
             'total_orders' => CodTransaction::where('sender_id', $userId)->count(),
             'total_cod_amount' => CodTransaction::where('sender_id', $userId)->sum('cod_amount'),
 
             // ✅ FIX: Chỉ tính những phí đã thanh toán THỰC SỰ (không bao gồm trừ nợ)
-            'total_fee_paid' => CodTransaction::where('sender_id', $userId)
-                ->whereNotNull('sender_fee_paid_at')
-                ->where('sender_debt_deducted', 0)
-                ->sum('sender_fee_paid'),
+            'total_fee_paid' =>$baseQuery
+            ->whereNotNull('sender_fee_paid_at')
+            ->where('sender_debt_deducted', 0)
+            ->sum('sender_fee_paid'),
 
             'total_debt_deducted' => CodTransaction::where('sender_id', $userId)
                 ->sum('sender_debt_deducted'),
@@ -208,13 +217,13 @@ class CustomerCodController extends Controller
         ];
 
         // Timeline 30 ngày
-        $timeline = CodTransaction::where('sender_id', $userId)
-            ->where('sender_transfer_time', '>=', now()->subDays(30))
-            ->selectRaw('DATE(sender_transfer_time) as date, SUM(sender_receive_amount) as amount')
-            ->groupBy('date')
-            ->orderBy('date')
-            ->pluck('amount', 'date')
-            ->toArray();
+        $timeline = $baseQuery
+        ->where('sender_transfer_time', '>=', now()->subDays(30))
+        ->selectRaw('DATE(sender_transfer_time) as date, SUM(sender_receive_amount) as amount')
+        ->groupBy('date')
+        ->orderBy('date')
+        ->pluck('amount', 'date')
+        ->toArray();
 
         $stats['timeline'] = $timeline;
 
