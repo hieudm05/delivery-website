@@ -5,7 +5,7 @@
 @section('content')
 <div class="container">
     <div class="row justify-content-center">
-        <div class="col-lg-8">
+        <div class="col-lg-10">
             <div class="card shadow-sm border-0">
                 <div class="card-header bg-primary text-white py-3">
                     <div class="d-flex justify-content-between align-items-center">
@@ -20,7 +20,7 @@
 
                 <div class="card-body">
                     <!-- Order Info -->
-                    <div class="alert alert-info border-info mb-4">
+                    <div class="alert border-info mb-4">
                         <div class="row g-3">
                             <div class="col-md-6">
                                 <h6 class="mb-2"><i class="fas fa-box"></i> Thông tin đơn hàng</h6>

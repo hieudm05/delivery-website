@@ -248,24 +248,23 @@
                                 <td class="text-center">
                                     <a href="{{ route('hub.returns.show', $return->id) }}" 
                                        class="btn btn-sm btn-outline-primary" 
-                                       title="Chi tiết">
-                                        <i class="fas fa-eye"></i>
+                                       >
+                                       Chi tiết
                                     </a>
 
                                     @if($return->isPending())
                                         <a href="{{ route('hub.returns.assign-form', $return->id) }}" 
                                            class="btn btn-sm btn-success" 
-                                           title="Phân tài xế">
-                                            <i class="fas fa-user-plus"></i>
+                                           >
+                                           Phân tài xế
                                         </a>
                                     @endif
 
                                     @if(!$return->isCompleted() && !$return->isCancelled())
                                         <button type="button" 
                                                 class="btn btn-sm btn-danger" 
-                                                onclick="cancelReturn({{ $return->id }})"
-                                                title="Hủy hoàn">
-                                            <i class="fas fa-times"></i>
+                                                onclick="cancelReturn({{ $return->id }})">
+                                            Hủy hoàn
                                         </button>
                                     @endif
                                 </td>
