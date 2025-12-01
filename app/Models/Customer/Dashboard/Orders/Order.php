@@ -4,6 +4,7 @@ namespace App\Models\Customer\Dashboard\Orders;
 use App\Models\Driver\Orders\OrderDelivery;
 use App\Models\Driver\Orders\OrderDeliveryImage;
 use App\Models\Driver\Orders\OrderDeliveryIssue;
+use App\Models\Driver\Orders\OrderReturn;
 use App\Models\Hub\Hub;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -1214,6 +1215,23 @@ class Order extends Model
      */
     public function getEstimatedReturnFeeAttribute()
     {
-        return \App\Models\Driver\Orders\OrderReturn::calculateReturnFee($this);
+        return OrderReturn::calculateReturnFee($this);
+    }
+    public function deliveryAttempts()
+    {
+        return $this->hasMany(OrderDelivery::class, 'order_id')
+            ->orderBy('attempt_number', 'desc');
+    }
+
+    public function latestDelivery()
+    {
+        return $this->hasOne(OrderDelivery::class, 'order_id')
+            ->latestOfMany('attempt_number');
+    }
+
+    public function successfulDelivery()
+    {
+        return $this->hasOne(OrderDelivery::class, 'order_id')
+            ->where('is_successful', true);
     }
 }
