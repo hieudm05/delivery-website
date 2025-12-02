@@ -122,7 +122,7 @@
 
             <div class="card-body">
                 <!-- ==================== TABS ==================== -->
-               <ul class="nav nav-tabs mb-4 border-bottom-0" role="tablist">
+                <ul class="nav nav-tabs mb-4 border-bottom-0" role="tablist">
                     <!-- Tab 1: Tất cả -->
                     <li class="nav-item">
                         <a class="nav-link {{ $tab === 'all' ? 'active' : '' }}" href="?tab=all">
@@ -257,45 +257,56 @@
                                         </td>
 
                                         <!-- Cột 5: Trạng thái -->
-                                       <td>
+                                        <td>
                                             <div class="d-flex flex-column gap-1">
-                                                <!-- Status Phí -->
-                                                @if($trans->sender_fee_paid > 0)
-                                                    @if($trans->cod_amount > 0)
-                                                        <!-- ✅ Có COD: Đã khấu trừ -->
-                                                        <span class="badge bg-success">
-                                                            <i class="bi bi-check-circle"></i> Phí: ✓ Đã khấu trừ
-                                                        </span>
-                                                    @elseif($trans->sender_fee_paid_at)
-                                                        <!-- ✅ Không COD: Đã thanh toán -->
-                                                        <span class="badge bg-success">
-                                                            <i class="bi bi-check-circle"></i> Phí: ✓ Đã thanh toán
-                                                        </span>
+                                                @if ($trans->is_returned_order)
+                                                    <div class="alert alert-warning border-0 mb-2">
+                                                        <i class="bi bi-exclamation-triangle"></i>
+                                                        <strong>Đơn đã hoàn về</strong><br>
+                                                        <small>Bạn không nhận được tiền COD. Phí hoàn hàng
+                                                            {{ number_format($trans->return_fee ?? 0) }}₫ đã được cộng vào
+                                                            nợ.</small>
+                                                    </div>
+                                                @else
+                                                    <!-- Status Phí -->
+                                                    @if ($trans->sender_fee_paid > 0)
+                                                        @if ($trans->cod_amount > 0)
+                                                            <!-- ✅ Có COD: Đã khấu trừ -->
+                                                            <span class="badge bg-success">
+                                                                <i class="bi bi-check-circle"></i> Phí: ✓ Đã khấu trừ
+                                                            </span>
+                                                        @elseif($trans->sender_fee_paid_at)
+                                                            <!-- ✅ Không COD: Đã thanh toán -->
+                                                            <span class="badge bg-success">
+                                                                <i class="bi bi-check-circle"></i> Phí: ✓ Đã thanh toán
+                                                            </span>
+                                                        @else
+                                                            <!-- ❌ Không COD: Chờ thanh toán -->
+                                                            <span class="badge bg-warning text-dark">
+                                                                <i class="bi bi-clock"></i> Phí: ⏳ Chờ thanh toán
+                                                            </span>
+                                                        @endif
                                                     @else
-                                                        <!-- ❌ Không COD: Chờ thanh toán -->
-                                                        <span class="badge bg-warning text-dark">
-                                                            <i class="bi bi-clock"></i> Phí: ⏳ Chờ thanh toán
+                                                        <span class="badge bg-secondary">
+                                                            <i class="bi bi-dash-circle"></i> Phí: Không có
                                                         </span>
                                                     @endif
-                                                @else
-                                                    <span class="badge bg-secondary">
-                                                        <i class="bi bi-dash-circle"></i> Phí: Không có
-                                                    </span>
-                                                @endif
 
-                                                <!-- Status COD -->
-                                                @if($trans->sender_payment_status === 'pending')
-                                                    <span class="badge bg-info">
-                                                        <i class="bi bi-hourglass-split"></i> COD: ⏳ Chờ nhận
-                                                    </span>
-                                                @elseif($trans->sender_payment_status === 'completed')
-                                                    <span class="badge bg-success">
-                                                        <i class="bi bi-check-circle"></i> COD: ✓ Đã nhận
-                                                    </span>
-                                                @else
-                                                    <span class="badge bg-secondary">
-                                                        <i class="bi bi-question-circle"></i> COD: {{ ucfirst($trans->sender_payment_status) }}
-                                                    </span>
+                                                    <!-- Status COD -->
+                                                    @if ($trans->sender_payment_status === 'pending')
+                                                        <span class="badge bg-info">
+                                                            <i class="bi bi-hourglass-split"></i> COD: ⏳ Chờ nhận
+                                                        </span>
+                                                    @elseif($trans->sender_payment_status === 'completed')
+                                                        <span class="badge bg-success">
+                                                            <i class="bi bi-check-circle"></i> COD: ✓ Đã nhận
+                                                        </span>
+                                                    @else
+                                                        <span class="badge bg-secondary">
+                                                            <i class="bi bi-question-circle"></i> COD:
+                                                            {{ ucfirst($trans->sender_payment_status) }}
+                                                        </span>
+                                                    @endif
                                                 @endif
                                             </div>
                                         </td>
@@ -310,11 +321,10 @@
                                                 </a>
 
                                                 <!-- Nút Thanh toán phí -->
-                                               @if($trans->sender_fee_paid > 0 && $trans->cod_amount == 0 && !$trans->sender_fee_paid_at)
-                                                    <button type="button"
-                                                            class="btn btn-sm btn-outline-danger"
-                                                            onclick="openPayFeeModal({{ $trans->id }}, {{ $trans->order_id }}, {{ $trans->sender_fee_paid }}, '{{ $trans->payer_shipping }}')"
-                                                            title="Thanh toán phí">
+                                                @if ($trans->sender_fee_paid > 0 && $trans->cod_amount == 0 && !$trans->sender_fee_paid_at)
+                                                    <button type="button" class="btn btn-sm btn-outline-danger"
+                                                        onclick="openPayFeeModal({{ $trans->id }}, {{ $trans->order_id }}, {{ $trans->sender_fee_paid }}, '{{ $trans->payer_shipping }}')"
+                                                        title="Thanh toán phí">
                                                         <i class="bi bi-credit-card"></i>
                                                     </button>
                                                 @endif

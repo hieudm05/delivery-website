@@ -135,7 +135,6 @@
                                 <th>Lý do hoàn</th>
                                 <th>Trạng thái</th>
                                 <th>Phí hoàn</th>
-                                <th>COD</th>
                                 <th>Khởi tạo</th>
                                 <th class="text-center">Thao tác</th>
                             </tr>
@@ -182,16 +181,6 @@
                                 </td>
                                 <td>
                                     <strong class="text-danger">{{ number_format($return->return_fee) }}đ</strong>
-                                </td>
-                                <td>
-                                    @if($return->cod_amount > 0)
-                                        <span class="text-warning fw-bold">{{ number_format($return->cod_amount) }}đ</span>
-                                        @if($return->cod_returned)
-                                            <br><small class="text-success"><i class="fas fa-check"></i> Đã trả</small>
-                                        @endif
-                                    @else
-                                        <span class="text-muted">-</span>
-                                    @endif
                                 </td>
                                 <td>
                                     <small>{{ $return->initiated_at->format('H:i d/m') }}</small>

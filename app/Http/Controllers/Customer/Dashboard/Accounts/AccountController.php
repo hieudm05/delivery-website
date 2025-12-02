@@ -15,9 +15,19 @@ class AccountController extends Controller
         $account = User::with('userInfo')->find(Auth::id());
         return view('customer.dashboard.account.index', compact('account'));
     }
-      public function update(Request $request)
+    
+    public function update(Request $request)
     {
         try {
+            // Validate số điện thoại
+            $request->validate([
+                'phone' => 'required|regex:/^[0-9]{10,11}$/|unique:users,phone,' . Auth::id(),
+            ], [
+                'phone.required' => 'Số điện thoại là bắt buộc',
+                'phone.regex' => 'Số điện thoại phải từ 10-11 chữ số',
+                'phone.unique' => 'Số điện thoại đã được sử dụng',
+            ]);
+
             $provinceCode = $request->input('province_code');
             $districtCode = $request->input('district_code');
             $wardCode = $request->input('ward_code');
@@ -41,6 +51,7 @@ class AccountController extends Controller
                 $province['name'] ?? null,
             ]);
             $fullAddress = implode(', ', $parts);
+            
             $dateOfBirth = $request->input('date_of_birth');
             $dateOfBirthFormatted = null;
             if ($dateOfBirth) {
@@ -50,15 +61,19 @@ class AccountController extends Controller
                     $dateOfBirthFormatted = null;
                 }
             }
-            // dd($dateOfBirthFormatted);
+
+            // Cập nhật số điện thoại trong bảng users
+            $user = Auth::user();
+            $user->phone = $request->input('phone');
+            $user->save();
+
+            // Cập nhật thông tin khác
             UserInfo::updateOrCreate(
                 ['user_id' => Auth::id()],
                 [
                     'national_id'   => $request->input('national_id'),
                     'tax_code'      => $request->input('tax_code'),
-                    'date_of_birth' => $request->input('date_of_birth')
-                        ? $dateOfBirthFormatted
-                        : null,
+                    'date_of_birth' => $dateOfBirthFormatted,
                     'full_address'  => $fullAddress,
                     'address_detail' => $address,
                     'latitude'      => $request->input('latitude'),
@@ -68,14 +83,14 @@ class AccountController extends Controller
                     'ward_code'     => $wardCode,
                 ]
             );
-            // ===== XỬ LÝ ẢNH ĐẠI DIỆN =====
+
+            // Xử lý ảnh đại diện
             if ($request->hasFile('avatar')) {
                 $file = $request->file('avatar');
                 $filename = uniqid() . '.' . $file->getClientOriginalExtension();
                 $file->storeAs('avatars', $filename, 'public');
 
                 // Xóa ảnh cũ nếu có
-                $user = Auth::user();
                 if ($user->avatar_url && Storage::disk('public')->exists(str_replace('/storage/', '', $user->avatar_url))) {
                     Storage::disk('public')->delete(str_replace('/storage/', '', $user->avatar_url));
                 }
@@ -84,11 +99,12 @@ class AccountController extends Controller
                 $user->avatar_url = 'avatars/' . $filename;
                 $user->save();
             }
+
             return back()->with('success', 'Cập nhật thông tin thành công!');
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return back()->withErrors($e->errors())->withInput();
         } catch (\Throwable $th) {
-            // Trả về thông báo cho người dùng
             return back()->with('error', 'Đã xảy ra lỗi khi cập nhật thông tin. Vui lòng thử lại sau.');
         }
     }
-    
 }
