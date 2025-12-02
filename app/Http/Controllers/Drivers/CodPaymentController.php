@@ -21,12 +21,16 @@ class CodPaymentController extends Controller
         $status = $request->get('status', 'all');
         $date = $request->get('date');
 
-        $query = CodTransaction::with(['order', 'sender', 'hub', 'shipperBankAccount'])
+        // ✅ Base query với loại bỏ đơn hoàn về
+        $baseQuery = CodTransaction::with(['order', 'sender', 'hub', 'shipperBankAccount'])
             ->byDriver($driverId)
             ->whereDoesntHave('order', function($q) {
-            $q->where('has_return', true)
-              ->whereHas('activeReturn');
-        });
+                $q->where('has_return', true)
+                  ->whereHas('activeReturn');
+            });
+
+        // Clone cho pagination
+        $query = clone $baseQuery;
 
         switch ($status) {
             case 'pending':
@@ -46,11 +50,29 @@ class CodPaymentController extends Controller
 
         $transactions = $query->latest()->paginate(15);
 
+        // cũng phải loại bỏ đơn hoàn về
+        $statsBaseQuery = CodTransaction::byDriver($driverId)
+            ->whereDoesntHave('order', function($q) {
+                $q->where('has_return', true)
+                  ->whereHas('activeReturn');
+            });
+
         $stats = [
-            'total_pending' => CodTransaction::byDriver($driverId)->where('shipper_payment_status', 'pending')->sum('total_collected'),
-            'total_transferred' => CodTransaction::byDriver($driverId)->where('shipper_payment_status', 'transferred')->sum('total_collected'),
-            'total_confirmed' => CodTransaction::byDriver($driverId)->where('shipper_payment_status', 'confirmed')->sum('total_collected'),
-            'count_pending' => CodTransaction::byDriver($driverId)->where('shipper_payment_status', 'pending')->count(),
+            'total_pending' => (clone $statsBaseQuery)
+                ->where('shipper_payment_status', 'pending')
+                ->sum('total_collected'),
+                
+            'total_transferred' => (clone $statsBaseQuery)
+                ->where('shipper_payment_status', 'transferred')
+                ->sum('total_collected'),
+                
+            'total_confirmed' => (clone $statsBaseQuery)
+                ->where('shipper_payment_status', 'confirmed')
+                ->sum('total_collected'),
+                
+            'count_pending' => (clone $statsBaseQuery)
+                ->where('shipper_payment_status', 'pending')
+                ->count(),
         ];
 
         return view('driver.cod.index', compact('transactions', 'status', 'stats', 'date'));
@@ -69,9 +91,9 @@ class CodPaymentController extends Controller
             ->where('shipper_payment_status', 'pending')
             ->whereDate('created_at', $date)
             ->whereDoesntHave('order', function($q) {
-            $q->where('has_return', true)
-              ->whereHas('activeReturn');
-             })
+                $q->where('has_return', true)
+                  ->whereHas('activeReturn');
+            })
             ->latest()
             ->get();
 
@@ -86,7 +108,6 @@ class CodPaymentController extends Controller
             ->verified()
             ->get();
 
-        // 🔥 FIX: Load Hub Bank Account info
         $hubBankAccount = null;
         $firstTransaction = $pendingTransactions->first();
         if ($firstTransaction && $firstTransaction->hub_id) {
@@ -110,100 +131,104 @@ class CodPaymentController extends Controller
      * Nộp tiền gộp
      */
     public function transferByDate(Request $request)
-{
-    $driverId = Auth::id();
-    $date = $request->get('date');
-    $method = $request->get('method');
-    
-    $rules = [
-        'date' => 'required|date',
-        'method' => 'required|in:bank_transfer,cash,wallet',
-        'note' => 'nullable|string|max:500',
-    ];
-
-    $messages = [
-        'date.required' => 'Vui lòng chọn ngày',
-        'method.required' => 'Vui lòng chọn phương thức thanh toán',
-    ];
-
-    // ✅ Chỉ validate proof khi cần
-    if (in_array($method, ['bank_transfer', 'wallet'])) {
-        $rules['proof'] = 'required|image|mimes:jpeg,png,jpg,gif|max:5120';
-        $messages['proof.required'] = 'Vui lòng tải lên ảnh chứng từ';
-        $messages['proof.image'] = 'File phải là ảnh';
-        $messages['proof.mimes'] = 'Chỉ chấp nhận ảnh PNG, JPG, JPEG hoặc GIF';
-        $messages['proof.max'] = 'Ảnh không được lớn hơn 5MB';
-    }
-
-    if ($method === 'bank_transfer') {
-        $rules['bank_account_id'] = 'required|exists:bank_accounts,id';
-        $messages['bank_account_id.required'] = 'Vui lòng chọn tài khoản chuyển khoản';
-    }
-
-    $request->validate($rules, $messages);
-
-    DB::beginTransaction();
-    try {
-        $transactions = CodTransaction::byDriver($driverId)
-            ->where('shipper_payment_status', 'pending')
-            ->whereDate('created_at', $date)
-            ->get();
-
-        if ($transactions->isEmpty()) {
-            throw new \Exception('Không có giao dịch chờ nộp trong ngày này');
-        }
-
-        $proofPath = null;
+    {
+        $driverId = Auth::id();
+        $date = $request->get('date');
+        $method = $request->get('method');
         
-        // ✅ Xử lý file upload
-        if ($request->hasFile('proof')) {
-            $file = $request->file('proof');
+        $rules = [
+            'date' => 'required|date',
+            'method' => 'required|in:bank_transfer,cash,wallet',
+            'note' => 'nullable|string|max:500',
+        ];
+
+        $messages = [
+            'date.required' => 'Vui lòng chọn ngày',
+            'method.required' => 'Vui lòng chọn phương thức thanh toán',
+        ];
+
+        if (in_array($method, ['bank_transfer', 'wallet'])) {
+            $rules['proof'] = 'required|image|mimes:jpeg,png,jpg,gif|max:5120';
+            $messages['proof.required'] = 'Vui lòng tải lên ảnh chứng từ';
+            $messages['proof.image'] = 'File phải là ảnh';
+            $messages['proof.mimes'] = 'Chỉ chấp nhận ảnh PNG, JPG, JPEG hoặc GIF';
+            $messages['proof.max'] = 'Ảnh không được lớn hơn 5MB';
+        }
+
+        if ($method === 'bank_transfer') {
+            $rules['bank_account_id'] = 'required|exists:bank_accounts,id';
+            $messages['bank_account_id.required'] = 'Vui lòng chọn tài khoản chuyển khoản';
+        }
+
+        $request->validate($rules, $messages);
+
+        DB::beginTransaction();
+        try {
+            // ✅ FIX: Lọc thêm đơn hoàn về khi lấy transactions
+            $transactions = CodTransaction::byDriver($driverId)
+                ->where('shipper_payment_status', 'pending')
+                ->whereDate('created_at', $date)
+                // ✅ THÊM: Loại bỏ đơn hoàn về
+                ->whereDoesntHave('order', function($q) {
+                    $q->where('has_return', true)
+                      ->whereHas('activeReturn');
+                })
+                ->get();
+
+            if ($transactions->isEmpty()) {
+                throw new \Exception('Không có giao dịch chờ nộp trong ngày này');
+            }
+
+            $proofPath = null;
             
-            if ($file->isValid()) {
-                $proofPath = $file->store('cod_proofs/driver', 'public');
+            if ($request->hasFile('proof')) {
+                $file = $request->file('proof');
                 
-                if (!$proofPath) {
-                    throw new \Exception('Không thể lưu ảnh chứng từ. Kiểm tra quyền thư mục storage');
+                if ($file->isValid()) {
+                    $proofPath = $file->store('cod_proofs/driver', 'public');
+                    
+                    if (!$proofPath) {
+                        throw new \Exception('Không thể lưu ảnh chứng từ. Kiểm tra quyền thư mục storage');
+                    }
+                } else {
+                    throw new \Exception('File không hợp lệ: ' . $file->getErrorMessage());
                 }
-            } else {
-                throw new \Exception('File không hợp lệ: ' . $file->getErrorMessage());
+            } elseif (in_array($method, ['bank_transfer', 'wallet'])) {
+                throw new \Exception('Vui lòng tải lên ảnh chứng từ');
             }
-        } elseif (in_array($method, ['bank_transfer', 'wallet'])) {
-            throw new \Exception('Vui lòng tải lên ảnh chứng từ');
-        }
 
-        if ($request->bank_account_id) {
-            $bankAccount = BankAccount::where('id', $request->bank_account_id)
-                ->where('user_id', $driverId)
-                ->first();
-            
-            if (!$bankAccount) {
-                throw new \Exception('Tài khoản ngân hàng không hợp lệ');
+            if ($request->bank_account_id) {
+                $bankAccount = BankAccount::where('id', $request->bank_account_id)
+                    ->where('user_id', $driverId)
+                    ->first();
+                
+                if (!$bankAccount) {
+                    throw new \Exception('Tài khoản ngân hàng không hợp lệ');
+                }
             }
+
+            foreach ($transactions as $transaction) {
+                $transaction->update([
+                    'shipper_payment_status' => 'transferred',
+                    'shipper_transfer_method' => $method,
+                    'shipper_bank_account_id' => $request->bank_account_id ?? null,
+                    'shipper_transfer_proof' => $proofPath,
+                    'shipper_note' => $request->note,
+                    'shipper_transfer_time' => now(),
+                ]);
+            }
+
+            DB::commit();
+
+            return redirect()->route('driver.cod.index', ['status' => 'transferred'])
+                ->with('success', "Đã gửi xác nhận nộp {$transactions->count()} giao dịch. Chờ Hub xác nhận!");
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Transfer by date error: ' . $e->getMessage());
+            return back()->withErrors(['error' => $e->getMessage()])->withInput();
         }
-
-        foreach ($transactions as $transaction) {
-            $transaction->update([
-                'shipper_payment_status' => 'transferred',
-                'shipper_transfer_method' => $method,
-                'shipper_bank_account_id' => $request->bank_account_id ?? null,
-                'shipper_transfer_proof' => $proofPath,
-                'shipper_note' => $request->note,
-                'shipper_transfer_time' => now(),
-            ]);
-        }
-
-        DB::commit();
-
-        return redirect()->route('driver.cod.index', ['status' => 'transferred'])
-            ->with('success', "Đã gửi xác nhận nộp {$transactions->count()} giao dịch. Chờ Hub xác nhận!");
-
-    } catch (\Exception $e) {
-        DB::rollBack();
-        Log::error('Transfer by date error: ' . $e->getMessage());
-        return back()->withErrors(['error' => $e->getMessage()])->withInput();
     }
-}
 
     /**
      * Chi tiết giao dịch

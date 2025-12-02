@@ -104,12 +104,12 @@
                                             <span>Phí hoàn hàng:</span>
                                             <strong class="text-danger">{{ number_format($return->return_fee) }}đ</strong>
                                         </div>
-                                        @if($return->cod_amount > 0)
+                                        {{-- @if($return->cod_amount > 0)
                                             <div class="d-flex justify-content-between">
                                                 <span>Tiền COD cần trả:</span>
                                                 <strong class="text-warning">{{ number_format($return->cod_amount) }}đ</strong>
                                             </div>
-                                        @endif
+                                        @endif --}}
                                     </div>
                                 </div>
 

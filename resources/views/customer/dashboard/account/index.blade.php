@@ -5,93 +5,120 @@
     <div class="card border shadow-sm">
         <div class="card-body">
             <h5 class="card-title mb-4 text-uppercase fw-bold">Thông tin tài khoản</h5>
+            
+            @if(session('success'))
+                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                    {{ session('success') }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            @endif
+
+            @if(session('error'))
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    {{ session('error') }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            @endif
+
+            @if($errors->any())
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    <ul class="mb-0">
+                        @foreach($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            @endif
+
             <form method="POST" action="{{ route('customer.account.update') }}" enctype="multipart/form-data">
                 @csrf
                 <input type="hidden" name="id" value="{{ $account->id }}">
                 <input type="hidden" id="latitude" name="latitude">
                 <input type="hidden" id="longitude" name="longitude">
-              <div class="row">
-              <div class="mb-3 col-md-4 text-center">
-                <div class="mt-2 d-flex flex-column align-items-center">
-                   <img src="{{ asset($account->avatar_url ? 'storage/' . $account->avatar_url : 'images/default-avatar.png') }}" class="rounded-circle" width="100" height="100" alt="Avatar" id="avatar-preview">
-                    <label class="btn btn-secondary btn-sm mb-0 mt-2">
-                        Thay đổi ảnh
-                        <input type="file" id="avatar-input" name="avatar" accept="image/*" class="d-none" onchange="previewAvatar(this)">
-                    </label>
-                </div>
-            </div>
-                  <div class="mb-3 col-md-8">
-                    <label class="form-label">Tên khách hàng</label>
-                    <input type="text" class="form-control "  value="{{$account->full_name}}" readonly>
-                </div>
-              </div>
-                <div class="mb-3 row g-2 align-items-center">
-                    <div class="col">
-                        <label class="form-label">Email</label>
-                        <input type="email" class="form-control" value="{{$account->email ? $account->email : '' }}" readonly>
-                    </div>
-                    <div class="col-auto">
-                        <button type="button" class="btn btn-primary">Thay đổi</button>
-                    </div>
-                </div>
-                <div class="mb-3 row g-2 align-items-center">
-                    <div class="col">
-                        <label class="form-label">Số điện thoại</label>
-                        <input type="text" class="form-control" value="{{$account->phone ? $account->phone : ''}}" readonly>
-                    </div>
-                    <div class="col-auto">
-                        <button type="button" class="btn btn-primary">Thay đổi</button>
-                    </div>
-                </div>
-               <div class="row  g-2 mb-3">
-                 <div class="col-md-4">
-                    <label class="form-label">Ngày sinh</label>
-                    <div class="input-group">
-                        <span class="input-group-text"><i class="bi bi-calendar"></i></span>
-                       <input
-                            type="text"
-                            id="date-of-birth"
-                            name="date_of_birth"
-                            class="form-control"
-                            value="{{ old('date_of_birth', optional($account->userInfo)->date_of_birth ? \Carbon\Carbon::parse($account->userInfo->date_of_birth)->format('d/m/Y') : '') }}"
-                            placeholder="dd/mm/yyyy"
-                            autocomplete="off"
-                            required
-                        >
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">Mã số thuế</label>
-                    <input type="text" name="tax_code" value="{{ old('tax_code', $account->userInfo->tax_code ?? '') }}" class="form-control">
-                </div>
-                 <div class="col-md-4">
-                    <label class="form-label">Chứng minh thư</label>
-                    <input type="text" name="national_id" value="{{ old('national_id', $account->userInfo->national_id ?? '') }}" class="form-control">
-                </div>
-               </div>
-                <div class="mb-3">
-                        <label class="form-label">Địa chỉ <span class="text-danger">*</span></label>
-                        <div class="row g-2 mb-2">
-                            <div class="col-md-3">
-                                <select class="form-select" id="province-select" name="province_code" required>
-                                    <option value="">Tỉnh/Thành phố</option>
-                                </select>
-                            </div>
-                            <div class="col-md-3">
-                                <select class="form-select" id="district-select" name="district_code" required disabled>
-                                    <option value="">Quận/Huyện</option>
-                                </select>
-                            </div>
-                            <div class="col-md-3">
-                                <select class="form-select" id="ward-select" name="ward_code" required disabled>
-                                    <option value="">Phường/Xã</option>
-                                </select>
-                            </div>
-                            <div class="col-md-3">
-                                <input type="text" id="address-detail" name="address_detail" class="form-control" placeholder="Số nhà, tên đường..." required>
-                            </div>
+                
+                <div class="row">
+                    <div class="mb-3 col-md-4 text-center">
+                        <div class="mt-2 d-flex flex-column align-items-center">
+                            <img src="{{ asset($account->avatar_url ? 'storage/' . $account->avatar_url : 'images/default-avatar.png') }}" class="rounded-circle" width="100" height="100" alt="Avatar" id="avatar-preview">
+                            <label class="btn btn-secondary btn-sm mb-0 mt-2">
+                                Thay đổi ảnh
+                                <input type="file" id="avatar-input" name="avatar" accept="image/*" class="d-none" onchange="previewAvatar(this)">
+                            </label>
                         </div>
-                        <div class="form-text text-muted" id="full-address"></div>
+                    </div>
+                    
+                    <div class="mb-3 col-md-8">
+                        <label class="form-label">Tên khách hàng</label>
+                        <input type="text" class="form-control" value="{{$account->full_name}}" readonly>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Email</label>
+                    <input type="email" class="form-control" value="{{$account->email ? $account->email : '' }}" readonly>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Số điện thoại <span class="text-danger">*</span></label>
+                    <input type="text" name="phone" class="form-control @error('phone') is-invalid @enderror" value="{{ old('phone', $account->phone) }}" placeholder="Nhập số điện thoại" required>
+                    @error('phone')
+                        <div class="invalid-feedback">{{ $message }}</div>
+                    @enderror
+                </div>
+
+                <div class="row g-2 mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Ngày sinh</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-calendar"></i></span>
+                            <input
+                                type="text"
+                                id="date-of-birth"
+                                name="date_of_birth"
+                                class="form-control"
+                                value="{{ old('date_of_birth', optional($account->userInfo)->date_of_birth ? \Carbon\Carbon::parse($account->userInfo->date_of_birth)->format('d/m/Y') : '') }}"
+                                placeholder="dd/mm/yyyy"
+                                autocomplete="off"
+                                required
+                            >
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <label class="form-label">Mã số thuế</label>
+                        <input type="text" name="tax_code" value="{{ old('tax_code', $account->userInfo->tax_code ?? '') }}" class="form-control">
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <label class="form-label">Chứng minh thư</label>
+                        <input type="text" name="national_id" value="{{ old('national_id', $account->userInfo->national_id ?? '') }}" class="form-control">
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Địa chỉ <span class="text-danger">*</span></label>
+                    <div class="row g-2 mb-2">
+                        <div class="col-md-3">
+                            <select class="form-select" id="province-select" name="province_code" required>
+                                <option value="">Tỉnh/Thành phố</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select class="form-select" id="district-select" name="district_code" required disabled>
+                                <option value="">Quận/Huyện</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select class="form-select" id="ward-select" name="ward_code" required disabled>
+                                <option value="">Phường/Xã</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <input type="text" id="address-detail" name="address_detail" class="form-control" placeholder="Số nhà, tên đường..." required>
+                        </div>
+                    </div>
+                    <div class="form-text text-muted" id="full-address"></div>
                 </div>
              
                 <button type="submit" class="btn btn-success">Lưu thay đổi</button>
