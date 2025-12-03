@@ -19,7 +19,7 @@
                        value="{{ $startDate->format('Y-m-d') }}">
                 <input type="date" name="end_date" class="form-control" 
                        value="{{ $endDate->format('Y-m-d') }}">
-                <button type="submit" class="btn btn-primary">
+                <button type="submit" class="btn btn-primary" style="width: 100px">
                     <i class="fas fa-filter"></i> Lọc
                 </button>
             </form>

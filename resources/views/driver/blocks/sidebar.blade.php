@@ -46,12 +46,6 @@
         </a>
     </li>
 
-    <li class="{{ request()->is('driver/wallet*') ? 'active' : '' }}">
-        <a href="#">
-            <i class="fas fa-wallet"></i>
-            <span class="menu-text">Thu Nhập</span>
-        </a>
-    </li>
 
     <li class="{{ request()->is('logout') ? 'active' : '' }}">
         <a href="{{ url('logout') }}">
