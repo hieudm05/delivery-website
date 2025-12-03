@@ -319,7 +319,8 @@ class CodTransaction extends Model
             'sender_payment_status' => $senderReceiveAmount > 0 ? 'not_ready' : 'not_applicable',
             'hub_system_status' => 'not_ready',
             
-            'sender_fee_paid' => $payer === 'sender' ? $shippingFee + $platformFee + $codFee : $platformFee + $codFee,
+            // 'sender_fee_paid' => $payer === 'sender' ? $shippingFee + $platformFee + $codFee : $platformFee + $codFee,
+            'sender_fee_paid' => $payer === 'sender' ? $shippingFee  + $codFee :  $codFee,
             'recipient_fee_paid' => $payer === 'recipient' ? $shippingFee : 0,
             
             'created_by' => Auth::id() ?? $senderId,

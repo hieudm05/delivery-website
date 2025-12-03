@@ -229,7 +229,7 @@
                                     </div>
                                 </div>
 
-                                <!-- Lưu ý về COD -->
+                                {{-- <!-- Lưu ý về COD -->
                                 @if($return->cod_amount > 0)
                                 <div class="alert alert-info border-info mb-3">
                                     <h6 class="mb-2"><i class="fas fa-info-circle"></i> Lưu ý về COD</h6>
@@ -283,7 +283,7 @@
                                         </div>
                                     </div>
                                 </div>
-                                @endif
+                                @endif --}}
 
                                 <!-- Ảnh chứng từ -->
                                 <div class="card border-primary shadow-sm mb-3">

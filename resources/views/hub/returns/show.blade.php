@@ -234,7 +234,7 @@
                         <div class="col-md-6 mb-3">
                             <label class="text-muted small">Tài xế hoàn hàng</label>
                             <div class="fw-bold">
-                                <i class="fas fa-user me-2"></i>{{ $return->driver->name }}
+                                <i class="fas fa-user me-2"></i>{{ $return->driver->full_name }}
                             </div>
                             <small class="text-muted">{{ $return->driver->phone }}</small>
                         </div>

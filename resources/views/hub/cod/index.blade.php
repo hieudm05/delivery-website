@@ -18,9 +18,6 @@
             <a href="{{ route('hub.cod.statistics') }}" class="btn btn-info">
                 <i class="bi bi-graph-up"></i> Thống kê
             </a>
-            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#batchSystemPaymentModal">
-                <i class="bi bi-send-check"></i> Nộp hệ thống
-            </button>
         </div>
     </div>
 

@@ -55,6 +55,12 @@
       </a>
     </li>
     <li class="nav-item">
+      <a class="nav-link {{request()->routeIs('customer.income.index') ? 'active bg-gradient-dark text-white' : 'text-dark'}}" href="{{ route('customer.income.index') }}">
+        <i class="material-symbols-rounded opacity-5">payments</i>
+        <span class="nav-link-text ms-1">Thu chi</span>
+      </a>
+    </li>
+    <li class="nav-item">
       <a class="nav-link text-dark" href="{{ route('home') }}">
         <i class="material-symbols-rounded opacity-5">home</i>
         <span class="nav-link-text ms-1">Về trang client</span>
