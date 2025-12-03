@@ -418,6 +418,12 @@ Route::prefix('hub')
     ->middleware(['auth', 'role:hub'])
     ->group(function () {
         Route::get('/', [HubController::class, 'index'])->name('index');
+         // Dashboard cashflow (có thể dùng route chung /income hoặc riêng này)
+        Route::get('/', [IncomeController::class, 'index'])->name('income.index');
+        // Alias: Cashflow dashboard (giữ tương thích với code cũ)
+        Route::get('/cashflow', [IncomeController::class, 'hubCashflow'])->name('income.cashflow');
+        // Chi tiết giao dịch theo loại
+        Route::get('/transactions', [IncomeController::class, 'hubTransactionDetail'])->name('income.transactions');
         // Duyệt đơn
         Route::get('approval', [HubController::class, 'approval'])->name('approval');
 
@@ -571,12 +577,6 @@ Route::prefix('hub')
                 // API: Lấy danh sách tài xế
                 Route::get('/{id}/available-drivers', 'getAvailableDriversApi')->name('available-drivers');
             });
-        // Dashboard cashflow (có thể dùng route chung /income hoặc riêng này)
-        Route::get('/', [IncomeController::class, 'index'])->name('index');
-        // Alias: Cashflow dashboard (giữ tương thích với code cũ)
-        Route::get('/cashflow', [IncomeController::class, 'hubCashflow'])->name('cashflow');
-        // Chi tiết giao dịch theo loại
-        Route::get('/transactions', [IncomeController::class, 'hubTransactionDetail'])->name('transactions');
     });
 
 // PUBLIC TRACKING ROUTES - Không cần auth
