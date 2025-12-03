@@ -63,7 +63,7 @@ class OrderDeliveryIssue extends Model
 
     public function resolver()
     {
-        return $this->belongsTo(\App\Models\User::class, 'resolved_by');
+        return $this->belongsTo(User::class, 'resolved_by');
     }
 
     /**

@@ -26,9 +26,19 @@ use App\Http\Controllers\Hub\HubController;
 use App\Http\Controllers\Hub\HubIssueManagementController;
 use App\Http\Controllers\Hub\HubReturnController;
 use App\Http\Controllers\Hub\Staff\HubDriverController;
+use App\Http\Controllers\IncomeController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
+
+Route::middleware(['auth'])->prefix('income')->name('income.')->group(function () {
+    // Dashboard chính - Tự động detect role và render view phù hợp
+    Route::get('/', [IncomeController::class, 'index'])->name('index');
+    // API: Lấy dữ liệu thu nhập dạng JSON
+    Route::get('/data', [IncomeController::class, 'getIncomeData'])->name('data');
+    // Export báo cáo thu nhập
+    Route::get('/export', [IncomeController::class, 'exportIncome'])->name('export');
+});
 // Trang chủ
 Route::get('/', function () {
     return view('customer.index');
@@ -65,7 +75,13 @@ Route::prefix('admin')
     ->middleware(['auth', 'role:admin'])
     ->name('admin.')
     ->group(function () {
-        Route::get('/', [AdminController::class, 'index'])->name('index');
+        // Route::get('/', [AdminController::class, 'index'])->name('index');
+         // Dashboard hệ thống (có thể dùng route chung /income hoặc riêng này)
+        Route::get('/', [IncomeController::class, 'index'])->name('index');
+        // Alias: System overview (giữ tương thích với code cũ)
+        Route::get('/system', [IncomeController::class, 'adminSystemOverview'])->name('income.system');
+        // Chi tiết platform fee
+        Route::get('/platform-fee', [IncomeController::class, 'adminPlatformFeeDetail'])->name('income.platform-fee');
         // Duyệt hồ sơ tài xế
         Route::get('/driver', [AdminDriverController::class, 'index'])->name('driver.index');
         Route::get('/driver/{id}', [AdminDriverController::class, 'show'])->name('driver.show');
@@ -144,7 +160,7 @@ Route::prefix('driver')
     ->middleware(['auth', 'role:driver'])
     ->name('driver.')
     ->group(function () {
-        Route::get('/', [DriverController::class, 'index'])->name('index');
+        // Route::get('/', [DriverController::class, 'index'])->name('index');
         //Danh sách đơn cần lấy
         Route::prefix('pickup')
             ->name('pickup.')
@@ -283,8 +299,13 @@ Route::prefix('driver')
                 // API: Timeline
                 Route::get('/{id}/timeline', 'timeline')->name('timeline');
             });
-
-    });
+         // Dashboard thu nhập driver (có thể dùng route chung /income hoặc riêng này)
+        Route::get('/', [IncomeController::class, 'index'])->name('income.index');
+        // Chi tiết commission
+        Route::get('/commission', [IncomeController::class, 'driverCommissionDetail'])->name('income.commission');
+        // Lịch sử nộp tiền cho hub
+        Route::get('/payments', [IncomeController::class, 'driverPaymentHistory'])->name('income.payments');
+        });
 
 // Customer
 Route::prefix('customer')
@@ -294,7 +315,14 @@ Route::prefix('customer')
 
         // Dashboard
         Route::get('dashboard', [DashboardCustomerController::class, 'index'])->name('dashboard.index');
-
+         // Dashboard thu nhập customer (có thể dùng route chung /income hoặc riêng này)
+        Route::get('/', [IncomeController::class, 'index'])->name('income.index');
+        
+        // Chi tiết COD
+        Route::get('/codI', [IncomeController::class, 'customerCodDetail'])->name('income.cod');
+        
+        // Lịch sử công nợ
+        Route::get('/debt', [IncomeController::class, 'customerDebtHistory'])->name('income.debt');
         // Quản lý tài khoản
         Route::prefix('account')
             ->name('account.')
@@ -374,7 +402,8 @@ Route::prefix('customer')
             Route::get('/{id}', [CustomerCodController::class, 'show'])->name('show');
 
             // Thống kê
-
+            // routes/web.php
+            Route::post('/{id}/pay-debt', [CustomerCodController::class, 'payDebt'])->name('payDebt');
             // ✅ NEW: Thanh toán phí hệ thống (Sender)
             Route::post('/{id}/pay-fee', [CustomerCodController::class, 'paySenderFee'])->name('pay-fee');
 
@@ -542,7 +571,12 @@ Route::prefix('hub')
                 // API: Lấy danh sách tài xế
                 Route::get('/{id}/available-drivers', 'getAvailableDriversApi')->name('available-drivers');
             });
-
+        // Dashboard cashflow (có thể dùng route chung /income hoặc riêng này)
+        Route::get('/', [IncomeController::class, 'index'])->name('index');
+        // Alias: Cashflow dashboard (giữ tương thích với code cũ)
+        Route::get('/cashflow', [IncomeController::class, 'hubCashflow'])->name('cashflow');
+        // Chi tiết giao dịch theo loại
+        Route::get('/transactions', [IncomeController::class, 'hubTransactionDetail'])->name('transactions');
     });
 
 // PUBLIC TRACKING ROUTES - Không cần auth

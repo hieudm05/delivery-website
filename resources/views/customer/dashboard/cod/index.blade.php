@@ -3,105 +3,141 @@
 
 @section('content')
     <div class="container">
-        <!-- ==================== THỐNG KÊ TỔNG QUAN ==================== -->
-        <div class="row mb-4">
-            <!-- Card 1: Phí cần thanh toán -->
-            <div class="col-lg-3 col-md-6 mb-3">
-                <div class="card border-0 shadow-sm h-100" style="border-left: 4px solid #28a745;">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-start">
-                            <div>
-                                <p class="text-muted text-uppercase fw-bold mb-2" style="font-size: 0.75rem;">
-                                    <i class="bi bi-check-circle"></i> Phí đã khấu trừ
-                                </p>
-                                <h3 class="text-success fw-bold mb-0">
-                                    {{ number_format($transactions->sum('sender_fee_paid')) }}₫
-                                </h3>
-                            </div>
-                            <div class=" bg-opacity-10 text-success p-3" style="font-size: 1.5rem;">
-                                <i class="bi bi-check-circle"></i>
-                            </div>
-                        </div>
-                        <small class="text-muted mt-2 d-block">
-                            Tự động từ tiền COD
-                        </small>
-                    </div>
-                </div>
+      @if(isset($debtStats) && $debtStats['has_debt'])
+    <div class="alert  border-0 shadow-sm mb-4" role="alert">
+        <div class="d-flex align-items-start">
+            <div class="flex-shrink-0">
+                <i class="bi bi-exclamation-triangle-fill fs-3 text-danger"></i>
             </div>
-
-            <div class="col-lg-3 col-md-6 mb-3">
-                <div class="card border-0 shadow-sm h-100" style="border-left: 4px solid #dc3545;">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-start">
-                            <div>
-                                <p class="text-muted text-uppercase fw-bold mb-2" style="font-size: 0.75rem;">
-                                    <i class="bi bi-exclamation-circle"></i> Phí chờ thanh toán
-                                </p>
-                                <h3 class="text-danger fw-bold mb-0">
-                                    {{ number_format($stats['pending_fee'] ?? 0) }}₫
-                                </h3>
-                            </div>
-                            <div class=" bg-opacity-10 text-danger p-3" style="font-size: 1.5rem;">
-                                <i class="bi bi-credit-card"></i>
-                            </div>
-                        </div>
-                        <small class="text-muted mt-2 d-block">
-                            {{ $transactions->whereNull('sender_fee_paid_at')->where('sender_fee_paid', '>', 0)->where('cod_amount', 0)->count() }}
-                            đơn không COD
-                        </small>
-                    </div>
+            <div class="flex-grow-1 ms-3">
+                <h5 class="alert-heading mb-2">
+                    <i class="bi bi-wallet"></i> ⚠️ Bạn đang có công nợ chưa thanh toán
+                </h5>
+                <p class="mb-2">
+                    <strong class="text-danger fs-5">Tổng nợ: {{ number_format($debtStats['total']) }}₫</strong>
+                </p>
+                
+                <div class="mb-3">
+                    <p class="mb-2"><strong>Chi tiết theo bưu cục:</strong></p>
+                    <ul class="mb-0">
+                        @foreach($debtStats['by_hub'] as $debt)
+                            <li>
+                                <strong>{{ $debt['hub_name'] }}</strong>: 
+                                <span class="text-danger">{{ number_format($debt['amount']) }}₫</span>
+                            </li>
+                        @endforeach
+                    </ul>
                 </div>
-            </div>
 
-            <!-- Card 2: COD chờ nhận -->
-            <div class="col-lg-3 col-md-6 mb-3">
-                <div class="card border-0 shadow-sm h-100" style="border-left: 4px solid #ffc107;">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-start">
-                            <div>
-                                <p class="text-muted text-uppercase fw-bold mb-2" style="font-size: 0.75rem;">
-                                    <i class="bi bi-hourglass"></i> COD chờ nhận
-                                </p>
-                                <h3 class="text-warning fw-bold mb-0">
-                                    {{ number_format($stats['waiting_cod'] ?? 0) }}₫
-                                </h3>
-                            </div>
-                            <div class=" bg-opacity-10 text-warning p-3" style="font-size: 1.5rem;">
-                                <i class="bi bi-hourglass-split"></i>
-                            </div>
-                        </div>
-                        <small class="text-muted mt-2 d-block">
-                            {{ $transactions->where('sender_payment_status', 'pending')->where('sender_fee_paid_at', '!=', null)->count() }}
-                            đơn đang xử lý
-                        </small>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Card 3: COD đã nhận -->
-            <div class="col-lg-3 col-md-6 mb-3">
-                <div class="card border-0 shadow-sm h-100" style="border-left: 4px solid #28a745;">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-start">
-                            <div>
-                                <p class="text-muted text-uppercase fw-bold mb-2" style="font-size: 0.75rem;">
-                                    <i class="bi bi-check-circle"></i> COD đã nhận
-                                </p>
-                                <h3 class="text-success fw-bold mb-0">
-                                    {{ number_format($stats['received'] ?? 0) }}₫
-                                </h3>
-                            </div>
-                            <div class=" bg-opacity-10 text-success p-3" style="font-size: 1.5rem;">
-                                <i class="bi bi-check-circle"></i>
-                            </div>
-                        </div>
-                        <small class="text-muted mt-2 d-block">
-                            {{ $transactions->where('sender_payment_status', 'completed')->count() }} đơn hoàn tất
-                        </small>
-                    </div>
+                <div class="alert alert-info border-0 mb-0 mt-2">
+                    <small>
+                        <i class="bi bi-info-circle"></i> 
+                        <strong>Lưu ý:</strong> Nợ sẽ được tự động trừ vào tiền COD của các đơn hàng tiếp theo. 
+                        Bạn cũng có thể thanh toán trực tiếp cho bưu cục tại tab "Chờ thanh toán phí".
+                    </small>
                 </div>
             </div>
         </div>
+    </div>
+@endif
+        <!-- ==================== THỐNG KÊ TỔNG QUAN ==================== -->
+        <div class="row mb-4">
+    <!-- Card 1: Phí đã khấu trừ -->
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card border-0 shadow-sm h-100" style="border-left: 4px solid #28a745;">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <p class="text-muted text-uppercase fw-bold mb-2" style="font-size: 0.75rem;">
+                            <i class="bi bi-check-circle"></i> Phí đã khấu trừ
+                        </p>
+                        <h3 class="text-success fw-bold mb-0">
+                            {{ number_format($stats['fee_deducted']) }}₫
+                        </h3>
+                    </div>
+                    <div class="bg-opacity-10 text-success p-3" style="font-size: 1.5rem;">
+                        <i class="bi bi-check-circle"></i>
+                    </div>
+                </div>
+                <small class="text-muted mt-2 d-block">
+                    {{ $stats['count_fee_deducted'] }} đơn có COD
+                </small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Card 2: Phí chờ thanh toán -->
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card border-0 shadow-sm h-100" style="border-left: 4px solid #dc3545;">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <p class="text-muted text-uppercase fw-bold mb-2" style="font-size: 0.75rem;">
+                            <i class="bi bi-exclamation-circle"></i> Phí chờ thanh toán
+                        </p>
+                        <h3 class="text-danger fw-bold mb-0">
+                            {{ number_format($stats['pending_fee'] ?? 0) }}₫
+                        </h3>
+                    </div>
+                    <div class="bg-opacity-10 text-danger p-3" style="font-size: 1.5rem;">
+                        <i class="bi bi-credit-card"></i>
+                    </div>
+                </div>
+                <small class="text-muted mt-2 d-block">
+                    {{ $stats['count_pending_fee'] }} đơn (bao gồm phí hoàn hàng)
+                </small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Card 3: COD chờ nhận -->
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card border-0 shadow-sm h-100" style="border-left: 4px solid #ffc107;">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <p class="text-muted text-uppercase fw-bold mb-2" style="font-size: 0.75rem;">
+                            <i class="bi bi-hourglass"></i> COD chờ nhận
+                        </p>
+                        <h3 class="text-warning fw-bold mb-0">
+                            {{ number_format($stats['waiting_cod'] ?? 0) }}₫
+                        </h3>
+                    </div>
+                    <div class="bg-opacity-10 text-warning p-3" style="font-size: 1.5rem;">
+                        <i class="bi bi-hourglass-split"></i>
+                    </div>
+                </div>
+                <small class="text-muted mt-2 d-block">
+                    {{ $stats['count_waiting_cod'] }} đơn đang xử lý
+                </small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Card 4: COD đã nhận -->
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card border-0 shadow-sm h-100" style="border-left: 4px solid #28a745;">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <p class="text-muted text-uppercase fw-bold mb-2" style="font-size: 0.75rem;">
+                            <i class="bi bi-check-circle"></i> COD đã nhận
+                        </p>
+                        <h3 class="text-success fw-bold mb-0">
+                            {{ number_format($stats['received'] ?? 0) }}₫
+                        </h3>
+                    </div>
+                    <div class="bg-opacity-10 text-success p-3" style="font-size: 1.5rem;">
+                        <i class="bi bi-check-circle"></i>
+                    </div>
+                </div>
+                <small class="text-muted mt-2 d-block">
+                    {{ $stats['count_received'] }} đơn hoàn tất
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
 
         <!-- ==================== DANH SÁCH GIAO DỊCH ==================== -->
         <div class="card shadow-sm border-0">
@@ -184,162 +220,192 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach ($transactions as $trans)
-                                    <tr>
-                                        <!-- Cột 1: Đơn hàng -->
-                                        <td>
-                                            <div>
-                                                <a href="{{ route('customer.orderManagent.show', $trans->order_id) }}"
-                                                    class="fw-bold text-primary text-decoration-none d-inline-flex align-items-center gap-1">
-                                                    <i class="bi bi-box-seam"></i> #{{ $trans->order_id }}
-                                                </a>
-                                            </div>
-                                            <small class="text-muted">
-                                                <i class="bi bi-calendar"></i>
-                                                {{ $trans->created_at->format('d/m/Y H:i') }}
-                                            </small>
-                                        </td>
+                              <!-- resources/views/customer/dashboard/cod/index.blade.php -->
 
-                                        <!-- Cột 2: Tiền COD -->
-                                        <td>
-                                            <span class=" bg-opacity-10 text-primary px-3 py-2 fw-bold">
-                                                {{ number_format($trans->cod_amount) }}₫
-                                            </span>
-                                        </td>
+@foreach ($transactions as $trans)
+    <tr>
+        <!-- Cột 1: Đơn hàng -->
+        <td>
+            <div>
+                <a href="{{ route('customer.orderManagent.show', $trans->order_id) }}"
+                    class="fw-bold text-primary text-decoration-none d-inline-flex align-items-center gap-1">
+                    <i class="bi bi-box-seam"></i> #{{ $trans->order_id }}
+                </a>
+            </div>
+            <small class="text-muted">
+                <i class="bi bi-calendar"></i>
+                {{ $trans->created_at->format('d/m/Y H:i') }}
+            </small>
+        </td>
 
-                                        <!-- Cột 3: Phí thanh toán -->
-                                        <!-- ✅ PHÂN BIỆT 2 TRƯỜNG HỢP -->
-                                        <td>
-                                            @if ($trans->sender_fee_paid > 0)
-                                                <div class="d-flex flex-column gap-1">
-                                                    <span
-                                                        class="{{ $trans->cod_amount > 0 ? 'text-success' : 'text-danger' }} fw-bold">
-                                                        {{ number_format($trans->sender_fee_paid) }}₫
-                                                    </span>
+        <!-- Cột 2: Tiền COD -->
+        <td>
+            @if($trans->is_returned_order)
+                <div class="d-flex flex-column gap-1">
+                    <span class="badge bg-danger">
+                        <i class="bi bi-x-circle"></i> Đơn đã hoàn
+                    </span>
+                    <small class="text-muted">Không thu được COD</small>
+                </div>
+            @else
+                <span class="bg-opacity-10 text-primary px-3 py-2 fw-bold">
+                    {{ number_format($trans->cod_amount) }}₫
+                </span>
+            @endif
+        </td>
 
-                                                    @if ($trans->cod_amount > 0)
-                                                        <!-- ✅ Có COD: Phí đã tự động khấu trừ -->
-                                                        <small class="text-success">
-                                                            <i class="bi bi-check-circle-fill"></i> Đã khấu trừ tự động
-                                                        </small>
-                                                    @elseif($trans->sender_fee_paid_at)
-                                                        <!-- ✅ Không có COD nhưng đã thanh toán -->
-                                                        <small class="text-success">
-                                                            <i class="bi bi-check-circle-fill"></i> Đã thanh toán
-                                                        </small>
-                                                    @else
-                                                        <!-- ❌ Không có COD và chưa thanh toán -->
-                                                        <small class="text-warning">
-                                                            <i class="bi bi-clock-fill"></i> Chờ thanh toán
-                                                        </small>
-                                                    @endif
-                                                </div>
-                                            @else
-                                                <span class="badge bg-secondary">
-                                                    <i class="bi bi-dash-circle"></i> Không có
-                                                </span>
-                                            @endif
-                                        </td>
+        <!-- Cột 3: Phí Thanh toán -->
+        <td>
+            @if($trans->is_returned_order)
+                <div class="d-flex flex-column gap-1">
+                    <span class="text-danger fw-bold">
+                        {{ number_format($trans->sender_fee_paid) }}₫
+                    </span>
+                    <small class="text-danger">
+                        <i class="bi bi-arrow-down-circle-fill"></i> Đã thành nợ
+                    </small>
+                </div>
+            @elseif($trans->sender_fee_paid > 0)
+                <div class="d-flex flex-column gap-1">
+                    <span class="{{ $trans->cod_amount > 0 ? 'text-success' : 'text-danger' }} fw-bold">
+                        {{ number_format($trans->sender_fee_paid) }}₫
+                    </span>
 
-                                        <!-- Cột 4: Sẽ nhận -->
-                                        <td>
-                                            <div class="d-flex flex-column gap-1">
-                                                <span class="badg bg-opacity-10 text-success px-3 py-2 fw-bold">
-                                                    {{ number_format($trans->sender_receive_amount) }}₫
-                                                </span>
-                                                @if ($trans->sender_debt_deducted > 0)
-                                                    <small class="text-danger">
-                                                        <i class="bi bi-exclamation-triangle-fill"></i>
-                                                        Trừ: {{ number_format($trans->sender_debt_deducted) }}₫
-                                                    </small>
-                                                @endif
-                                            </div>
-                                        </td>
+                    @if($trans->cod_amount > 0)
+                        <small class="text-success">
+                            <i class="bi bi-check-circle-fill"></i> Đã khấu trừ từ COD
+                        </small>
+                    @elseif($trans->sender_fee_paid_at)
+                        <small class="text-success">
+                            <i class="bi bi-check-circle-fill"></i> Đã thanh toán
+                        </small>
+                    @else
+                        <small class="text-warning">
+                            <i class="bi bi-clock-fill"></i> Chờ thanh toán
+                        </small>
+                    @endif
+                </div>
+            @else
+                <span class="badge bg-secondary">Không có</span>
+            @endif
+        </td>
 
-                                        <!-- Cột 5: Trạng thái -->
-                                        <td>
-                                            <div class="d-flex flex-column gap-1">
-                                                @if ($trans->is_returned_order)
-                                                    <div class="alert alert-warning border-0 mb-2">
-                                                        <i class="bi bi-exclamation-triangle"></i>
-                                                        <strong>Đơn đã hoàn về</strong><br>
-                                                        <small>Bạn không nhận được tiền COD. Phí hoàn hàng
-                                                            {{ number_format($trans->return_fee ?? 0) }}₫ đã được cộng vào
-                                                            nợ.</small>
-                                                    </div>
-                                                @else
-                                                    <!-- Status Phí -->
-                                                    @if ($trans->sender_fee_paid > 0)
-                                                        @if ($trans->cod_amount > 0)
-                                                            <!-- ✅ Có COD: Đã khấu trừ -->
-                                                            <span class="badge bg-success">
-                                                                <i class="bi bi-check-circle"></i> Phí: ✓ Đã khấu trừ
-                                                            </span>
-                                                        @elseif($trans->sender_fee_paid_at)
-                                                            <!-- ✅ Không COD: Đã thanh toán -->
-                                                            <span class="badge bg-success">
-                                                                <i class="bi bi-check-circle"></i> Phí: ✓ Đã thanh toán
-                                                            </span>
-                                                        @else
-                                                            <!-- ❌ Không COD: Chờ thanh toán -->
-                                                            <span class="badge bg-warning text-dark">
-                                                                <i class="bi bi-clock"></i> Phí: ⏳ Chờ thanh toán
-                                                            </span>
-                                                        @endif
-                                                    @else
-                                                        <span class="badge bg-secondary">
-                                                            <i class="bi bi-dash-circle"></i> Phí: Không có
-                                                        </span>
-                                                    @endif
+        <!-- Cột 4: Sẽ nhận -->
+        <td>
+            @if($trans->is_returned_order)
+                <div class="alert alert-danger border-0 mb-0 p-2">
+                    <small class="mb-0">
+                        <i class="bi bi-x-octagon-fill"></i> 
+                        <strong>Không nhận tiền</strong><br>
+                        Phí hoàn đã thành nợ
+                    </small>
+                </div>
+            @else
+                <div class="d-flex flex-column gap-1">
+                    <span class="badge bg-opacity-10 text-success px-3 py-2 fw-bold">
+                        {{ number_format($trans->sender_receive_amount) }}₫
+                    </span>
+                    @if($trans->sender_debt_deducted > 0)
+                        <small class="text-danger">
+                            <i class="bi bi-exclamation-triangle-fill"></i>
+                            Trừ nợ: {{ number_format($trans->sender_debt_deducted) }}₫
+                        </small>
+                    @endif
+                </div>
+            @endif
+        </td>
 
-                                                    <!-- Status COD -->
-                                                    @if ($trans->sender_payment_status === 'pending')
-                                                        <span class="badge bg-info">
-                                                            <i class="bi bi-hourglass-split"></i> COD: ⏳ Chờ nhận
-                                                        </span>
-                                                    @elseif($trans->sender_payment_status === 'completed')
-                                                        <span class="badge bg-success">
-                                                            <i class="bi bi-check-circle"></i> COD: ✓ Đã nhận
-                                                        </span>
-                                                    @else
-                                                        <span class="badge bg-secondary">
-                                                            <i class="bi bi-question-circle"></i> COD:
-                                                            {{ ucfirst($trans->sender_payment_status) }}
-                                                        </span>
-                                                    @endif
-                                                @endif
-                                            </div>
-                                        </td>
+        <!-- Cột 5: Trạng thái -->
+        <td>
+            @if($trans->is_returned_order)
+                <div class="alert alert-warning border-0 mb-0 p-2">
+                    <small>
+                        <i class="bi bi-exclamation-triangle"></i>
+                        <strong>Đơn đã hoàn về</strong><br>
+                        Phí hoàn: {{ number_format($trans->sender_fee_paid) }}₫
+                    </small>
+                </div>
+            @else
+                <div class="d-flex flex-column gap-1">
+                    {{-- Hiển thị trạng thái bình thường --}}
+                    @if($trans->sender_fee_paid > 0)
+                        @if($trans->cod_amount > 0)
+                            <span class="badge bg-success">
+                                <i class="bi bi-check-circle"></i> Phí: ✓ Đã khấu trừ
+                            </span>
+                        @elseif($trans->sender_fee_paid_at)
+                            <span class="badge bg-success">
+                                <i class="bi bi-check-circle"></i> Phí: ✓ Đã thanh toán
+                            </span>
+                        @else
+                            <span class="badge bg-warning text-dark">
+                                <i class="bi bi-clock"></i> Phí: ⏳ Chờ thanh toán
+                            </span>
+                        @endif
+                    @endif
 
-                                        <!-- Cột 6: Hành động -->
-                                        <td>
-                                            <div class="d-flex flex-wrap gap-1">
-                                                <!-- Nút Xem chi tiết -->
-                                                <a href="{{ route('customer.cod.show', $trans->id) }}"
-                                                    class="btn btn-sm btn-outline-info" title="Xem chi tiết">
-                                                    <i class="bi bi-eye"></i>
-                                                </a>
+                    @if($trans->sender_payment_status === 'pending')
+                        <span class="badge bg-info">
+                            <i class="bi bi-hourglass-split"></i> COD: ⏳ Chờ nhận
+                        </span>
+                    @elseif($trans->sender_payment_status === 'completed')
+                        <span class="badge bg-success">
+                            <i class="bi bi-check-circle"></i> COD: ✓ Đã nhận
+                        </span>
+                    @endif
+                </div>
+            @endif
+        </td>
 
-                                                <!-- Nút Thanh toán phí -->
-                                                @if ($trans->sender_fee_paid > 0 && $trans->cod_amount == 0 && !$trans->sender_fee_paid_at)
-                                                    <button type="button" class="btn btn-sm btn-outline-danger"
-                                                        onclick="openPayFeeModal({{ $trans->id }}, {{ $trans->order_id }}, {{ $trans->sender_fee_paid }}, '{{ $trans->payer_shipping }}')"
-                                                        title="Thanh toán phí">
-                                                        <i class="bi bi-credit-card"></i>
-                                                    </button>
-                                                @endif
-                                                <!-- Nút Yêu cầu ưu tiên -->
-                                                @if ($trans->sender_payment_status === 'pending' && $trans->sender_fee_paid_at)
-                                                    <button type="button" class="btn btn-sm btn-outline-warning"
-                                                        onclick="openPriorityModal({{ $trans->id }}, {{ $trans->order_id }})"
-                                                        title="Yêu cầu ưu tiên">
-                                                        <i class="bi bi-lightning"></i>
-                                                    </button>
-                                                @endif
-                                            </div>
-                                        </td>
-                                    </tr>
-                                @endforeach
+        <!-- Cột 6: Hành động -->
+        <td>
+            <div class="d-flex flex-wrap gap-1">
+                <a href="{{ route('customer.cod.show', $trans->id) }}"
+                    class="btn btn-sm btn-outline-info" title="Xem chi tiết">
+                    <i class="bi bi-eye"></i>
+                </a>
+
+                {{-- ✅ NÚT THANH TOÁN PHÍ: Chỉ khi KHÔNG hoàn + chưa trả + không có COD --}}
+                @if(!$trans->is_returned_order && 
+                    $trans->sender_fee_paid > 0 && 
+                    !$trans->sender_fee_paid_at && 
+                    $trans->cod_amount == 0)
+                    <button type="button" class="btn btn-sm btn-outline-danger"
+                        onclick="openPayFeeModal({{ $trans->id }}, {{ $trans->order_id }}, {{ $trans->sender_fee_paid }}, '{{ $trans->payer_shipping }}')"
+                        title="Thanh toán phí">
+                        <i class="bi bi-credit-card"></i>
+                    </button>
+                @endif
+
+                {{-- ✅ NÚT THANH TOÁN NỢ: Chỉ khi BỊ HOÀN + chưa trả nợ --}}
+                @if($trans->is_returned_order && $trans->sender_fee_paid > 0)
+                    @php
+                        $currentDebt = \App\Models\SenderDebt::getTotalUnpaidDebt($trans->sender_id, $trans->hub_id);
+                    @endphp
+                    
+                    @if($currentDebt > 0)
+                        <button type="button" class="btn btn-sm btn-danger"
+                            onclick="openPayDebtModal({{ $trans->id }}, {{ $trans->order_id }}, {{ $currentDebt }})"
+                            title="Thanh toán nợ">
+                            <i class="bi bi-wallet2"></i> Trả nợ
+                        </button>
+                    @endif
+                @endif
+
+                {{-- NÚT ƯU TIÊN: Chỉ khi KHÔNG hoàn + đang chờ COD --}}
+                @if(!$trans->is_returned_order && 
+                    $trans->sender_payment_status === 'pending' && 
+                    $trans->sender_fee_paid_at)
+                    <button type="button" class="btn btn-sm btn-outline-warning"
+                        onclick="openPriorityModal({{ $trans->id }}, {{ $trans->order_id }})"
+                        title="Yêu cầu ưu tiên">
+                        <i class="bi bi-lightning"></i>
+                    </button>
+                @endif
+            </div>
+        </td>
+    </tr>
+@endforeach
                             </tbody>
                         </table>
                     </div>
@@ -728,204 +794,281 @@
     </style>
 
     <!-- ==================== JAVASCRIPT ==================== -->
-    <script>
-        let currentTransactionId = null;
-        let currentPayerShipping = null;
+   <script>
+    let currentTransactionId = null;
+let currentPayerShipping = null;
+let isReturnOrder = false;
 
-        /**
-         * Mở modal thanh toán phí
-         */
-        function openPayFeeModal(transId, orderId, feeAmount, payerShipping) {
-            currentTransactionId = transId;
-            currentPayerShipping = payerShipping;
+/**
+ * ✅ MỞ MODAL THANH TOÁN - HỖ TRỢ CẢ ĐƠN THƯỜNG VÀ ĐƠN HOÀN VỀ
+ */
+function openPayFeeModal(transId, orderId, feeAmount, payerType) {
+    currentTransactionId = transId;
+    currentPayerShipping = payerType;
+    isReturnOrder = (payerType === 'returned'); // ✅ PHÁT HIỆN ĐƠN HOÀN VỀ
 
-            document.getElementById('payFeeForm').action = `{{ url('customer/cod') }}/${transId}/pay-fee`;
-            document.getElementById('orderIdDisplay').textContent = orderId;
-            document.getElementById('feeAmountDisplay').textContent = number_format(feeAmount) + '₫';
-            document.getElementById('totalFeeDisplay').textContent = number_format(feeAmount) + '₫';
+    document.getElementById('payFeeForm').action = `/customer/cod/${transId}/pay-fee`;
+    document.getElementById('orderIdDisplay').textContent = orderId;
+    document.getElementById('feeAmountDisplay').textContent = number_format(feeAmount) + '₫';
+    document.getElementById('totalFeeDisplay').textContent = number_format(feeAmount) + '₫';
 
-            document.getElementById('paymentMethodSelect').value = '';
-            hideAllPaymentSections();
+    document.getElementById('paymentMethodSelect').value = '';
+    hideAllPaymentSections();
 
-            loadFeeDetails(transId);
+    // ✅ TẢI CHI TIẾT PHÍ
+    loadFeeDetails(transId);
 
-            new bootstrap.Modal(document.getElementById('payFeeModal')).show();
-        }
+    new bootstrap.Modal(document.getElementById('payFeeModal')).show();
+}
 
-        /**
-         * Load fee details
-         */
-        function loadFeeDetails(transId) {
-            fetch(`{{ url('customer/cod') }}/${transId}/qr`, {
-                    method: 'GET',
-                    headers: {
-                        'Accept': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest'
-                    }
-                })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        window.feeData = data;
-                        displayFeeBreakdown(data.fee_breakdown);
-                    } else {
-                        console.error(data.error);
-                        document.getElementById('feeBreakdown').innerHTML =
-                            `<div class="alert alert-danger">${data.error}</div>`;
-                    }
-                })
-                .catch(err => {
-                    console.error('Error:', err);
-                    document.getElementById('feeBreakdown').innerHTML =
-                        '<div class="alert alert-danger">Lỗi khi tải dữ liệu</div>';
-                });
-        }
-
-        /**
-         * Display fee breakdown
-         */
-        function displayFeeBreakdown(breakdown) {
-            const container = document.getElementById('feeBreakdown');
-            container.innerHTML = '';
-            let total = 0;
-
-            if (breakdown.platform_fee) {
-                container.innerHTML += `
-            <div class="d-flex justify-content-between mb-2">
-                <span><i class="bi bi-gear"></i> Phí nền tảng:</span>
-                <strong class="text-primary">${number_format(breakdown.platform_fee)}₫</strong>
+/**
+ * ✅ LOAD CHI TIẾT PHÍ - HỖ TRỢ CẢ 2 LOẠI ĐƠN
+ */
+function loadFeeDetails(transId) {
+    const container = document.getElementById('feeBreakdown');
+    container.innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border spinner-border-sm text-primary" role="status">
+                <span class="visually-hidden">Đang tải...</span>
             </div>
-        `;
-                total += breakdown.platform_fee;
-            }
+            <p class="text-muted mt-2 mb-0 small">Đang tải chi tiết...</p>
+        </div>
+    `;
 
-            if (breakdown.cod_fee) {
-                container.innerHTML += `
-            <div class="d-flex justify-content-between mb-2">
-                <span><i class="bi bi-box"></i> Phí COD:</span>
-                <strong class="text-primary">${number_format(breakdown.cod_fee)}₫</strong>
-            </div>
-        `;
-                total += breakdown.cod_fee;
-            }
+    fetch(`/customer/cod/${transId}/qr`, {
+        method: 'GET',
+        headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            window.feeData = data;
+            displayFeeBreakdown(data.fee_breakdown, data.is_return_order);
+        } else {
+            container.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+        }
+    })
+    .catch(err => {
+        console.error('Error:', err);
+        container.innerHTML = '<div class="alert alert-danger">Lỗi khi tải dữ liệu</div>';
+    });
+}
 
-            if (breakdown.shipping_fee) {
-                container.innerHTML += `
-            <div class="d-flex justify-content-between mb-2">
-                <span><i class="bi bi-truck"></i> Phí vận chuyển:</span>
-                <strong class="text-primary">${number_format(breakdown.shipping_fee)}₫</strong>
-            </div>
-        `;
-                total += breakdown.shipping_fee;
-            }
+/**
+ * ✅ HIỂN THỊ CHI TIẾT PHÍ - PHÂN BIỆT ĐƠN THƯỜNG VÀ ĐƠN HOÀN VỀ
+ */
+function displayFeeBreakdown(breakdown, isReturn) {
+    const container = document.getElementById('feeBreakdown');
+    container.innerHTML = '';
+    let total = 0;
 
-            document.getElementById('totalFeeDisplay').textContent = number_format(total) + '₫';
+    if (isReturn) {
+        // ✅ ĐƠN HOÀN VỀ - CHỈ HIỆN PHÍ HOÀN HÀNG
+        if (breakdown.return_fee) {
+            container.innerHTML = `
+                <div class="alert alert-warning border-0 mb-3">
+                    <i class="bi bi-arrow-return-left"></i>
+                    <strong>Đơn hoàn về:</strong> Bạn không nhận được tiền COD từ đơn này.
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span><i class="bi bi-box-arrow-left"></i> Phí hoàn hàng:</span>
+                    <strong class="text-danger">${number_format(breakdown.return_fee)}₫</strong>
+                </div>
+            `;
+            total = breakdown.return_fee;
+        }
+    } else {
+        // ✅ ĐƠN THƯỜNG - HIỆN PHÍ COD + PHÍ SHIP (nếu có)
+        if (breakdown.cod_fee) {
+            container.innerHTML += `
+                <div class="d-flex justify-content-between mb-2">
+                    <span><i class="bi bi-box"></i> Phí COD:</span>
+                    <strong class="text-primary">${number_format(breakdown.cod_fee)}₫</strong>
+                </div>
+            `;
+            total += breakdown.cod_fee;
         }
 
-        /**
-         * Payment method change
-         */
-        document.getElementById('paymentMethodSelect').addEventListener('change', function() {
-            const method = this.value;
-            hideAllPaymentSections();
-
-            if (method === 'bank_transfer') {
-                document.getElementById('bankTransferSection').style.display = 'block';
-                document.getElementById('proofInputBankTransfer').setAttribute('name', 'proof');
-                document.getElementById('proofInputBankTransfer').required = true;
-                loadQrCode();
-            } else if (method === 'wallet') {
-                document.getElementById('walletSection').style.display = 'block';
-                document.getElementById('proofInputWallet').setAttribute('name', 'proof');
-                document.getElementById('proofInputWallet').required = true;
-            } else if (method === 'cash') {
-                document.getElementById('cashSection').style.display = 'block';
-            }
-        });
-
-        /**
-         * Load QR code
-         */
-        function loadQrCode() {
-            if (!currentTransactionId || !window.feeData) return;
-
-            const data = window.feeData;
-            document.getElementById('hubBankName').textContent = data.bank_info.bank_name;
-            document.getElementById('hubAccountNumber').textContent = data.bank_info.account_number;
-            document.getElementById('hubAccountName').textContent = data.bank_info.account_name;
-            document.getElementById('transferContent').value = data.content;
-
-            const image = document.getElementById('qrCodeImage');
-            image.src = data.qr_url;
-            image.onload = function() {
-                document.getElementById('qrLoadingSpinner').style.display = 'none';
-                document.getElementById('qrCodeDisplay').style.display = 'block';
-            };
+        if (breakdown.shipping_fee) {
+            container.innerHTML += `
+                <div class="d-flex justify-content-between mb-2">
+                    <span><i class="bi bi-truck"></i> Phí vận chuyển:</span>
+                    <strong class="text-primary">${number_format(breakdown.shipping_fee)}₫</strong>
+                </div>
+            `;
+            total += breakdown.shipping_fee;
         }
+    }
 
-        /**
-         * Hide all payment sections
-         */
-        function hideAllPaymentSections() {
-            ['bankTransferSection', 'walletSection', 'cashSection', 'qrCodeDisplay'].forEach(id => {
-                document.getElementById(id).style.display = 'none';
-            });
+    document.getElementById('totalFeeDisplay').textContent = number_format(total) + '₫';
+}
 
-            ['proofInputBankTransfer', 'proofInputWallet'].forEach(id => {
-                const input = document.getElementById(id);
-                if (input) {
-                    input.removeAttribute('name');
-                    input.value = '';
-                    input.required = false;
-                }
-            });
+/**
+ * ✅ CHỌN PHƯƠNG THỨC THANH TOÁN
+ */
+document.getElementById('paymentMethodSelect').addEventListener('change', function() {
+    const method = this.value;
+    hideAllPaymentSections();
 
-            document.getElementById('qrLoadingSpinner').style.display = 'block';
+    if (method === 'bank_transfer') {
+        document.getElementById('bankTransferSection').style.display = 'block';
+        document.getElementById('proofInputBankTransfer').setAttribute('name', 'proof');
+        document.getElementById('proofInputBankTransfer').required = true;
+        loadQrCode();
+    } else if (method === 'wallet') {
+        document.getElementById('walletSection').style.display = 'block';
+        document.getElementById('proofInputWallet').setAttribute('name', 'proof');
+        document.getElementById('proofInputWallet').required = true;
+    } else if (method === 'cash') {
+        document.getElementById('cashSection').style.display = 'block';
+        
+        // ✅ HIỂN THỊ ORDER ID CHO TIỀN MẶT
+        const orderId = document.getElementById('orderIdDisplay').textContent;
+        const cashOrderIdSpan = document.getElementById('cashOrderId');
+        if (cashOrderIdSpan) {
+            cashOrderIdSpan.textContent = orderId;
         }
+    }
+});
 
-        /**
-         * Copy to clipboard
-         */
-        function copyToClipboard() {
-            const content = document.getElementById('transferContent').value;
-            navigator.clipboard.writeText(content).then(() => {
-                alert('✅ Đã sao chép nội dung chuyển khoản');
-            }).catch(() => {
-                alert('❌ Không thể sao chép');
-            });
+/**
+ * ✅ LOAD QR CODE
+ */
+function loadQrCode() {
+    if (!currentTransactionId || !window.feeData) return;
+
+    const data = window.feeData;
+    document.getElementById('hubBankName').textContent = data.bank_info.bank_name;
+    document.getElementById('hubAccountNumber').textContent = data.bank_info.account_number;
+    document.getElementById('hubAccountName').textContent = data.bank_info.account_name;
+    document.getElementById('transferContent').value = data.content;
+
+    const image = document.getElementById('qrCodeImage');
+    image.src = data.qr_url;
+    image.onload = function() {
+        document.getElementById('qrLoadingSpinner').style.display = 'none';
+        document.getElementById('qrCodeDisplay').style.display = 'block';
+    };
+}
+
+/**
+ * ✅ ẨN TẤT CẢ SECTION THANH TOÁN
+ */
+function hideAllPaymentSections() {
+    ['bankTransferSection', 'walletSection', 'cashSection', 'qrCodeDisplay'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
+
+    ['proofInputBankTransfer', 'proofInputWallet'].forEach(id => {
+        const input = document.getElementById(id);
+        if (input) {
+            input.removeAttribute('name');
+            input.value = '';
+            input.required = false;
         }
+    });
 
-        /**
-         * Open priority modal
-         */
-        function openPriorityModal(transId, orderId) {
-            document.getElementById('priorityForm').action = `{{ url('customer/cod') }}/${transId}/request-priority`;
-            document.getElementById('priorityOrderIdDisplay').textContent = orderId;
-            document.getElementById('priorityReason').value = '';
-            new bootstrap.Modal(document.getElementById('priorityModal')).show();
-        }
+    document.getElementById('qrLoadingSpinner').style.display = 'block';
+}
 
-        /**
-         * Number format
-         */
-        function number_format(number) {
-            return new Intl.NumberFormat('vi-VN').format(number);
-        }
+/**
+ * ✅ COPY NỘI DUNG CHUYỂN KHOẢN
+ */
+function copyTransferContent() {
+    const content = document.getElementById('transferContent').value;
+    navigator.clipboard.writeText(content).then(() => {
+        alert('✅ Đã sao chép nội dung chuyển khoản');
+    }).catch(() => {
+        alert('❌ Không thể sao chép');
+    });
+}
 
-        /**
-         * Reset modals
-         */
-        document.getElementById('payFeeModal').addEventListener('hidden.bs.modal', function() {
-            document.getElementById('payFeeForm').reset();
-            hideAllPaymentSections();
-            currentTransactionId = null;
-            currentPayerShipping = null;
-            window.feeData = null;
-        });
+/**
+ * ✅ MỞ MODAL YÊU CẦU ƯU TIÊN
+ */
+function openPriorityModal(transId, orderId) {
+    document.getElementById('priorityForm').action = `/customer/cod/${transId}/request-priority`;
+    document.getElementById('priorityOrderIdDisplay').textContent = orderId;
+    document.getElementById('priorityReason').value = '';
+    new bootstrap.Modal(document.getElementById('priorityModal')).show();
+}
 
-        document.getElementById('priorityModal').addEventListener('hidden.bs.modal', function() {
-            document.getElementById('priorityForm').reset();
-        });
-    </script>
+/**
+ * ✅ FORMAT SỐ TIỀN
+ */
+function number_format(number) {
+    return new Intl.NumberFormat('vi-VN').format(number);
+}
 
+/**
+ * ✅ RESET MODAL KHI ĐÓNG
+ */
+document.getElementById('payFeeModal').addEventListener('hidden.bs.modal', function() {
+    document.getElementById('payFeeForm').reset();
+    hideAllPaymentSections();
+    currentTransactionId = null;
+    currentPayerShipping = null;
+    isReturnOrder = false;
+    window.feeData = null;
+});
+
+document.getElementById('priorityModal').addEventListener('hidden.bs.modal', function() {
+    document.getElementById('priorityForm').reset();
+});
+   </script>
+
+<!-- ==================== MODAL: THANH TOÁN NỢ ==================== -->
+<div class="modal fade" id="payDebtModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <form id="payDebtForm" method="POST" enctype="multipart/form-data">
+                @csrf
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title">
+                        <i class="bi bi-wallet2"></i> Thanh toán công nợ
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body p-4">
+                    <div class="alert alert-danger border-0 mb-4">
+                        <h6 class="alert-heading">Tổng nợ hiện tại</h6>
+                        <h3 class="mb-0" id="debtAmountDisplay">0₫</h3>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Phương thức thanh toán</label>
+                        <select name="payment_method" class="form-select" required>
+                            <option value="">-- Chọn --</option>
+                            <option value="bank_transfer">Chuyển khoản</option>
+                            <option value="cash">Tiền mặt tại bưu cục</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Chứng từ thanh toán</label>
+                        <input type="file" name="proof" class="form-control" accept="image/*">
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-danger">Xác nhận thanh toán</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function openPayDebtModal(transId, orderId, debtAmount) {
+    document.getElementById('payDebtForm').action = `/customer/cod/${transId}/pay-debt`;
+    document.getElementById('debtAmountDisplay').textContent = number_format(debtAmount) + '₫';
+    new bootstrap.Modal(document.getElementById('payDebtModal')).show();
+}
+</script>
 @endsection

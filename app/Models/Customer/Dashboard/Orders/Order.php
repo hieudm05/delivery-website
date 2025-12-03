@@ -5,6 +5,7 @@ use App\Models\Driver\Orders\OrderDelivery;
 use App\Models\Driver\Orders\OrderDeliveryImage;
 use App\Models\Driver\Orders\OrderDeliveryIssue;
 use App\Models\Driver\Orders\OrderReturn;
+use App\Models\Driver\Orders\PostOffice;
 use App\Models\Hub\Hub;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -1137,7 +1138,7 @@ class Order extends Model
      */
     public function returns()
     {
-        return $this->hasMany(\App\Models\Driver\Orders\OrderReturn::class);
+        return $this->hasMany(OrderReturn::class);
     }
 
     /**
@@ -1145,8 +1146,8 @@ class Order extends Model
      */
     public function activeReturn()
     {
-        return $this->hasOne(\App\Models\Driver\Orders\OrderReturn::class)
-            ->whereNotIn('status', [\App\Models\Driver\Orders\OrderReturn::STATUS_COMPLETED, \App\Models\Driver\Orders\OrderReturn::STATUS_CANCELLED])
+        return $this->hasOne(OrderReturn::class)
+            ->whereNotIn('status', [OrderReturn::STATUS_COMPLETED, OrderReturn::STATUS_CANCELLED])
             ->latest();
     }
 
@@ -1155,7 +1156,7 @@ class Order extends Model
      */
     public function latestReturn()
     {
-        return $this->hasOne(\App\Models\Driver\Orders\OrderReturn::class)->latest();
+        return $this->hasOne(OrderReturn::class)->latest();
     }
 
     /**
@@ -1172,7 +1173,7 @@ class Order extends Model
     public function isReturned()
     {
         return $this->has_return &&
-            $this->returns()->where('status', \App\Models\Driver\Orders\OrderReturn::STATUS_COMPLETED)->exists();
+            $this->returns()->where('status', OrderReturn::STATUS_COMPLETED)->exists();
     }
 
     /**
@@ -1185,9 +1186,9 @@ class Order extends Model
 
         // Nếu thất bại quá 3 lần, tự động khởi tạo hoàn hàng
         if ($this->delivery_attempt_count >= 3 && !$this->has_return) {
-            \App\Models\Driver\Orders\OrderReturn::createFromOrder(
+            OrderReturn::createFromOrder(
                 $this,
-                \App\Models\Driver\Orders\OrderReturn::REASON_AUTO_FAILED,
+                OrderReturn::REASON_AUTO_FAILED,
                 "Giao hàng thất bại {$this->delivery_attempt_count} lần"
             );
         }
@@ -1202,7 +1203,7 @@ class Order extends Model
             throw new \Exception('Đơn hàng đã có yêu cầu hoàn trước đó');
         }
 
-        return \App\Models\Driver\Orders\OrderReturn::createFromOrder(
+        return OrderReturn::createFromOrder(
             $this,
             $reasonType,
             $reasonDetail,
@@ -1234,4 +1235,15 @@ class Order extends Model
         return $this->hasOne(OrderDelivery::class, 'order_id')
             ->where('is_successful', true);
     }
+    public function postOffice()
+{
+    return $this->belongsTo(PostOffice::class, 'post_office_id');
+    // Hoặc nếu bạn dùng tên khác:
+    // return $this->belongsTo(\App\Models\Hub::class, 'hub_id');
+}
+// Hoặc tạo alias
+public function hub()
+{
+    return $this->belongsTo(\App\Models\User::class, 'hub_id')->where('role', 'hub');
+}
 }
