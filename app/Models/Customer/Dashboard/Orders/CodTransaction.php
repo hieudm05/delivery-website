@@ -616,10 +616,10 @@ class CodTransaction extends Model
     /**
      * Kiểm tra đơn có bị hoàn về không
      */
+    // Dòng 565-569 - THAY THẾ
     public function getIsReturnedOrderAttribute()
     {
-        return $this->order && $this->order->has_return && 
-            $this->order->activeReturn()->exists();
+        return $this->order && $this->order->has_return === true;
     }
 
     /**
@@ -627,8 +627,18 @@ class CodTransaction extends Model
      */
     public function driverMustPayCod()
     {
+        // Nếu đơn có issue (giao thất bại) → Driver KHÔNG cần nộp
+        if ($this->order && $this->order->deliveryIssues()->exists()) {
+            return false;
+        }
+        
         // Nếu đơn đang hoàn về → Driver KHÔNG cần nộp
         if ($this->is_returned_order) {
+            return false;
+        }
+        
+        //Nếu đơn không ở trạng thái đã giao → không cần nộp
+        if ($this->order && $this->order->status !== Order::STATUS_DELIVERED) {
             return false;
         }
         
@@ -638,14 +648,24 @@ class CodTransaction extends Model
     /**
      * Customer có được nhận COD không
      */
-    public function customerCanReceiveCod()
-    {
-        // Nếu đơn bị hoàn về → Customer KHÔNG nhận COD
-        if ($this->is_returned_order) {
-            return false;
-        }
-        
-        return $this->sender_receive_amount > 0 && 
-            $this->sender_payment_status === 'pending';
+   public function customerCanReceiveCod()
+{
+    //Nếu đơn có issue → Customer KHÔNG nhận COD
+    if ($this->order && $this->order->deliveryIssues()->exists()) {
+        return false;
     }
+    
+    // Nếu đơn bị hoàn về → Customer KHÔNG nhận COD
+    if ($this->is_returned_order) {
+        return false;
+    }
+    
+    // Chỉ nhận COD khi đơn đã giao thành công
+    if ($this->order && $this->order->status !== Order::STATUS_DELIVERED) {
+        return false;
+    }
+    
+    return $this->sender_receive_amount > 0 && 
+        $this->sender_payment_status === 'pending';
+}
 }

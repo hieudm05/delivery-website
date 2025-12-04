@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Drivers;
 
 use App\Http\Controllers\Controller;
+use App\Models\Customer\Dashboard\Orders\CodTransaction;
 use App\Models\Customer\Dashboard\Orders\Order;
 use App\Models\Driver\DriverProfile;
 use App\Models\Driver\Orders\OrderDelivery;
@@ -212,6 +213,10 @@ class DriverDeliveryController extends Controller
                 'status' => Order::STATUS_DELIVERED,
             ]);
 
+            if (!$order->codTransaction) {
+                  CodTransaction::createFromOrder($order);
+            }
+
             // Lưu ảnh vào bảng order_delivery_images
             if ($request->hasFile('images')) {
                 foreach ($request->file('images') as $index => $image) {
@@ -286,9 +291,6 @@ class DriverDeliveryController extends Controller
     /**
      * Xử lý giao hàng thất bại
      */
-    /**
-     * Xử lý giao hàng thất bại
-     */
     public function reportFailure(Request $request, $id)
     {
         $order = Order::with('delivery')->findOrFail($id);
@@ -314,7 +316,7 @@ class DriverDeliveryController extends Controller
         }
 
         try {
-            DB::beginTransaction();
+            // DB::beginTransaction();
 
             // ✅ THÊM: Đánh dấu lần thử hiện tại là thất bại
             $delivery = OrderDelivery::getLatestAttempt($order->id);
@@ -348,7 +350,7 @@ class DriverDeliveryController extends Controller
                     'issue_type' => $request->issue_type,
                     'issue_note' => $request->issue_note,
                     'issue_time' => now(),
-                    'reported_by' => auth()->id(),
+                    'reported_by' => Auth::id(),
                     'resolution_action' => OrderDeliveryIssue::ACTION_RETURN, // ✅ Tự động hoàn
                 ]);
 

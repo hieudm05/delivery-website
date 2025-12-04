@@ -16,7 +16,6 @@ class CustomerCodController extends Controller
     /**
      * ✅ DANH SÁCH GIAO DỊCH COD (Customer View)
      */
-    // app/Http/Controllers/Customer/Dashboard/Cod/CustomerCodController.php
 
 public function index(Request $request)
 {
@@ -186,86 +185,87 @@ public function index(Request $request)
      * ✅ THỐNG KÊ COD (Customer)
      */
 
-public function statistics()
-{
-    $userId = Auth::id();
-    
-    $baseQuery = CodTransaction::where('sender_id', $userId)
-        ->whereDoesntHave('order', function($q) {
-            $q->where('has_return', true)->whereHas('activeReturn');
-        });
-
-    $stats = [
-        'total_orders' => $baseQuery->count(),
+     public function statistics()
+    {
+        $userId = Auth::id();
         
-        // ✅ Chỉ tính COD của đơn KHÔNG bị hoàn
-        'total_cod_amount' => $baseQuery->sum('cod_amount'),
+        $baseQuery = CodTransaction::where('sender_id', $userId);
 
-        'total_fee_paid' => $baseQuery
-            ->whereNotNull('sender_fee_paid_at')
-            ->where('sender_debt_deducted', 0)
-            ->sum('sender_fee_paid'),
+        $stats = [
+            'total_orders' => (clone $baseQuery)->count(),
+            
+            'total_cod_amount' => (clone $baseQuery)
+                ->whereDoesntHave('order', function($q) {
+                    $q->where('has_return', true);
+                })
+                ->sum('cod_amount'),
 
-        'total_debt_deducted' => $baseQuery->sum('sender_debt_deducted'),
+            'total_fee_paid' => (clone $baseQuery)
+                ->whereNotNull('sender_fee_paid_at')
+                ->where('sender_debt_deducted', 0)
+                ->sum('sender_fee_paid'),
 
-        'total_cod_received' => $baseQuery
-            ->where('sender_payment_status', 'completed')
-            ->sum('sender_receive_amount'),
+            'total_debt_deducted' => (clone $baseQuery)->sum('sender_debt_deducted'),
 
-        'pending_fee' => CodTransaction::where('sender_id', $userId)
-            ->whereNull('sender_fee_paid_at')
-            ->where('sender_fee_paid', '>', 0)
-            ->where('cod_amount', 0)
-            ->whereDoesntHave('order', function($q) {
-                $q->where('has_return', true);
-            })
-            ->sum('sender_fee_paid'),
+            'total_cod_received' => (clone $baseQuery)
+                ->where('sender_payment_status', 'completed')
+                ->sum('sender_receive_amount'),
 
-        'count_pending_fee' => CodTransaction::where('sender_id', $userId)
-            ->whereNull('sender_fee_paid_at')
-            ->where('sender_fee_paid', '>', 0)
-            ->where('cod_amount', 0)
-            ->whereDoesntHave('order', function($q) {
-                $q->where('has_return', true);
-            })
-            ->count(),
+            'pending_fee' => (clone $baseQuery)
+                ->whereNull('sender_fee_paid_at')
+                ->where('sender_fee_paid', '>', 0)
+                ->sum('sender_fee_paid'),
 
-        'pending_cod' => $baseQuery
-            ->where('sender_payment_status', 'pending')
-            ->where(function ($q) {
-                $q->whereNotNull('sender_fee_paid_at')
-                    ->orWhere('sender_debt_deducted', '>', 0);
-            })
-            ->sum('sender_receive_amount'),
+            'count_pending_fee' => (clone $baseQuery)
+                ->whereNull('sender_fee_paid_at')
+                ->where('sender_fee_paid', '>', 0)
+                ->count(),
 
-        'count_waiting_cod' => $baseQuery
-            ->where('sender_payment_status', 'pending')
-            ->where(function ($q) {
-                $q->whereNotNull('sender_fee_paid_at')
-                    ->orWhere('sender_debt_deducted', '>', 0);
-            })
-            ->count(),
+            'pending_cod' => (clone $baseQuery)
+                ->where('sender_payment_status', 'pending')
+                ->where(function ($q) {
+                    $q->whereNotNull('sender_fee_paid_at')
+                        ->orWhere('sender_debt_deducted', '>', 0);
+                })
+                ->whereDoesntHave('order', function($q) {
+                    $q->where('has_return', true);
+                })
+                ->sum('sender_receive_amount'),
 
-        'count_completed' => $baseQuery
-            ->where('sender_payment_status', 'completed')
-            ->count(),
-    ];
+            'count_waiting_cod' => (clone $baseQuery)
+                ->where('sender_payment_status', 'pending')
+                ->where(function ($q) {
+                    $q->whereNotNull('sender_fee_paid_at')
+                        ->orWhere('sender_debt_deducted', '>', 0);
+                })
+                ->whereDoesntHave('order', function($q) {
+                    $q->where('has_return', true);
+                })
+                ->count(),
 
-    $timeline = $baseQuery
-        ->where('sender_transfer_time', '>=', now()->subDays(30))
-        ->selectRaw('DATE(sender_transfer_time) as date, SUM(sender_receive_amount) as amount')
-        ->groupBy('date')
-        ->orderBy('date')
-        ->pluck('amount', 'date')
-        ->toArray();
+            'count_completed' => (clone $baseQuery)
+                ->where('sender_payment_status', 'completed')
+                ->whereDoesntHave('order', function($q) {
+                    $q->where('has_return', true);
+                })
+                ->count(),
+        ];
 
-    $stats['timeline'] = $timeline;
-    
-    $debtStats = $this->getDebtStats($userId);
-    $stats['current_debt'] = $debtStats['total'];
+        $timeline = (clone $baseQuery)
+            ->where('sender_transfer_time', '>=', now()->subDays(30))
+            ->selectRaw('DATE(sender_transfer_time) as date, SUM(sender_receive_amount) as amount')
+            ->groupBy('date')
+            ->orderBy('date')
+            ->pluck('amount', 'date')
+            ->toArray();
 
-    return view('customer.dashboard.cod.statistics', compact('stats', 'debtStats'));
-}
+        $stats['timeline'] = $timeline;
+        
+        $debtStats = $this->getDebtStats($userId);
+        $stats['current_debt'] = $debtStats['total'];
+
+        return view('customer.dashboard.cod.statistics', compact('stats', 'debtStats'));
+    }
 
     /**
      * ✅ API: Lấy QR code để thanh toán phí cho Hub

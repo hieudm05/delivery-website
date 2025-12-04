@@ -174,7 +174,7 @@
                                             class="text-primary fs-5">{{ number_format($transaction->driver_commission) }}đ</span>
                                     </p>
                                     <small class="text-muted">= {{ number_format($transaction->shipping_fee) }}đ ×
-                                        {{ config('delivery.driver_commission_rate') * 100 }}%</small>
+                                        {{ config('delivery.driver.commission_rate') * 100 }}%</small>
 
                                     @if ($transaction->canPayDriverCommission())
                                         <div class="alert alert-info mb-3 mt-2">

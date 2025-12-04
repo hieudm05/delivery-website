@@ -21,13 +21,19 @@ class CodPaymentController extends Controller
         $status = $request->get('status', 'all');
         $date = $request->get('date');
 
-        // ✅ Base query với loại bỏ đơn hoàn về
-        $baseQuery = CodTransaction::with(['order', 'sender', 'hub', 'shipperBankAccount'])
-            ->byDriver($driverId)
-            ->whereDoesntHave('order', function($q) {
-                $q->where('has_return', true)
-                  ->whereHas('activeReturn');
-            });
+       $baseQuery = CodTransaction::with(['order', 'sender', 'hub', 'shipperBankAccount'])
+        ->byDriver($driverId)
+        ->whereHas('order', function($q) {
+            // ✅ CHỈ LẤY ĐƠN ĐÃ GIAO THÀNH CÔNG
+            $q->where('status', \App\Models\Customer\Dashboard\Orders\Order::STATUS_DELIVERED)
+              // ✅ KHÔNG CÓ ISSUE (không thất bại)
+              ->whereDoesntHave('deliveryIssues')
+              // ✅ KHÔNG BỊ HOÀN VỀ
+              ->where(function($query) {
+                  $query->where('has_return', false)
+                        ->orWhereNull('has_return');
+              });
+        });
 
         // Clone cho pagination
         $query = clone $baseQuery;
@@ -51,11 +57,19 @@ class CodPaymentController extends Controller
         $transactions = $query->latest()->paginate(15);
 
         // cũng phải loại bỏ đơn hoàn về
-        $statsBaseQuery = CodTransaction::byDriver($driverId)
-            ->whereDoesntHave('order', function($q) {
-                $q->where('has_return', true)
-                  ->whereHas('activeReturn');
-            });
+       $statsBaseQuery = CodTransaction::with(['order', 'sender', 'hub', 'shipperBankAccount'])
+        ->byDriver($driverId)
+        ->whereHas('order', function($q) {
+            // ✅ CHỈ LẤY ĐƠN ĐÃ GIAO THÀNH CÔNG
+            $q->where('status', \App\Models\Customer\Dashboard\Orders\Order::STATUS_DELIVERED)
+              // ✅ KHÔNG CÓ ISSUE (không thất bại)
+              ->whereDoesntHave('deliveryIssues')
+              // ✅ KHÔNG BỊ HOÀN VỀ
+              ->where(function($query) {
+                  $query->where('has_return', false)
+                        ->orWhereNull('has_return');
+              });
+        });
 
         $stats = [
             'total_pending' => (clone $statsBaseQuery)

@@ -46,7 +46,7 @@ class HubController extends Controller
 
         $order = Order::with(['orderGroup', 'products'])->findOrFail($orderId);
         if ($order->post_office_id != $hub->post_office_id) {
-            return redirect()->route('hub.index')->with('error', 'Đơn hàng không thuộc bưu cục của bạn.');
+            return redirect()->route('hub.income.index')->with('error', 'Đơn hàng không thuộc bưu cục của bạn.');
         }
 
         $availableDrivers = $this->getAvailableDrivers($hub, $order);
