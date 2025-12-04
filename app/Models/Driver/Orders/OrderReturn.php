@@ -293,8 +293,16 @@ class OrderReturn extends Model
             $this->order->update([
                 'status' => Order::STATUS_RETURNED,
             ]);
-
-             if ($this->return_fee > 0 && $this->order->sender_id && $this->order->post_office_id) {
+            if ($codTransaction = $this->order->codTransaction) {
+                $codTransaction->update([
+                    'sender_fee_paid' => $this->return_fee, // Phí hoàn hàng
+                    'sender_fee_paid_at' => null, // Chưa thanh toán
+                    'sender_fee_status' => 'pending', // Chờ thanh toán
+                    'sender_receive_amount' => 0, // Không nhận COD
+                    'cod_amount' => 0, // Không có COD
+                ]);
+            }
+            if ($this->return_fee > 0 && $this->order->sender_id && $this->order->post_office_id) {
             $hub = Hub::where('post_office_id', $this->order->post_office_id)->first();
             
             if ($hub) {

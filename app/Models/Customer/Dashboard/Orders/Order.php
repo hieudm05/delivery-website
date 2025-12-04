@@ -1246,4 +1246,8 @@ public function hub()
 {
     return $this->belongsTo(\App\Models\User::class, 'hub_id')->where('role', 'hub');
 }
+public function codTransaction()
+{
+    return $this->hasOne(CodTransaction::class, 'order_id');
+}
 }

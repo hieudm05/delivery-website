@@ -376,32 +376,29 @@
                         <i class="bi bi-credit-card"></i>
                     </button>
                 @endif
-
-                {{-- ✅ NÚT THANH TOÁN NỢ: Chỉ khi BỊ HOÀN + chưa trả nợ --}}
-                @if($trans->is_returned_order && $trans->sender_fee_paid > 0)
-                    @php
-                        $currentDebt = \App\Models\SenderDebt::getTotalUnpaidDebt($trans->sender_id, $trans->hub_id);
-                    @endphp
-                    
-                    @if($currentDebt > 0)
-                        <button type="button" class="btn btn-sm btn-danger"
-                            onclick="openPayDebtModal({{ $trans->id }}, {{ $trans->order_id }}, {{ $currentDebt }})"
-                            title="Thanh toán nợ">
-                            <i class="bi bi-wallet2"></i> Trả nợ
+                    @if(!$trans->is_returned_order && 
+                        $trans->sender_fee_paid > 0 && 
+                        !$trans->sender_fee_paid_at && 
+                        $trans->cod_amount == 0)
+                        <button type="button" class="btn btn-sm btn-outline-danger"
+                            onclick="openPayFeeModal(...)">
+                            <i class="bi bi-credit-card"></i>
                         </button>
                     @endif
-                @endif
 
-                {{-- NÚT ƯU TIÊN: Chỉ khi KHÔNG hoàn + đang chờ COD --}}
-                @if(!$trans->is_returned_order && 
-                    $trans->sender_payment_status === 'pending' && 
-                    $trans->sender_fee_paid_at)
-                    <button type="button" class="btn btn-sm btn-outline-warning"
-                        onclick="openPriorityModal({{ $trans->id }}, {{ $trans->order_id }})"
-                        title="Yêu cầu ưu tiên">
-                        <i class="bi bi-lightning"></i>
-                    </button>
-                @endif
+                    {{-- NÚT THANH TOÁN NỢ --}}
+                    @if($trans->is_returned_order && $trans->sender_fee_paid > 0)
+                        @php
+                            $currentDebt = \App\Models\SenderDebt::getTotalUnpaidDebt($trans->sender_id, $trans->hub_id);
+                        @endphp
+                        
+                        @if($currentDebt > 0)
+                            <button type="button" class="btn btn-sm btn-danger"
+                                onclick="openPayDebtModal()">
+                                <i class="bi bi-wallet2"></i> Trả nợ
+                            </button>
+                        @endif
+                    @endif
             </div>
         </td>
     </tr>

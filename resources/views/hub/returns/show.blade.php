@@ -10,7 +10,7 @@
             <h4 class="mb-1">Chi tiết đơn hoàn #{{ $return->id }}</h4>
             <nav aria-label="breadcrumb">
                 <ol class="breadcrumb mb-0">
-                    <li class="breadcrumb-item"><a href="{{ route('hub.index') }}">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{{ route('hub.income.index') }}">Dashboard</a></li>
                     <li class="breadcrumb-item"><a href="{{ route('hub.returns.index') }}">Quản lý hoàn hàng</a></li>
                     <li class="breadcrumb-item active">Chi tiết đơn hoàn</li>
                 </ol>
