@@ -602,11 +602,16 @@ $(document).ready(function() {
             setupCurrencyFormatting();
             setupModeSelector();
             setupSharedProductForm();
-            addRecipient(); // Sẽ tự động populate provinces
+            
+            // ✅ Thêm người nhận đầu tiên với Hà Nội mặc định
+            addRecipient(); 
+            
+            // ✅ THÔNG BÁO CHO NGƯỜI DÙNG
+            console.log('📍 Lưu ý: Hệ thống chỉ hỗ trợ giao hàng tại Hà Nội');
         })
         .catch((error) => { 
             console.error('❌ Load provinces failed:', error);
-            alert('⚠️ Không thể tải dữ liệu tỉnh thành. Vui lòng tải lại trang!');
+            alert('⚠️ Không thể tải dữ liệu khu vực. Vui lòng tải lại trang!');
             vietnamData = [];
             provincesLoaded = false;
         });
@@ -616,30 +621,28 @@ function loadProvinces() {
     return new Promise((resolve, reject) => {
         console.log('🌍 Đang tải dữ liệu tỉnh thành...');
         
-        // Thử load từ local file trước (nếu có)
+        // Thử load từ local file trước
         $.ajax({
             url: '/data/provinces.json',
             dataType: 'json',
             timeout: 3000,
             success: function(data) {
-                vietnamData = data;
+                vietnamData = data; // ✅ GIỮ NGUYÊN TẤT CẢ
                 console.log('✅ Loaded', data.length, 'provinces from LOCAL file');
-                console.log('📋 Sample province:', data[0]); // DEBUG: Xem cấu trúc
-                resolve(data);
+                resolve(vietnamData);
             },
             error: function() {
                 console.warn('⚠️ Local file not found, trying API...');
                 
-                // Fallback: Load từ API (dùng HTTPS)
+                // Fallback: Load từ API
                 $.ajax({
                     url: "https://provinces.open-api.vn/api/?depth=3",
                     dataType: 'json',
                     timeout: 10000,
                     success: function(data) {
-                        vietnamData = data;
+                        vietnamData = data; // ✅ GIỮ NGUYÊN TẤT CẢ
                         console.log('✅ Loaded', data.length, 'provinces from API');
-                        console.log('📋 Sample province:', data[0]); // DEBUG: Xem cấu trúc
-                        resolve(data);
+                        resolve(vietnamData);
                     },
                     error: function(xhr, status, error) {
                         console.error('❌ API failed:', status, error);
@@ -651,6 +654,23 @@ function loadProvinces() {
     });
 }
 
+// ============ HÀM LỌC CHỈ LẤY HÀ NỘI ============
+function filterHanoiOnly(data) {
+    const hanoi = data.find(province => 
+        province.name.includes('Hà Nội') || 
+        province.name.includes('Ha Noi') ||
+        province.code === '01' ||
+        province.code === 1
+    );
+    
+    if (!hanoi) {
+        console.error('❌ Không tìm thấy Hà Nội!');
+        return [];
+    }
+    
+    console.log('✅ Đã lọc Hà Nội:', hanoi.name);
+    return [hanoi]; // Chỉ trả về Hà Nội
+}
 // NEW: central applyMode function (use for initial set + clicks)
 function applyMode(newMode, init = false) {
     orderMode = newMode;
@@ -1068,12 +1088,22 @@ function createRecipientCard(recipient, index) {
                     <div class="mb-2">
                         <label class="form-label">Địa chỉ <span class="text-danger">*</span></label>
                         <div class="row g-2">
-                            <div class="col-12">
-                                <select class="form-select province-select" data-recipient-id="${recipient.id}"
-                                        name="recipients[${recipient.id}][province_code]" required>
-                                    <option value="">Tỉnh/Thành phố</option>
-                                </select>
-                            </div>
+                       <div class="col-12">
+                            <label class="form-label">
+                                Tỉnh/Thành phố 
+                                <span class="badge bg-success text-white ms-2" style="font-size: 11px;">
+                                    <i class="bi bi-geo-alt-fill"></i> Hà Nội
+                                </span>
+                            </label>
+                            <select class="form-select province-select" 
+                                    data-recipient-id="${recipient.id}"
+                                    required 
+                                    disabled
+                                    style="background-color: #f5f5f5; cursor: not-allowed; color: #6c757d;">
+                                <option value="">Đang tải Hà Nội...</option>
+                            </select>
+                            <!-- Hidden input sẽ được thêm tự động bởi populateProvinceSelect() -->
+                        </div>
                             <div class="col-12">
                                 <select class="form-select district-select" data-recipient-id="${recipient.id}"
                                         name="recipients[${recipient.id}][district_code]" required ${d.province_code ? '' : 'disabled'}>
@@ -1576,31 +1606,58 @@ function updateDeliveryTimeFormatted(recipientId) {
 }
 
 // ============ PROVINCE/DISTRICT/WARD ============
-
-// ...existing code...
 function populateProvinceSelect(recipientId) {
-    console.log('🔍 Attempting to populate provinces for recipient:', recipientId);
-    console.log('📊 vietnamData length:', vietnamData.length);
+    console.log('🔍 Populating Hanoi for recipient:', recipientId);
 
-    if (vietnamData.length > 0) {
-        let html = '<option value="">Tỉnh/Thành phố</option>';
-        vietnamData.forEach(province => {
-            // ensure value is string to avoid type mismatch later
-            const code = String(province.code ?? province.province_code ?? province.id ?? '');
-            html += `<option value="${code}">${province.name}</option>`;
-        });
-        $(`.province-select[data-recipient-id="${recipientId}"]`).html(html);
-
-        // If recipient has preselected province, set it
-        const d = recipientsList.find(r => r.id === recipientId)?.data || {};
-        if (d.province_code) {
-            $(`.province-select[data-recipient-id="${recipientId}"]`).val(String(d.province_code)).trigger('change');
-        }
-
-        console.log(`✅ Đã populate ${vietnamData.length} tỉnh thành cho recipient #${recipientId}`);
-    } else {
+    if (vietnamData.length === 0) {
         console.error('❌ vietnamData rỗng!');
+        return;
     }
+
+    const hanoi = vietnamData[0]; // Chỉ có Hà Nội
+    const hanoiCode = String(hanoi.code ?? hanoi.province_code ?? hanoi.id ?? '');
+    
+    // ✅ CHỈ CÓ 1 OPTION = HÀ NỘI
+    let html = `<option value="${hanoiCode}">${hanoi.name}</option>`;
+    
+    const $select = $(`.province-select[data-recipient-id="${recipientId}"]`);
+    $select.html(html);
+    
+    // ✅ TỰ ĐỘNG CHỌN HÀ NỘI
+    $select.val(hanoiCode);
+    
+    // ✅ DISABLE NHƯNG VẪN SUBMIT ĐƯỢC
+    // Trick: Thêm hidden input để submit, disable select chỉ để UI
+    $select.prop('disabled', true);
+    
+    // ✅ Thêm hidden input để submit giá trị
+    if ($(`.province-hidden-${recipientId}`).length === 0) {
+        $select.after(`
+            <input type="hidden" 
+                   class="province-hidden-${recipientId}" 
+                   name="recipients[${recipientId}][province_code]" 
+                   value="${hanoiCode}">
+        `);
+    } else {
+        $(`.province-hidden-${recipientId}`).val(hanoiCode);
+    }
+    
+    // ✅ Remove attribute name từ select (vì dùng hidden input)
+    $select.removeAttr('name');
+    
+    // ✅ Style để user biết là cố định
+    $select.css({
+        'background-color': '#f5f5f5',
+        'cursor': 'not-allowed',
+        'color': '#6c757d'
+    });
+    
+    // ✅ TỰ ĐỘNG LOAD QUẬN/HUYỆN
+    setTimeout(() => {
+        handleProvinceChange(recipientId);
+    }, 100);
+
+    console.log(`✅ Đã chọn mặc định Hà Nội cho recipient #${recipientId}`);
 }
 
 function handleProvinceChange(recipientId) {
@@ -2360,33 +2417,39 @@ function validateDatetimes() {
 
 // ============ LOAD PROVINCES ============
 function loadProvinces() {
-    return new Promise((resolve) => {
-        console.log('🌍 Loading provinces from local...');
+    return new Promise((resolve, reject) => {
+        console.log('🌍 Đang tải dữ liệu tỉnh thành...');
         
-        // Ưu tiên load từ local trước
-        $.get('/data/provinces.json')
-            .done(function(data) {
-                vietnamData = data;
-                console.log('✅ Loaded', data.length, 'provinces from local file');
-                resolve(data);
-            })
-            .fail(function(err) {
+        $.ajax({
+            url: '/data/provinces.json',
+            dataType: 'json',
+            timeout: 3000,
+            success: function(data) {
+                // ✅ LỌC CHỈ LẤY HÀ NỘI
+                vietnamData = filterHanoiOnly(data);
+                console.log('✅ Loaded Hanoi from LOCAL file');
+                resolve(vietnamData);
+            },
+            error: function() {
                 console.warn('⚠️ Local file not found, trying API...');
                 
-                // Fallback sang API nếu local không có
-                $.get("http://provinces.open-api.vn/api/?depth=3")
-                    .done(function(data) {
-                        vietnamData = data;
-                        console.log('✅ Loaded', data.length, 'provinces from API');
-                        resolve(data);
-                    })
-                    .fail(function() {
-                        console.error('❌ Cannot load provinces from anywhere');
-                        alert('⚠️ Không thể tải dữ liệu tỉnh thành. Vui lòng thử lại sau!');
-                        vietnamData = [];
-                        resolve([]);
-                    });
-            });
+                $.ajax({
+                    url: "https://provinces.open-api.vn/api/?depth=3",
+                    dataType: 'json',
+                    timeout: 10000,
+                    success: function(data) {
+                        // ✅ LỌC CHỈ LẤY HÀ NỘI
+                        vietnamData = filterHanoiOnly(data);
+                        console.log('✅ Loaded Hanoi from API');
+                        resolve(vietnamData);
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('❌ API failed:', status, error);
+                        reject(new Error('Cannot load provinces from API'));
+                    }
+                });
+            }
+        });
     });
 }
 
