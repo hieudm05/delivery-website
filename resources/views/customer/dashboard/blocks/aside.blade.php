@@ -23,19 +23,7 @@
         <span class="nav-link-text ms-1">Tạo đơn</span>
       </a>
     </li>
-     <li class="nav-item mt-3">
-      <h5 class="ps-4 ms-2 text-uppercase text-xs text-dark font-weight-bolder opacity-5">Cài đặt tài khoản</h5>
-    </li>
-    <li class="nav-item">
-     <a class="nav-link {{ request()->routeIs('customer.account.index') ? 'active bg-gradient-dark text-white' : 'text-dark' }}" href="{{ route('customer.account.index') }}">
-        <i class="material-symbols-rounded opacity-5">account_circle</i>
-        <span class="nav-link-text ms-1">Thông tin tài khoản</span>
-    </a>
-    </li>
 
-    <li class="nav-item mt-3">
-      <h5 class="ps-4 ms-2 text-uppercase text-xs text-dark font-weight-bolder opacity-5">Quản lý</h5>
-    </li>
     <li class="nav-item">
       <a class="nav-link {{request()->routeIs('customer.orderManagent.index') ? 'active bg-gradient-dark text-white' : 'text-dark'}}" href="{{ route('customer.orderManagent.index') }}">
         <i class="material-symbols-rounded opacity-5">inventory_2</i>
@@ -59,6 +47,15 @@
         <i class="material-symbols-rounded opacity-5">payments</i>
         <span class="nav-link-text ms-1">Thu chi</span>
       </a>
+    </li>
+     <li class="nav-item mt-3">
+      <h5 class="ps-4 ms-2 text-uppercase text-xs text-dark font-weight-bolder opacity-5">Cài đặt tài khoản</h5>
+    </li>
+    <li class="nav-item">
+     <a class="nav-link {{ request()->routeIs('customer.account.index') ? 'active bg-gradient-dark text-white' : 'text-dark' }}" href="{{ route('customer.account.index') }}">
+        <i class="material-symbols-rounded opacity-5">account_circle</i>
+        <span class="nav-link-text ms-1">Thông tin tài khoản</span>
+    </a>
     </li>
     <li class="nav-item">
       <a class="nav-link text-dark" href="{{ route('home') }}">
