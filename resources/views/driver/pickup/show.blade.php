@@ -334,7 +334,7 @@ $(document).ready(function() {
         }
     }
 
-    // Xác nhận lấy hàng
+   // Cập nhật phần xác nhận lấy hàng
     $('#confirmPickupForm').submit(function(e) {
         e.preventDefault();
         
@@ -351,8 +351,30 @@ $(document).ready(function() {
             headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
             success: function(response) {
                 if (response.success) {
-                    Swal.fire('Thành công', response.message, 'success');
-                    setTimeout(() => window.location.href = '{{ route("driver.pickup.index") }}', 1500);
+                    // ✅ Hiển thị thông báo khác nhau tùy loại đơn
+                    if (response.is_inner_hanoi) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Lấy hàng thành công!',
+                            html: response.message,
+                            confirmButtonText: 'Bắt đầu giao hàng',
+                            allowOutsideClick: false
+                        }).then(() => {
+                            // ✅ Chuyển đến trang giao hàng (dùng redirect_url từ server)
+                            window.location.href = response.redirect_url;
+                        });
+                    } else {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Lấy hàng thành công!',
+                            html: response.message,
+                            timer: 2000,
+                            showConfirmButton: false
+                        }).then(() => {
+                            // ✅ Quay về danh sách pickup
+                            window.location.href = response.redirect_url;
+                        });
+                    }
                 }
             },
             error: function(xhr) {
