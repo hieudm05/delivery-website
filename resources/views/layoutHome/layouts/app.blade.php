@@ -18,6 +18,7 @@
   </main>
 
   <footer id="footer" class="footer dark-background">
+    @include("layoutHome.blocks.alert")
     @include('layoutHome.blocks.footer')
   </footer>
 
@@ -26,7 +27,6 @@
 
   <!-- Preloader -->
   <div id="preloader"></div>
-
     @include('layoutHome.blocks.js')
 
 </body>
