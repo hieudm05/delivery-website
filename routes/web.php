@@ -82,6 +82,8 @@ Route::prefix('admin')
         Route::get('/system', [IncomeController::class, 'adminSystemOverview'])->name('income.system');
         // Chi tiết platform fee
         Route::get('/platform-fee', [IncomeController::class, 'adminPlatformFeeDetail'])->name('income.platform-fee');
+         Route::get('/income/hub/{hubId}', [IncomeController::class, 'hubDetail'])
+            ->name('income.hub-detail');
         // Duyệt hồ sơ tài xế
         Route::get('/driver', [AdminDriverController::class, 'index'])->name('driver.index');
         Route::get('/driver/{id}', [AdminDriverController::class, 'show'])->name('driver.show');
