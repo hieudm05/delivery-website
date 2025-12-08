@@ -338,9 +338,11 @@ Route::prefix('customer')
             ->group(function () {
             Route::get('create', [OrderController::class, 'create'])->name('create');
             Route::post('store', [OrderController::class, 'store'])->name('store');
+            Route::get('/{id}/edit', [OrderController::class, 'edit'])->name('edit');
+            Route::put('/{id}', [OrderController::class, 'update'])->name('update');
             Route::post('calculate', [OrderController::class, 'calculate'])->name('calculate');
             Route::get('/api/post-offices', [OrderController::class, 'getNearby'])->name('getNearby');
-            Route::get('/addresses/list', [OrderController::class, 'list'])->name('addresses.list');
+            Route::get('/addresses/list', [OrderController::class, '  list'])->name('addresses.list');
         });
         // Quản lý đơn hàng
         Route::prefix('orderManagent')

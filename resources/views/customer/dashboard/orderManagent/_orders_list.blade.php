@@ -128,7 +128,7 @@
                 </a>
                 
                 @if($order->status === 'pending')
-                <a href="{{ route('customer.orderManagent.edit', $order->id) }}" 
+                <a href="{{ route('customer.orders.edit', $order->id) }}" 
                    class="btn btn-sm btn-outline-warning">
                     <i class="bi bi-pencil"></i>
                 </a>
