@@ -160,210 +160,253 @@ class OrderController extends Controller
     }
 
     public function edit($id)
-    {
-        $order = Order::with([
-            'orderGroup',
-            'products',
-            'images',
-            'postOffice'
-        ])->findOrFail($id);
+{
+    $order = Order::with([
+        'orderGroup',
+        'products',
+        'images',
+        'postOffice'
+    ])->findOrFail($id);
+    
+    if ($order->sender_id != Auth::id()) {
+        abort(403, 'Bạn không có quyền sửa đơn hàng này');
+    }
+    
+    if (!$order->canEdit()) {
+        return redirect()->route('customer.orderManagent.show', $order->id)
+            ->with('error', '⚠️ Đơn hàng đang ở trạng thái "' . $order->status_label . '", không thể chỉnh sửa');
+    }
+    
+    // ✅ Chuẩn bị products data với format đầy đủ
+    $productsData = $order->products->map(function($p) use ($order) {
+        return [
+            'type' => $order->item_type,
+            'name' => $p->name,
+            'quantity' => $p->quantity,
+            'weight' => $p->weight,
+            'value' => $p->value,
+            'length' => $p->length ?? 0,
+            'width' => $p->width ?? 0,
+            'height' => $p->height ?? 0,
+            'specials' => $p->specials ?? []
+        ];
+    })->toArray();
+    
+    // ✅ Chuẩn bị recipient data để đổ vào form
+    $recipientData = [
+        'recipient_name' => $order->recipient_name,
+        'recipient_phone' => $order->recipient_phone,
+        'province_code' => $order->province_code,
+        'district_code' => $order->district_code,
+        'ward_code' => $order->ward_code,
+        'address_detail' => $order->address_detail,
+        'recipient_full_address' => $order->recipient_full_address,
+        'recipient_latitude' => $order->recipient_latitude,
+        'recipient_longitude' => $order->recipient_longitude,
+        'delivery_time' => $order->delivery_time->format('Y-m-d\TH:i'),
+    ];
+    
+    // ✅ Sender data
+    $senderData = [
+        'sender_name' => $order->sender_name,
+        'sender_phone' => $order->sender_phone,
+        'sender_address' => $order->sender_address,
+        'sender_latitude' => $order->sender_latitude,
+        'sender_longitude' => $order->sender_longitude,
+        'pickup_time' => $order->pickup_time->format('Y-m-d\TH:i'),
+        'post_office_id' => $order->post_office_id,
+    ];
+    
+    $user = User::with('userInfo')->find(Auth::id());
+    
+    return view('customer.dashboard.orders.edit', compact(
+        'order', 
+        'user', 
+        'productsData', 
+        'recipientData',
+        'senderData'
+    ));
+}
+
+public function update(Request $request, $id)
+{
+    try {
+        $order = Order::with(['orderGroup', 'products', 'images'])->findOrFail($id);
         
-        // ✅ Kiểm tra quyền sở hữu
-        if ($order->sender_id != Auth::id()) {
+        if ($order->sender_id !== Auth::id()) {
             abort(403, 'Bạn không có quyền sửa đơn hàng này');
         }
         
-        // ✅ Kiểm tra xem có thể sửa không
         if (!$order->canEdit()) {
-            return redirect()->route('customer.orders.show', $order->id)
-                ->with('error', '⚠️ Đơn hàng đang ở trạng thái "' . $order->status_label . '", không thể chỉnh sửa');
+            return redirect()->back()
+                ->with('error', '⚠️ Không thể sửa đơn ở trạng thái: ' . $order->status_label);
         }
         
-        $user = User::with('userInfo')->find(Auth::id());
+        // ✅ Validate với messages rõ ràng
+        $validated = $request->validate([
+            'recipient_name' => 'required|string|max:255',
+            'recipient_phone' => ['required', 'string', 'regex:/^(0|\+84)[0-9]{9,10}$/'],
+            'province_code' => 'required|string',
+            'district_code' => 'required|string',
+            'ward_code' => 'required|string',
+            'address_detail' => 'required|string',
+            'recipient_full_address' => 'required|string',
+            'recipient_latitude' => 'nullable|numeric',
+            'recipient_longitude' => 'nullable|numeric',
+            'delivery_time_formatted' => 'required|date_format:Y-m-d H:i:s',
+            
+            'item_type' => 'required|in:package,document',
+            'products_json' => 'required|string|min:2',
+            'services' => 'nullable|array',
+            'cod_amount' => 'nullable|numeric|min:0',
+            'payer' => 'required|in:sender,recipient',
+            'note' => 'nullable|string',
+            
+            'images.*' => 'nullable|image|mimes:jpeg,png,jpg|max:5120',
+            'image_notes.*' => 'nullable|string',
+            'delete_images' => 'nullable|string',
+            
+            'sender_name' => 'required_if:can_edit_sender,true|string|max:255',
+            'sender_phone' => 'required_if:can_edit_sender,true|string|regex:/^(0|\+84)[0-9]{9,10}$/',
+            'sender_address' => 'required_if:can_edit_sender,true|string',
+            'sender_latitude' => 'nullable|numeric',
+            'sender_longitude' => 'nullable|numeric',
+            'pickup_time_formatted' => 'required_if:can_edit_sender,true|date_format:Y-m-d H:i:s',
+            'post_office_id' => 'nullable|string',
+        ], [
+            'recipient_name.required' => 'Vui lòng nhập tên người nhận',
+            'recipient_phone.required' => 'Vui lòng nhập số điện thoại người nhận',
+            'recipient_phone.regex' => 'Số điện thoại không hợp lệ',
+            'province_code.required' => 'Vui lòng chọn Tỉnh/Thành phố',
+            'district_code.required' => 'Vui lòng chọn Quận/Huyện',
+            'ward_code.required' => 'Vui lòng chọn Phường/Xã',
+            'address_detail.required' => 'Vui lòng nhập số nhà, tên đường',
+            'delivery_time_formatted.required' => 'Vui lòng chọn thời gian giao hàng',
+            'products_json.required' => 'Vui lòng thêm ít nhất 1 sản phẩm',
+        ]);
         
-        return view('customer.dashboard.orders.edit', compact('order', 'user'));
-    }
-
-/**
- * ✅ Cập nhật đơn hàng
- */
-    public function update(Request $request, $id)
-    {
-        try {
-            $order = Order::with(['orderGroup', 'products', 'images'])->findOrFail($id);
+        DB::beginTransaction();
+        
+        $products = json_decode($validated['products_json'], true);
+        if (!$products || !is_array($products) || empty($products)) {
+            throw new \Exception('Vui lòng thêm ít nhất 1 sản phẩm');
+        }
+        
+        $calculationResult = $this->calculateOrderFees($products, $validated);
+        
+        $updateData = [
+            'recipient_name' => $validated['recipient_name'],
+            'recipient_phone' => $validated['recipient_phone'],
+            'province_code' => $validated['province_code'],
+            'district_code' => $validated['district_code'],
+            'ward_code' => $validated['ward_code'],
+            'address_detail' => $validated['address_detail'],
+            'recipient_latitude' => $validated['recipient_latitude'] ?? null,
+            'recipient_longitude' => $validated['recipient_longitude'] ?? null,
+            'recipient_full_address' => $validated['recipient_full_address'],
+            'delivery_time' => $validated['delivery_time_formatted'],
             
-            // ✅ Kiểm tra quyền
-            if ($order->sender_id !== Auth::id()) {
-                abort(403, 'Bạn không có quyền sửa đơn hàng này');
-            }
-            
-            // ✅ Kiểm tra trạng thái
-            if (!$order->canEdit()) {
-                return redirect()->back()
-                    ->with('error', '⚠️ Không thể sửa đơn ở trạng thái: ' . $order->status_label);
-            }
-            
-            // ✅ Validate
-            $validated = $request->validate([
-                // Recipient info
-                'recipient_name' => 'required|string|max:255',
-                'recipient_phone' => ['required', 'string', 'regex:/^(0|\+84)[0-9]{9,10}$/'],
-                'province_code' => 'required|string',
-                'district_code' => 'required|string',
-                'ward_code' => 'required|string',
-                'address_detail' => 'required|string',
-                'recipient_full_address' => 'required|string',
-                'recipient_latitude' => 'nullable|numeric',
-                'recipient_longitude' => 'nullable|numeric',
-                'delivery_time_formatted' => 'required|date_format:Y-m-d H:i:s',
-                
-                // Products & Services
-                'item_type' => 'required|in:package,document',
-                'products_json' => 'required|string|min:2',
-                'services' => 'nullable|array',
-                'cod_amount' => 'nullable|numeric|min:0',
-                'payer' => 'required|in:sender,recipient',
-                'note' => 'nullable|string',
-                
-                // Images
-                'images.*' => 'nullable|image|mimes:jpeg,png,jpg|max:5120',
-                'image_notes.*' => 'nullable|string',
-                'delete_images' => 'nullable|array',
-                'delete_images.*' => 'nullable|exists:order_images,id',
-                
-                // ⚠️ CHỈ SỬA SENDER INFO NẾU CHƯA CÓ TÀI XẾ
-                'sender_name' => 'required_if:can_edit_sender,true|string|max:255',
-                'sender_phone' => 'required_if:can_edit_sender,true|string|regex:/^(0|\+84)[0-9]{9,10}$/',
-                'sender_address' => 'required_if:can_edit_sender,true|string',
-                'sender_latitude' => 'nullable|numeric',
-                'sender_longitude' => 'nullable|numeric',
-                'pickup_time_formatted' => 'required_if:can_edit_sender,true|date_format:Y-m-d H:i:s',
+            'item_type' => $validated['item_type'],
+            'services' => !empty($validated['services']) 
+                ? (is_string($validated['services']) 
+                    ? json_decode($validated['services'], true) 
+                    : $validated['services'])
+                : [],
+            'cod_amount' => $validated['cod_amount'] ?? 0,
+            'cod_fee' => $calculationResult['cod_fee'],
+            'shipping_fee' => $calculationResult['shipping_fee'],
+            'sender_total' => $calculationResult['sender_pays'],
+            'recipient_total' => $calculationResult['recipient_pays'],
+            'payer' => $validated['payer'],
+            'note' => $validated['note'] ?? null,
+            'products_json' => $products,
+        ];
+        
+        // ⚠️ CHỈ UPDATE SENDER INFO NẾU CHƯA CÓ TÀI XẾ
+        if (!$order->pickup_driver_id && !$order->driver_id) {
+            $updateData['sender_name'] = $validated['sender_name'];
+            $updateData['sender_phone'] = $validated['sender_phone'];
+            $updateData['sender_address'] = $validated['sender_address'];
+            $updateData['sender_latitude'] = $validated['sender_latitude'] ?? null;
+            $updateData['sender_longitude'] = $validated['sender_longitude'] ?? null;
+            $updateData['pickup_time'] = $validated['pickup_time_formatted'];
+            $updateData['post_office_id'] = $validated['post_office_id'] ?? $order->post_office_id;
+        }
+        
+        $order->update($updateData);
+        
+        // Update products
+        $order->products()->delete();
+        foreach ($products as $product) {
+            $order->products()->create([
+                'name' => $product['name'] ?? 'Không rõ',
+                'quantity' => $product['quantity'] ?? 1,
+                'weight' => $product['weight'] ?? 0,
+                'value' => $product['value'] ?? 0,
+                'length' => $product['length'] ?? 0,
+                'width' => $product['width'] ?? 0,
+                'height' => $product['height'] ?? 0,
+                'specials' => $product['specials'] ?? [],
             ]);
+        }
+        
+        // Delete old images
+        if (!empty($validated['delete_images'])) {
+            $imageIds = explode(',', $validated['delete_images']);
+            $imageIds = array_filter(array_map('trim', $imageIds));
             
-            DB::beginTransaction();
-            
-            // ✅ Parse products
-            $products = json_decode($validated['products_json'], true);
-            if (!$products || !is_array($products) || empty($products)) {
-                throw new \Exception('Vui lòng thêm ít nhất 1 sản phẩm');
-            }
-            
-            // ✅ Calculate fees
-            $calculationResult = $this->calculateOrderFees($products, $validated);
-            
-            // ✅ Chuẩn bị data update
-            $updateData = [
-                // Recipient info
-                'recipient_name' => $validated['recipient_name'],
-                'recipient_phone' => $validated['recipient_phone'],
-                'province_code' => $validated['province_code'],
-                'district_code' => $validated['district_code'],
-                'ward_code' => $validated['ward_code'],
-                'address_detail' => $validated['address_detail'],
-                'recipient_latitude' => $validated['recipient_latitude'] ?? null,
-                'recipient_longitude' => $validated['recipient_longitude'] ?? null,
-                'recipient_full_address' => $validated['recipient_full_address'],
-                'delivery_time' => $validated['delivery_time_formatted'],
-                
-                // Products & Services
-                'item_type' => $validated['item_type'],
-                'services' => !empty($validated['services']) 
-                    ? (is_string($validated['services']) 
-                        ? json_decode($validated['services'], true) 
-                        : $validated['services'])
-                    : [],
-                'cod_amount' => $validated['cod_amount'] ?? 0,
-                'cod_fee' => $calculationResult['cod_fee'],
-                'shipping_fee' => $calculationResult['shipping_fee'],
-                'sender_total' => $calculationResult['sender_pays'],
-                'recipient_total' => $calculationResult['recipient_pays'],
-                'payer' => $validated['payer'],
-                'note' => $validated['note'] ?? null,
-                'products_json' => $products,
-            ];
-            
-            // ⚠️ CHỈ UPDATE SENDER INFO NẾU CHƯA CÓ TÀI XẾ
-            if (!$order->pickup_driver_id && !$order->driver_id) {
-                $updateData['sender_name'] = $validated['sender_name'];
-                $updateData['sender_phone'] = $validated['sender_phone'];
-                $updateData['sender_address'] = $validated['sender_address'];
-                $updateData['sender_latitude'] = $validated['sender_latitude'] ?? null;
-                $updateData['sender_longitude'] = $validated['sender_longitude'] ?? null;
-                $updateData['pickup_time'] = $validated['pickup_time_formatted'];
-            }
-            
-            // ✅ Update order
-            $order->update($updateData);
-            
-            // ✅ Update products
-            $order->products()->delete();
-            foreach ($products as $product) {
-                $order->products()->create([
-                    'name' => $product['name'] ?? 'Không rõ',
-                    'quantity' => $product['quantity'] ?? 1,
-                    'weight' => $product['weight'] ?? 0,
-                    'value' => $product['value'] ?? 0,
-                    'length' => $product['length'] ?? 0,
-                    'width' => $product['width'] ?? 0,
-                    'height' => $product['height'] ?? 0,
-                    'specials' => $product['specials'] ?? [],
-                ]);
-            }
-            
-            // ✅ Delete old images
-            if (!empty($validated['delete_images'])) {
-                foreach ($validated['delete_images'] as $imageId) {
-                    $image = OrderImage::where('order_id', $order->id)
-                        ->where('id', $imageId)
-                        ->first();
-                    if ($image) {
-                        // Delete physical file
-                        if (\Storage::disk('public')->exists($image->image_path)) {
-                            \Storage::disk('public')->delete($image->image_path);
-                        }
-                        $image->delete();
+            foreach ($imageIds as $imageId) {
+                $image = OrderImage::where('order_id', $order->id)
+                    ->where('id', $imageId)
+                    ->first();
+                if ($image) {
+                    if (\Storage::disk('public')->exists($image->image_path)) {
+                        \Storage::disk('public')->delete($image->image_path);
                     }
+                    $image->delete();
                 }
             }
-            
-            // ✅ Upload new images
-            if ($request->hasFile('images')) {
-                $notes = $request->input('image_notes', []);
-                $this->handleImageUpload($order, $request->file('images'), $notes, 'pickup');
-            }
-            
-            // ✅ Nếu đơn thuộc group, update group totals
-            if ($order->isPartOfGroup()) {
-                $order->orderGroup->recalculateTotals();
-            }
-            
-            // ✅ Re-calculate risk score nếu cần
-            if ($order->status === 'pending') {
-                $order->risk_score = $order->calculateRiskScore();
-                $order->save();
-            }
-            
-            DB::commit();
-            
-            return redirect()->route('customer.orders.show', $order->id)
-                ->with('success', '✅ Cập nhật đơn hàng thành công! Mã đơn: #' . $order->id);
-            
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            $errorMsg = 'Dữ liệu không hợp lệ: ' . implode(', ', array_map(fn($err) => implode(', ', $err), $e->errors()));
-            
-            return redirect()->back()
-                ->withInput()
-                ->with('error', $errorMsg);
-            
-        } catch (\Exception $e) {
-            DB::rollBack();
-            
-            return redirect()->back()
-                ->withInput()
-                ->with('error', '❌ ' . $e->getMessage());
         }
+        
+        // Upload new images
+        if ($request->hasFile('images')) {
+            $notes = $request->input('image_notes', []);
+            $this->handleImageUpload($order, $request->file('images'), $notes, 'pickup');
+        }
+        
+        if ($order->isPartOfGroup()) {
+            $order->orderGroup->recalculateTotals();
+        }
+        
+        if ($order->status === 'pending') {
+            $order->risk_score = $order->calculateRiskScore();
+            $order->save();
+        }
+        
+        DB::commit();
+        
+        return redirect()->route('customer.orderManagent.show', $order->id)
+            ->with('success', '✅ Cập nhật đơn hàng thành công! Mã đơn: #' . $order->id);
+        
+    } catch (\Illuminate\Validation\ValidationException $e) {
+        $errors = [];
+        foreach ($e->errors() as $field => $messages) {
+            $errors[] = implode(', ', $messages);
+        }
+        $errorMsg = 'Dữ liệu không hợp lệ: ' . implode(' | ', $errors);
+        
+        return redirect()->back()
+            ->withInput()
+            ->with('error', $errorMsg);
+        
+    } catch (\Exception $e) {
+        DB::rollBack();
+        
+        return redirect()->back()
+            ->withInput()
+            ->with('error', '❌ Lỗi: ' . $e->getMessage());
     }
-
+}
 /**
  * ✅ TẠO ĐƠN ĐƠN GIẢN (1 người gửi → 1 người nhận)
  */

@@ -5,7 +5,6 @@
 <link rel="stylesheet" href="{{ asset('assets2/css/customer/dashboard/orders/style.css') }}">
 
 <style>
-  /* Reuse styles from create.blade.php */
   .special-box {
     border: 1px solid #eee;
     border-radius: 10px;
@@ -29,6 +28,13 @@
     font-size: 1.1rem;
     color: #dc3545;
   }
+  .product-item {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 10px;
+  }
   .product-item .remove-btn {
     cursor: pointer;
     color: #dc3545;
@@ -39,6 +45,7 @@
     border-radius: 8px;
     overflow: hidden;
     background: #f8f9fa;
+    margin-bottom: 15px;
   }
   .image-preview-item img {
     width: 100%;
@@ -56,6 +63,8 @@
     width: 30px;
     height: 30px;
     cursor: pointer;
+    font-size: 20px;
+    line-height: 1;
   }
   .readonly-info {
     background: #f8f9fa;
@@ -64,20 +73,35 @@
     padding: 15px;
     margin-bottom: 20px;
   }
-  .readonly-info .badge {
-    font-size: 11px;
-  }
   input[id*="value"],
   input[id*="cod-amount"],
-  input[id*="product-value"],
-  input[id*="document-value"] {
+  input[class*="value"] {
     text-align: right;
     font-weight: 500;
+  }
+  .address-suggestions {
+    position: absolute;
+    z-index: 1000;
+    width: 100%;
+    max-height: 300px;
+    overflow-y: auto;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    display: none;
+  }
+  .address-suggestions .list-group-item {
+    cursor: pointer;
+    border-left: none;
+    border-right: none;
+  }
+  .address-suggestions .list-group-item:hover {
+    background: #f8f9fa;
   }
 </style>
 
 <div class="container-fluid py-4">
-  <!-- HEADER -->
   <div class="card mb-4">
     <div class="card-body">
       <div class="d-flex justify-content-between align-items-center">
@@ -91,7 +115,7 @@
           </p>
         </div>
         <div>
-          <a href="{{ route('customer.orders.show', $order->id) }}" class="btn btn-secondary">
+          <a href="{{ route('customer.orderManagent.show', $order->id) }}" class="btn btn-secondary">
             <i class="bi bi-arrow-left"></i> Quay lại
           </a>
         </div>
@@ -101,12 +125,11 @@
 
   <form id="orderEditForm" method="POST" action="{{ route('customer.orders.update', $order->id) }}" enctype="multipart/form-data">
     @csrf
-    @method('PUT')
+    @method('POST')
     
     <input type="hidden" name="can_edit_sender" value="{{ !$order->pickup_driver_id && !$order->driver_id ? 'true' : 'false' }}">
     
     <div class="row">
-      <!-- CỘT TRÁI: THÔNG TIN NGƯỜI GỬI -->
       <div class="col-lg-5">
         <div class="card mb-4">
           <div class="card-header pb-0">
@@ -114,7 +137,6 @@
           </div>
           <div class="card-body">
             @if($order->pickup_driver_id || $order->driver_id)
-              <!-- ⚠️ ĐÃ CÓ TÀI XẾ - KHÔNG SỬA ĐƯỢC -->
               <div class="readonly-info">
                 <div class="alert alert-warning mb-3">
                   <i class="bi bi-lock"></i> Thông tin người gửi không thể sửa vì đã có tài xế nhận đơn
@@ -125,7 +147,6 @@
                 <div><strong>Thời gian lấy:</strong> {{ $order->pickup_time->format('H:i d/m/Y') }}</div>
               </div>
             @else
-              <!-- ✅ CHƯA CÓ TÀI XẾ - CHO PHÉP SỬA -->
               <div class="mb-3">
                 <label class="form-label">Tên người gửi <span class="text-danger">*</span></label>
                 <input type="text" class="form-control" name="sender_name" value="{{ old('sender_name', $order->sender_name) }}" required>
@@ -148,6 +169,14 @@
                 <input type="datetime-local" class="form-control" id="pickup-time" value="{{ old('pickup_time', $order->pickup_time->format('Y-m-d\TH:i')) }}" required>
                 <input type="hidden" id="pickup_time_formatted" name="pickup_time_formatted" value="{{ old('pickup_time_formatted', $order->pickup_time->format('Y-m-d H:i:s')) }}">
               </div>
+              
+              <div class="mb-3">
+                <label class="form-label">Bưu cục lấy hàng</label>
+                <select class="form-select" name="post_office_id" id="post-office-select">
+                  <option value="">-- Chọn bưu cục --</option>
+                </select>
+                <small class="text-muted">Để trống nếu muốn tài xế đến tận nơi lấy hàng</small>
+              </div>
             @endif
             
             <div class="mt-3">
@@ -158,7 +187,6 @@
         </div>
       </div>
 
-      <!-- CỘT PHẢI: THÔNG TIN NGƯỜI NHẬN & HÀNG HÓA -->
       <div class="col-lg-7">
         <div class="card mb-4">
           <div class="card-header pb-0">
@@ -198,8 +226,9 @@
                     <option value="">Phường/Xã</option>
                   </select>
                 </div>
-                <div class="col-12">
-                  <input type="text" class="form-control address-detail" name="address_detail" placeholder="Số nhà, tên đường..." value="{{ old('address_detail', $order->address_detail) }}" required>
+                <div class="col-12 position-relative">
+                  <input type="text" class="form-control address-detail" name="address_detail" placeholder="Số nhà, tên đường..." value="{{ old('address_detail', $order->address_detail) }}" required autocomplete="off">
+                  <div class="address-suggestions"></div>
                 </div>
               </div>
             </div>
@@ -212,6 +241,7 @@
               <input type="hidden" name="recipient_latitude" class="recipient-lat" value="{{ $order->recipient_latitude }}">
               <input type="hidden" name="recipient_longitude" class="recipient-lng" value="{{ $order->recipient_longitude }}">
               <input type="hidden" name="recipient_full_address" class="recipient-full-address" value="{{ $order->recipient_full_address }}">
+              <div class="geocode-status mt-1"></div>
             </div>
             
             <div class="mb-3">
@@ -222,7 +252,6 @@
           </div>
         </div>
 
-        <!-- HÀNG HÓA -->
         <div class="card mb-4">
           <div class="card-header pb-0">
             <h6 class="mb-0"><i class="bi bi-box"></i> Hàng hóa</h6>
@@ -239,7 +268,6 @@
               </div>
             </div>
             
-            <!-- FORM BƯU KIỆN -->
             <div class="product-input-section form-package" style="{{ $order->item_type === 'package' ? '' : 'display:none;' }}">
               <h6 class="fw-bold mb-3">Thêm bưu kiện</h6>
               <div class="row g-2">
@@ -257,7 +285,7 @@
                 </div>
                 <div class="col-12">
                   <label class="form-label">Giá trị (VNĐ) <span class="text-danger">*</span></label>
-                  <input type="text" class="form-control product-value" value="0" min="0">
+                  <input type="text" class="form-control product-value" value="0">
                 </div>
               </div>
               
@@ -317,7 +345,6 @@
               </button>
             </div>
             
-            <!-- FORM TÀI LIỆU -->
             <div class="product-input-section form-document" style="{{ $order->item_type === 'document' ? '' : 'display:none;' }}">
               <h6 class="fw-bold mb-3">Thêm tài liệu</h6>
               <div class="row g-2">
@@ -335,7 +362,7 @@
                 </div>
                 <div class="col-4">
                   <label class="form-label">Giá trị (VNĐ) <span class="text-danger">*</span></label>
-                  <input type="text" class="form-control document-value" value="0" min="0">
+                  <input type="text" class="form-control document-value" value="0">
                 </div>
               </div>
               
@@ -380,7 +407,6 @@
             <div class="products-list mb-3 mt-3"></div>
             <input type="hidden" name="products_json" class="products-json">
             
-            <!-- DỊCH VỤ -->
             <div class="mb-3">
               <label class="form-label fw-bold">Dịch vụ bổ sung</label>
               <div class="form-check">
@@ -398,12 +424,11 @@
               
               <div class="cod-amount-container mt-2 {{ in_array('cod', $order->services ?? []) || $order->cod_amount > 0 ? '' : 'd-none' }}">
                 <label class="form-label">Số tiền thu hộ (VNĐ)</label>
-                <input type="text" class="form-control cod-amount-display" placeholder="Nhập số tiền" value="{{ number_format($order->cod_amount, 0, ',', '.') }}">
+                <input type="text" class="form-control cod-amount-display" placeholder="Nhập số tiền" value="{{ $order->cod_amount > 0 ? number_format($order->cod_amount, 0, ',', '.') : '' }}">
                 <input type="hidden" class="cod-amount-raw" name="cod_amount" value="{{ $order->cod_amount }}">
               </div>
             </div>
             
-            <!-- NGƯỜI THANH TOÁN -->
             <div class="mb-3">
               <label class="form-label fw-bold">Người thanh toán cước phí</label>
               <div class="form-check">
@@ -416,7 +441,6 @@
               </div>
             </div>
             
-            <!-- CHI PHÍ -->
             <div class="cost-breakdown">
               <h6 class="fw-bold mb-2"><i class="bi bi-calculator"></i> Chi phí dự kiến</h6>
               <div class="cost-item">
@@ -447,13 +471,11 @@
           </div>
         </div>
 
-        <!-- HÌNH ẢNH -->
         <div class="card mb-4">
           <div class="card-header pb-0">
             <h6 class="mb-0"><i class="bi bi-images"></i> Hình ảnh đơn hàng</h6>
           </div>
           <div class="card-body">
-            <!-- EXISTING IMAGES -->
             @if($order->images->count() > 0)
               <div class="mb-3">
                 <label class="form-label fw-bold">Hình ảnh hiện tại</label>
@@ -463,18 +485,18 @@
                       <div class="image-preview-item">
                         <button type="button" class="remove-image" onclick="markImageForDeletion({{ $image->id }})">×</button>
                         <img src="{{ asset('storage/' . $image->image_path) }}" alt="Order Image">
-                        <div class="image-note">
-                          <small>{{ $image->note }}</small>
+                        <div class="p-2">
+                          <small class="text-muted">{{ $image->note }}</small>
                         </div>
                       </div>
                     </div>
                   @endforeach
                 </div>
-                <input type="hidden" name="delete_images[]" class="delete-images-input">
               </div>
             @endif
             
-            <!-- NEW IMAGES -->
+            <input type="hidden" name="delete_images" class="delete-images-input" value="">
+            
             <div class="mb-3">
               <label class="form-label fw-bold">Thêm hình ảnh mới (tối đa 5 ảnh)</label>
               <input type="file" class="form-control order-images" name="images[]" accept="image/*" multiple>
@@ -484,9 +506,8 @@
           </div>
         </div>
 
-        <!-- SUBMIT -->
         <div class="text-end">
-          <a href="{{ route('customer.orders.show', $order->id) }}" class="btn btn-secondary me-2">Hủy</a>
+          <a href="{{ route('customer.orderManagent.show', $order->id) }}" class="btn btn-secondary me-2">Hủy</a>
           <button type="submit" class="btn btn-danger btn-lg" id="submitUpdate">
             <i class="bi bi-check-circle"></i> Cập nhật đơn hàng
           </button>
@@ -496,35 +517,19 @@
   </form>
 </div>
 
-// ============================================
-// EDIT ORDER - JAVASCRIPT HOÀN CHỈNH
-// Thêm vào cuối file edit.blade.php
-// ============================================
-
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
 const GOONG_API_KEY = '{{ config("services.goong.api_key") }}';
 let vietnamData = [];
-let productsList = @json($order->products->map(function($p) {
-  return [
-    'type' => $order->item_type,
-    'name' => $p->name,
-    'quantity' => $p->quantity,
-    'weight' => $p->weight,
-    'value' => $p->value,
-    'length' => $p->length,
-    'width' => $p->width,
-    'height' => $p->height,
-    'specials' => $p->specials ?? []
-  ];
-}));
+let productsList = @json($productsData);
 let selectedImages = [];
 let imagesToDelete = [];
 let geocodeTimeout = null;
 let autocompleteTimeout = null;
 
 $(document).ready(function() {
-  console.log('🚀 Bắt đầu khởi tạo form sửa đơn...');
+  console.log('🚀 Khởi tạo form sửa đơn...');
+  console.log('📦 Products hiện tại:', productsList);
   
   loadProvinces().then(() => {
     console.log('✅ Đã load provinces');
@@ -534,13 +539,11 @@ $(document).ready(function() {
     renderProductsList();
     calculateCost();
     preselectAddress();
-    
-    // ✅ Format các giá trị tiền có sẵn
+    loadPostOffices();
     formatExistingCurrencyValues();
   });
 });
 
-// ============ LOAD PROVINCES ============
 function loadProvinces() {
   return $.ajax({
     url: '/data/provinces.json',
@@ -564,13 +567,218 @@ function populateProvinceSelect() {
   $('.province-select').html(html);
 }
 
-// ============ PRESELECT ADDRESS ============
+// ============================================
+// HÀM TÌM BƯU CỤC BẰNG OVERPASS API & NOMINATIM
+// ============================================
+
+function haversineDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+
+async function loadPostOffices() {
+  const senderLat = parseFloat('{{ $order->sender_latitude }}');
+  const senderLng = parseFloat('{{ $order->sender_longitude }}');
+  const currentOfficeId = '{{ $order->post_office_id }}';
+  
+  if (!senderLat || !senderLng || isNaN(senderLat) || isNaN(senderLng)) {
+    console.warn('⚠️ Không có tọa độ người gửi');
+    return;
+  }
+  
+  console.log('🔍 Tìm bưu cục tại:', { senderLat, senderLng });
+  
+  $('#post-office-select').html('<option value="">Đang tải bưu cục...</option>');
+  
+  const radius = 10000; // 10km
+  
+  const overpassQuery = `
+    [out:json][timeout:25];
+    (
+      node["amenity"="post_office"](around:${radius},${senderLat},${senderLng});
+      node["office"="post_office"](around:${radius},${senderLat},${senderLng});
+      way["amenity"="post_office"](around:${radius},${senderLat},${senderLng});
+    );
+    out body;
+    >;
+    out skel qt;
+  `;
+  
+  const overpassUrl = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(overpassQuery)}`;
+  
+  try {
+    console.log('📡 Gọi Overpass API...');
+    const response = await fetch(overpassUrl);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    
+    console.log('📦 Kết quả Overpass:', data);
+    
+    if (!data.elements || data.elements.length === 0) {
+      console.warn('⚠️ Không tìm thấy bưu cục, thử Nominatim...');
+      await loadPostOfficesNominatim(senderLat, senderLng, currentOfficeId);
+      return;
+    }
+    
+    const nodes = data.elements.filter(item => 
+      item.type === 'node' && item.lat && item.lon
+    );
+    
+    let postOffices = nodes.map(item => ({
+      name: item.tags?.name || item.tags?.['name:vi'] || 
+            (item.tags?.['addr:street'] ? `Bưu cục ${item.tags['addr:street']}` : 'Bưu cục'),
+      address: item.tags?.['addr:full'] || 
+              item.tags?.['addr:street'] || 
+              item.tags?.['addr:city'] || 
+              'Không có địa chỉ chi tiết',
+      lat: parseFloat(item.lat),
+      lng: parseFloat(item.lon),
+      operator: item.tags?.operator || 'Vietnam Post',
+      id: item.id,
+      type: 'node'
+    })).filter(office => {
+      return (
+        office.name && 
+        office.name !== 'Bưu cục' && 
+        office.address && 
+        office.address !== 'Không có địa chỉ chi tiết'
+      );
+    });
+    
+    console.log('📍 Danh sách bưu cục:', postOffices);
+    
+    if (postOffices.length === 0) {
+      $('#post-office-select').html('<option value="">Không tìm thấy bưu cục gần đây</option>');
+      return;
+    }
+    
+    displayPostOffices(senderLat, senderLng, postOffices, currentOfficeId);
+    
+  } catch (err) {
+    console.error('❌ Lỗi Overpass API:', err);
+    await loadPostOfficesNominatim(senderLat, senderLng, currentOfficeId);
+  }
+}
+
+async function loadPostOfficesNominatim(lat, lon, currentOfficeId) {
+  console.log('📡 Gọi Nominatim API...');
+  
+  const keywords = ['bưu cục', 'post office', 'vnpost', 'vietnam post'];
+  let allResults = [];
+  
+  for (const keyword of keywords) {
+    try {
+      const bboxSize = 0.05;
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(keyword + ' Hà Nội')}&format=json&limit=10&lat=${lat}&lon=${lon}&bounded=1&viewbox=${lon-bboxSize},${lat-bboxSize},${lon+bboxSize},${lat+bboxSize}`;
+      
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'PostOfficeApp/1.0',
+          'Accept': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        allResults = allResults.concat(data.filter(item => 
+          item.type === 'amenity' && 
+          (item.class === 'post_office' || item.class === 'office')
+        ));
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    } catch (err) {
+      console.warn(`⚠️ Lỗi khi tìm "${keyword}":`, err);
+    }
+  }
+  
+  console.log('📦 Kết quả Nominatim:', allResults);
+  
+  if (allResults.length === 0) {
+    $('#post-office-select').html('<option value="">Không tìm thấy bưu cục gần đây</option>');
+    return;
+  }
+  
+  const uniqueOffices = [];
+  const seen = new Set();
+  
+  allResults.forEach(item => {
+    const key = `${item.lat.toFixed(4)},${item.lon.toFixed(4)}`;
+    if (!seen.has(key) && item.display_name) {
+      seen.add(key);
+      const addressParts = item.display_name.split(',');
+      uniqueOffices.push({
+        name: addressParts[0].trim() || 'Bưu cục',
+        address: item.display_name || 'Không có địa chỉ chi tiết',
+        lat: parseFloat(item.lat),
+        lng: parseFloat(item.lon),
+        operator: 'Vietnam Post',
+        id: item.place_id,
+        type: 'nominatim'
+      });
+    }
+  });
+  
+  console.log('📍 Danh sách bưu cục sau khi lọc:', uniqueOffices);
+  
+  if (uniqueOffices.length > 0) {
+    displayPostOffices(lat, lon, uniqueOffices, currentOfficeId);
+  }
+}
+
+function displayPostOffices(userLat, userLon, postOffices, currentOfficeId) {
+  if (postOffices.length === 0) {
+    $('#post-office-select').html('<option value="">Không tìm thấy bưu cục</option>');
+    return;
+  }
+  
+  // Tính khoảng cách bằng Haversine
+  const officesWithDistance = postOffices.map(office => {
+    const distance = haversineDistance(userLat, userLon, office.lat, office.lng);
+    return {
+      ...office,
+      distance: distance
+    };
+  });
+  
+  // Sắp xếp theo khoảng cách
+  officesWithDistance.sort((a, b) => a.distance - b.distance);
+  
+  console.log('✅ Danh sách bưu cục đã sắp xếp:', officesWithDistance.slice(0, 5));
+  
+  // Hiển thị dropdown
+  let html = '<option value="">-- Chọn bưu cục --</option>';
+  
+  officesWithDistance.slice(0, 15).forEach((office, index) => {
+    const distanceKm = office.distance.toFixed(1);
+    const selected = office.id == currentOfficeId ? 'selected' : '';
+    
+    html += `<option value="${office.id}" 
+              data-lat="${office.lat}" 
+              data-lng="${office.lng}" 
+              data-distance="${office.distance}" 
+              ${selected}>
+      ${index + 1}. ${office.name} - ${office.address} (~${distanceKm}km)
+    </option>`;
+  });
+  
+  $('#post-office-select').html(html);
+  console.log('✅ Đã hiển thị', Math.min(15, officesWithDistance.length), 'bưu cục');
+}
+
 function preselectAddress() {
   const provinceCode = '{{ $order->province_code }}';
   const districtCode = '{{ $order->district_code }}';
   const wardCode = '{{ $order->ward_code }}';
   
-  console.log('📍 Preselecting address:', { provinceCode, districtCode, wardCode });
+  console.log('📍 Preselecting:', { provinceCode, districtCode, wardCode });
   
   if (provinceCode) {
     $('.province-select').val(provinceCode).trigger('change');
@@ -589,22 +797,11 @@ function preselectAddress() {
   }
 }
 
-// ============ SETUP EVENT HANDLERS ============
 function setupEventHandlers() {
-  // Province/District/Ward
-  $('.province-select').on('change', function() {
-    handleProvinceChange();
-  });
+  $('.province-select').on('change', handleProvinceChange);
+  $('.district-select').on('change', handleDistrictChange);
+  $('.ward-select, .address-detail').on('change keyup', updateFullAddress);
   
-  $('.district-select').on('change', function() {
-    handleDistrictChange();
-  });
-  
-  $('.ward-select, .address-detail').on('change keyup', function() {
-    updateFullAddress();
-  });
-  
-  // Address autocomplete
   $('.address-detail').on('input', function() {
     const query = $(this).val().trim();
     
@@ -620,16 +817,9 @@ function setupEventHandlers() {
     }, 500);
   });
   
-  // Products
-  $('.add-product-btn').on('click', function() {
-    addProduct();
-  });
+  $('.add-product-btn').on('click', addProduct);
+  $('.add-document-btn').on('click', addDocument);
   
-  $('.add-document-btn').on('click', function() {
-    addDocument();
-  });
-  
-  // Item type toggle
   $('.item-type').on('change', function() {
     const itemType = $(this).val();
     if (itemType === 'package') {
@@ -641,14 +831,13 @@ function setupEventHandlers() {
     }
   });
   
-  // Services
   $('.service-checkbox, .cod-checkbox').on('change', function() {
     if ($(this).hasClass('cod-checkbox')) {
       const isChecked = $(this).is(':checked');
       $('.cod-amount-container').toggleClass('d-none', !isChecked);
       if (!isChecked) {
         $('.cod-amount-display').val('');
-        $('.cod-amount-raw').val('');
+        $('.cod-amount-raw').val('0');
       }
     }
     calculateCost();
@@ -658,35 +847,23 @@ function setupEventHandlers() {
     const rawValue = getActualValue($(this).val());
     $('.cod-amount-raw').val(rawValue);
     
-    // Debounce calculate
     if (window.cod_debounce) clearTimeout(window.cod_debounce);
-    window.cod_debounce = setTimeout(() => {
-      calculateCost();
-    }, 1000);
+    window.cod_debounce = setTimeout(calculateCost, 1000);
   });
   
-  $('.payer-radio').on('change', function() {
-    calculateCost();
-  });
+  $('.payer-radio').on('change', calculateCost);
+  $('.order-images').on('change', handleNewImageUpload);
   
-  // Images
-  $('.order-images').on('change', function(e) {
-    handleNewImageUpload(e);
-  });
-  
-  // Pickup time
   $('#pickup-time').on('change', function() {
     const value = $(this).val();
     $('#pickup_time_formatted').val(formatDatetimeForDatabase(value));
   });
   
-  // Delivery time
   $('.delivery-time-input').on('change', function() {
     const value = $(this).val();
     $('.delivery-time-formatted').val(formatDatetimeForDatabase(value));
   });
   
-  // Click outside to hide autocomplete
   $(document).on('click', function(e) {
     if (!$(e.target).closest('.address-detail, .address-suggestions').length) {
       $('.address-suggestions').hide();
@@ -694,7 +871,6 @@ function setupEventHandlers() {
   });
 }
 
-// ============ PROVINCE/DISTRICT/WARD ============
 function handleProvinceChange() {
   const provinceCode = String($('.province-select').val() || '');
   
@@ -775,7 +951,6 @@ function updateFullAddress() {
   }
 }
 
-// ============ GOONG AUTOCOMPLETE ============
 function goongAutocomplete(query) {
   const provinceText = $('.province-select option:selected').text();
   let input = query;
@@ -791,7 +966,7 @@ function goongAutocomplete(query) {
       limit: 5
     },
     success: function(data) {
-      if (data && data.predictions && data.predictions.length > 0) {
+      if (data?.predictions?.length > 0) {
         displayAutocompleteSuggestions(data.predictions);
       } else {
         $('.address-suggestions').hide().html('');
@@ -804,7 +979,7 @@ function goongAutocomplete(query) {
 }
 
 function displayAutocompleteSuggestions(predictions) {
-  let html = '';
+  let html = '<div class="list-group">';
   predictions.forEach(pred => {
     html += `
       <button type="button" class="list-group-item list-group-item-action" 
@@ -814,6 +989,7 @@ function displayAutocompleteSuggestions(predictions) {
       </button>
     `;
   });
+  html += '</div>';
   
   $('.address-suggestions').html(html).show();
   
@@ -835,22 +1011,16 @@ function goongPlaceDetail(placeId, description) {
       place_id: placeId
     },
     success: function(data) {
-      if (data && data.result) {
+      if (data?.result) {
         const result = data.result;
         const lat = result.geometry.location.lat;
         const lng = result.geometry.location.lng;
         
         $('.recipient-lat').val(lat);
         $('.recipient-lng').val(lng);
-        $('.geocode-status').html(`
-          <small class="text-success">
-            <i class="bi bi-check-circle"></i> Đã tìm thấy tọa độ
-          </small>
-        `);
+        $('.geocode-status').html('<small class="text-success"><i class="bi bi-check-circle"></i> Đã tìm thấy tọa độ</small>');
         
         parseGoongAddress(result, description);
-        
-        console.log('✅ Địa chỉ từ Goong:', { lat, lng, address: description });
       }
     },
     error: function() {
@@ -899,9 +1069,7 @@ function parseGoongAddress(result, description) {
     }
   });
   
-  setTimeout(() => {
-    updateFullAddress();
-  }, 1500);
+  setTimeout(updateFullAddress, 1500);
 }
 
 function fetchCoordinates(address) {
@@ -913,37 +1081,24 @@ function fetchCoordinates(address) {
     },
     timeout: 10000,
     success: function(data) {
-      if (data && data.results && data.results.length > 0) {
+      if (data?.results?.length > 0) {
         const result = data.results[0];
         const lat = result.geometry.location.lat;
         const lng = result.geometry.location.lng;
         
         $('.recipient-lat').val(lat);
         $('.recipient-lng').val(lng);
-        $('.geocode-status').html(`
-          <small class="text-success">
-            <i class="bi bi-check-circle"></i> Đã tìm thấy tọa độ
-          </small>
-        `);
+        $('.geocode-status').html('<small class="text-success"><i class="bi bi-check-circle"></i> Đã tìm thấy tọa độ</small>');
       } else {
-        $('.geocode-status').html(`
-          <small class="text-warning">
-            <i class="bi bi-exclamation-triangle"></i> Không tìm thấy tọa độ chính xác
-          </small>
-        `);
+        $('.geocode-status').html('<small class="text-warning"><i class="bi bi-exclamation-triangle"></i> Không tìm thấy tọa độ chính xác</small>');
       }
     },
     error: function() {
-      $('.geocode-status').html(`
-        <small class="text-danger">
-          <i class="bi bi-x-circle"></i> Lỗi kết nối Goong API
-        </small>
-      `);
+      $('.geocode-status').html('<small class="text-danger"><i class="bi bi-x-circle"></i> Lỗi kết nối Goong API</small>');
     }
   });
 }
 
-// ============ PRODUCTS MANAGEMENT ============
 function addProduct() {
   const name = $('.product-name').val().trim();
   const quantity = parseInt($('.product-quantity').val()) || 1;
@@ -1036,14 +1191,18 @@ function renderProductsList() {
   const container = $('.products-list');
   
   if (!productsList || productsList.length === 0) {
-    container.html('');
+    container.html('<div class="alert alert-warning">Chưa có hàng hóa nào. Vui lòng thêm ít nhất 1 mặt hàng.</div>');
     $('.products-json').val('[]');
     return;
   }
   
-  let html = '';
+  let html = '<h6 class="fw-bold mb-2">Danh sách hàng hóa:</h6>';
   productsList.forEach((item, idx) => {
     const icon = item.type === 'package' ? '📦' : '📄';
+    const specialsText = item.specials && item.specials.length > 0 
+      ? `<div class="text-muted small">Đặc tính: ${item.specials.join(', ')}</div>` 
+      : '';
+    
     html += `
       <div class="product-item">
         <div class="d-flex justify-content-between align-items-start">
@@ -1051,7 +1210,9 @@ function renderProductsList() {
             <strong>${icon} ${item.name}</strong>
             <div class="text-muted small">
               SL: ${item.quantity} | KL: ${item.weight}g | GT: ${item.value.toLocaleString('vi-VN')}đ
+              ${item.length && item.width && item.height ? ` | KT: ${item.length}x${item.width}x${item.height}cm` : ''}
             </div>
+            ${specialsText}
           </div>
           <button type="button" class="btn btn-sm btn-outline-danger remove-btn" onclick="removeProduct(${idx})">
             <i class="bi bi-trash"></i>
@@ -1077,7 +1238,7 @@ function resetProductForm() {
   $('.product-name').val('');
   $('.product-quantity').val('1');
   $('.product-weight').val('');
-  $('.product-value').val('');
+  $('.product-value').val('0');
   $('.product-length').val('');
   $('.product-width').val('');
   $('.product-height').val('');
@@ -1088,22 +1249,20 @@ function resetDocumentForm() {
   $('.document-name').val('');
   $('.document-quantity').val('1');
   $('.document-weight').val('');
-  $('.document-value').val('');
+  $('.document-value').val('0');
   $('.document-length').val('');
   $('.document-width').val('');
   $('.document-height').val('');
   $('.doc-special-checkbox').prop('checked', false);
 }
 
-// ============ IMAGE MANAGEMENT ============
 function markImageForDeletion(imageId) {
   if (confirm('Xóa ảnh này?')) {
     imagesToDelete.push(imageId);
     $(`.existing-image-item[data-image-id="${imageId}"]`).hide();
     
-    // Update hidden input
     let currentValue = $('.delete-images-input').val();
-    let idsArray = currentValue ? currentValue.split(',') : [];
+    let idsArray = currentValue ? currentValue.split(',').filter(Boolean) : [];
     idsArray.push(imageId);
     $('.delete-images-input').val(idsArray.join(','));
     
@@ -1117,10 +1276,11 @@ function handleNewImageUpload(e) {
   const MAX_FILE_SIZE = 5 * 1024 * 1024;
   
   const existingCount = $('.existing-images-container .existing-image-item:visible').length;
-  const newCount = $('.image-preview-container .col-md-6').length;
+  const newCount = selectedImages.length;
   
   if (existingCount + newCount + files.length > MAX_IMAGES) {
     alert(`⚠️ Chỉ được tải tối đa ${MAX_IMAGES} ảnh`);
+    $(e.target).val('');
     return;
   }
   
@@ -1156,7 +1316,7 @@ function renderNewImagePreviews() {
           <div class="image-preview-item">
             <button type="button" class="remove-image" onclick="removeNewImage(${index})">×</button>
             <img src="${e.target.result}" alt="Preview">
-            <div class="image-note">
+            <div class="p-2">
               <input type="text" 
                      class="form-control form-control-sm" 
                      name="image_notes[]" 
@@ -1177,21 +1337,18 @@ function removeNewImage(index) {
   renderNewImagePreviews();
 }
 
-// ============ CALCULATE COST ============
 function calculateCost() {
   if (!productsList || productsList.length === 0) {
     resetCostDisplay();
     return;
   }
   
-  // Get COD amount
   let codAmount = 0;
   const codRawInput = $('.cod-amount-raw').val();
   if (codRawInput && codRawInput.trim()) {
     codAmount = parseFloat(codRawInput);
   }
   
-  // Get services
   const services = [];
   $('.service-checkbox:checked').each(function() {
     services.push($(this).val());
@@ -1257,7 +1414,6 @@ function resetCostDisplay() {
   $('.cod-fee-row').hide();
 }
 
-// ============ CURRENCY FORMATTING ============
 function formatCurrencyDisplay(value) {
   if (!value || value === '') return '';
   const numStr = String(value).replace(/\D/g, '');
@@ -1283,8 +1439,7 @@ function setupCurrencyFormatting() {
   const currencySelectors = [
     'input[id*="value"]',
     'input[id*="cod-amount"]',
-    'input[id*="product-value"]',
-    'input[id*="document-value"]'
+    'input[class*="value"]'
   ];
   
   const selector = currencySelectors.join(', ');
@@ -1342,7 +1497,6 @@ function setupCurrencyFormatting() {
 }
 
 function formatExistingCurrencyValues() {
-  // Format các giá trị COD amount có sẵn
   const codDisplay = $('.cod-amount-display');
   if (codDisplay.length && codDisplay.val()) {
     const formatted = formatCurrencyDisplay(codDisplay.val());
@@ -1350,7 +1504,6 @@ function formatExistingCurrencyValues() {
     codDisplay.data('actual-value', getActualValue(formatted));
   }
   
-  // Format các giá trị product value có sẵn
   $('input[id*="value"], input[class*="value"]').each(function() {
     const $input = $(this);
     if ($input.val()) {
@@ -1361,7 +1514,6 @@ function formatExistingCurrencyValues() {
   });
 }
 
-// ============ TOGGLE FORMS ============
 function setupToggleForms() {
   const itemType = $('.item-type:checked').val() || 'package';
   if (itemType === 'package') {
@@ -1373,14 +1525,12 @@ function setupToggleForms() {
   }
 }
 
-// ============ DATETIME HANDLING ============
 function formatDatetimeForDatabase(datetimeLocalValue) {
   if (!datetimeLocalValue) return null;
   const [date, time] = datetimeLocalValue.split('T');
   return `${date} ${time}:00`;
 }
 
-// ============ FORM VALIDATION & SUBMIT ============
 $('#orderEditForm').on('submit', function(e) {
   e.preventDefault();
   
@@ -1390,42 +1540,16 @@ $('#orderEditForm').on('submit', function(e) {
     return false;
   }
   
-  // Update products JSON
   $('.products-json').val(JSON.stringify(productsList));
   
-  // Update delete images
-  if (imagesToDelete.length > 0) {
-    $('.delete-images-input').val(imagesToDelete.join(','));
-  }
-  
-  // Format pickup time (if editable)
   const canEditSender = $('input[name="can_edit_sender"]').val();
   if (canEditSender === 'true') {
     const pickupValue = $('#pickup-time').val();
     $('#pickup_time_formatted').val(formatDatetimeForDatabase(pickupValue));
   }
   
-  // Format delivery time
   const deliveryValue = $('.delivery-time-input').val();
   $('.delivery-time-formatted').val(formatDatetimeForDatabase(deliveryValue));
-  
-  const formData = new FormData(this);
-  
-  // Add new images
-  if (selectedImages && selectedImages.length > 0) {
-    selectedImages.forEach((file) => {
-      formData.append('images[]', file);
-    });
-  }
-  
-  // Add delete images
-  if (imagesToDelete.length > 0) {
-    imagesToDelete.forEach((id) => {
-      formData.append('delete_images[]', id);
-    });
-  }
-  
-  console.log('📦 Form data prepared');
   
   $('#submitUpdate').prop('disabled', true)
     .html('<span class="spinner-border spinner-border-sm me-2"></span>Đang cập nhật...');
@@ -1434,7 +1558,6 @@ $('#orderEditForm').on('submit', function(e) {
 });
 
 function validateForm() {
-  // Validate recipient info
   if (!$('input[name="recipient_name"]').val().trim()) {
     alert('⚠️ Vui lòng nhập tên người nhận');
     return false;
@@ -1451,7 +1574,6 @@ function validateForm() {
     return false;
   }
   
-  // Validate address
   if (!$('.province-select').val() || !$('.district-select').val() || !$('.ward-select').val()) {
     alert('⚠️ Vui lòng chọn địa chỉ đầy đủ');
     return false;
@@ -1462,19 +1584,16 @@ function validateForm() {
     return false;
   }
   
-  // Validate products
   if (!productsList || productsList.length === 0) {
     alert('⚠️ Vui lòng thêm ít nhất 1 hàng hóa');
     return false;
   }
   
-  // Validate delivery time
   if (!$('.delivery-time-input').val()) {
     alert('⚠️ Vui lòng chọn thời gian giao hàng');
     return false;
   }
   
-  // Validate sender info (if editable)
   const canEditSender = $('input[name="can_edit_sender"]').val();
   if (canEditSender === 'true') {
     if (!$('input[name="sender_name"]').val().trim()) {
@@ -1506,10 +1625,10 @@ function validateForm() {
   return true;
 }
 
-// ============ GLOBAL FUNCTIONS ============
 window.removeProduct = removeProduct;
 window.markImageForDeletion = markImageForDeletion;
 window.removeNewImage = removeNewImage;
 
 console.log('✅ Edit order script loaded successfully');
 </script>
+@endsection
