@@ -56,27 +56,27 @@ Route::middleware(['auth:sanctum'])->group(function () {
         // ==========================================
         // DELIVERY API - Giao hàng
         // ==========================================
-        Route::prefix('delivery')->name('delivery.')->group(function () {
-            // Danh sách đơn cần giao
-            Route::get('/', [DriverDeliveryApiController::class, 'index'])
-                ->name('index');
+        // Route::prefix('delivery')->name('delivery.')->group(function () {
+        //     // Danh sách đơn cần giao
+        //     Route::get('/', [DriverDeliveryApiController::class, 'index'])
+        //         ->name('index');
             
-            // Chi tiết đơn hàng
-            Route::get('/{id}', [DriverDeliveryApiController::class, 'show'])
-                ->name('show');
+        //     // Chi tiết đơn hàng
+        //     Route::get('/{id}', [DriverDeliveryApiController::class, 'show'])
+        //         ->name('show');
             
-            // Bắt đầu giao hàng
-            Route::post('/{id}/start', [DriverDeliveryApiController::class, 'startDelivery'])
-                ->name('start');
+        //     // Bắt đầu giao hàng
+        //     Route::post('/{id}/start', [DriverDeliveryApiController::class, 'startDelivery'])
+        //         ->name('start');
             
-            // Giao hàng thành công
-            Route::post('/{id}/complete', [DriverDeliveryApiController::class, 'completeDelivery'])
-                ->name('complete');
+        //     // Giao hàng thành công
+        //     Route::post('/{id}/complete', [DriverDeliveryApiController::class, 'completeDelivery'])
+        //         ->name('complete');
             
-            // Báo cáo giao hàng thất bại
-            Route::post('/{id}/failure', [DriverDeliveryApiController::class, 'reportFailure'])
-                ->name('failure');
-        });
+        //     // Báo cáo giao hàng thất bại
+        //     Route::post('/{id}/failure', [DriverDeliveryApiController::class, 'reportFailure'])
+        //         ->name('failure');
+        // });
 
         // ==========================================
         // TRACKING API - Real-time location

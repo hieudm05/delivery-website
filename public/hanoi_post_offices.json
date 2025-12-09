@@ -1,0 +1,509 @@
+{
+  "metadata": {
+    "timestamp": "2025-11-25T16:19:43.730Z",
+    "total_found": 46,
+    "nearest_count": 3,
+    "reference_point": {
+      "lat": 21.043306,
+      "lng": 105.75788
+    },
+    "execution_time_ms": 1617
+  },
+  "all_offices": [
+    {
+      "id": 1755806889,
+      "name": "Bưu Cục Giải Phóng",
+      "address": "Đường Giải Phóng",
+      "lat": 20.98325,
+      "lng": 105.841459,
+      "operator": "Vietnam Post",
+      "phone": "",
+      "opening_hours": ""
+    },
+    {
+      "id": 2545040241,
+      "name": "Bưu Điện Cầu Giấy",
+      "address": "Đường Cầu Giấy",
+      "lat": 21.032534,
+      "lng": 105.798427,
+      "operator": "Vietnam Post",
+      "phone": "",
+      "opening_hours": ""
+    },
+    {
+      "id": 2810708201,
+      "name": "Bưu điện Quốc tế",
+      "address": "Phố Đinh Tiên Hoàng",
+      "lat": 21.026171,
+      "lng": 105.853613,
+      "operator": "Vietnam Post",
+      "phone": "",
+      "opening_hours": "Mo-Su 07:30-19:00"
+    },
+    {
+      "id": 4406493092,
+      "name": "Bưu điện Lương Văn Can",
+      "address": "Phố Lương Văn Can",
+      "lat": 21.031426,
+      "lng": 105.850914,
+      "operator": "Vietnam Post",
+      "phone": "",
+      "opening_hours": ""
+    },
+    {
+      "id": 4536058095,
+      "name": "VIETTEL POST",
+      "address": "Ngõ 118 Nguyễn Khánh Toàn",
+      "lat": 21.038059,
+      "lng": 105.801133,
+      "operator": "Vietnam Post",
+      "phone": "",
+      "opening_hours": ""
+    },
+    {
+      "id": 4571873590,
+      "name": "Bưu điện Tràng Tiền",
+      "address": "Phố Tràng Tiền",
+      "lat": 21.02542,
+      "lng": 105.853585,
+      "operator": "Vietnam Post",
+      "phone": "",
+      "opening_hours": ""
+    },
+    {
+      "id": 4734482024,
+      "name": "Bưu Cục Hàng Cót",
+      "address": "Phố Phùng Hưng",
+      "lat": 21.037995,
+      "lng": 105.846254,
+      "operator": "Vietnam Post",
+      "phone": "",
+      "opening_hours": ""
+    },
+    {
+      "id": 5239480022,
+      "name": "Bưu Cục EMS Tràng Tiền",
+      "address": "Phố Hàng Vôi",
+      "lat": 21.030761,
+      "lng": 105.856039,
+      "operator": "Vietnam Post",
+      "phone": "",
+      "opening_hours": ""
+    },
+    {
+      "id": 5485727933,
+      "name": "Bưu Cục Giảng Võ",
+      "address": "Giảng Võ",
+      "lat": 21.026417,
+      "lng": 105.822812,
+      "operator": "Vietnam Post",
+      "phone": "",
+      "opening_hours": ""
+    },
+    {
+      "id": 5485799797,
+      "name": "ViettelPost",
+      "address": "Nguyễn Cảnh Dị",
+      "lat": 20.974034,
+      "lng": 105.835782,
+      "operator": "Vietnam Post",
+      "phone": "",
+      "opening_hours": ""
+    },
+    {
+      "id": 6707397286,
+      "name": "Bưu Điện Trung Tâm 4",
+      "address": "Đội Cấn",
+      "lat": 21.034851,
+      "lng": 105.826192,
+      "operator": "VNPT",
+      "phone": "",
+      "opening_hours": ""
+    },
+    {
+      "id": 7178787481,
+      "name": "Bưu điện Đồng Xuân",
+      "address": "Phố Đồng Xuân",
+      "lat": 21.03799,
+      "lng": 105.848714,
+      "operator": "Vietnam Post",
+      "phone": "",
+      "opening_hours": ""
+    },
+    {
+      "id": 7409549830,
+      "name": "Bưu Điện Phụng Châu",
+      "address": "Phượng Nghĩa",
+      "lat": 20.948898,
+      "lng": 105.707044,
+      "operator": "Vietnam Post",
+      "phone": "",
+      "opening_hours": ""
+    },
+    {
+      "id": 7612528481,
+      "name": "Bưu điện Kim Liên",
+      "address": "Phố Lương Định Của",
+      "lat": 21.006522,
+      "lng": 105.835382,
+      "operator": "Vietnam Post",
+      "phone": "",
+      "opening_hours": ""
+    },
+    {
+      "id": 7856211553,
+      "name": "Bưu Cục Giao Dịch EMS Hồng Hà",
+      "address": "Đường Hồng Hà",
+      "lat": 21.032925,
+      "lng": 105.856203,
+      "operator": "Vietnam Post",
+      "phone": "",
+      "opening_hours": ""
+    },
+    {
+      "id": 7856211555,
+      "name": "Bưu điện Cửa Nam",
+      "address": "Phố Cửa Nam",
+      "lat": 21.02789,
+      "lng": 105.842421,
+      "operator": "Vietnam Post",
+      "phone": "",
+      "opening_hours": ""
+    },
+    {
+      "id": 7856350176,
+      "name": "Bưu Điện Trần Khát Chân",
+      "address": "Đường Trần Khát Chân",
+      "lat": 21.008429,
+      "lng": 105.851003,
+      "operator": "Vietnam Post",
+      "phone": "",
+      "opening_hours": ""
+    },
+    {
+      "id": 7856350177,
+      "name": "Bưu Cục Giao Dịch EMS Hai Bà Trưng 1",
+      "address": "Đường Trần Khát Chân",
+      "lat": 21.008913,
+      "lng": 105.86433,
+      "operator": "Vietnam Post",
+      "phone": "",
+      "opening_hours": ""
+    },
+    {
+      "id": 7856383102,
+      "name": "Bưu Cục Vân Hồ",
+      "address": "Phố Vân Hồ 3",
+      "lat": 21.010339,
+      "lng": 105.846454,
+      "operator": "Vietnam Post",
+      "phone": "",
+      "opening_hours": ""
+    },
+    {
+      "id": 7856383104,
+      "name": "Bưu Điện Lò Đúc",
+      "address": "Phố Lò Đúc",
+      "lat": 21.013282,
+      "lng": 105.85777,
+      "operator": "Vietnam Post",
+      "phone": "",
+      "opening_hours": ""
+    },
+    {
+      "id": 7856622549,
+      "name": "Bưu cục Bách Khoa",
+      "address": "Phố Tạ Quang Bửu",
+      "lat": 21.003708,
+      "lng": 105.847806,
+      "operator": "Vietnam Post",
+      "phone": "",
+      "opening_hours": ""
+    },
+    {
+      "id": 7856622550,
+      "name": "Bưu Cục Chợ Mơ",
+      "address": "Phố Minh Khai",
+      "lat": 20.995698,
+      "lng": 105.850091,
+      "operator": "Vietnam Post",
+      "phone": "",
+      "opening_hours": ""
+    },
+    {
+      "id": 7856622551,
+      "name": "Bưu Cục KHL Hai Bà Trưng",
+      "address": "Phố Lạc Trung",
+      "lat": 21.002519,
+      "lng": 105.867234,
+      "operator": "Vietnam Post",
+      "phone": "",
+      "opening_hours": ""
+    },
+    {
+      "id": 7856622554,
+      "name": "Bưu điện Đống Đa",
+      "address": "Phố Thái Thịnh",
+      "lat": 21.007116,
+      "lng": 105.821162,
+      "operator": "Vietnam Post",
+      "phone": "",
+      "opening_hours": ""
+    },
+    {
+      "id": 7856622555,
+      "name": "Bưu Cục EMS Cát Linh",
+      "address": "Phố Cát Linh",
+      "lat": 21.028465,
+      "lng": 105.83197,
+      "operator": "Bưu điện Trung tâm 3",
+      "phone": "",
+      "opening_hours": ""
+    },
+    {
+      "id": 8709095325,
+      "name": "Bưu điện Láng Trung",
+      "address": "Đường Nguyễn Chí Thanh",
+      "lat": 21.019007,
+      "lng": 105.808138,
+      "operator": "Vietnam Post",
+      "phone": "",
+      "opening_hours": ""
+    },
+    {
+      "id": 9420107280,
+      "name": "Bưu Điện Cống Vị",
+      "address": "Phố Đội Cấn",
+      "lat": 21.035236,
+      "lng": 105.820054,
+      "operator": "Bưu điện Trung tâm 1",
+      "phone": "",
+      "opening_hours": ""
+    },
+    {
+      "id": 9420432152,
+      "name": "Bưu cục Đặng Tiến Đông",
+      "address": "Phố Đặng Tiến Đông",
+      "lat": 21.011343,
+      "lng": 105.824441,
+      "operator": "Vietnam Post",
+      "phone": "",
+      "opening_hours": ""
+    },
+    {
+      "id": 9420432154,
+      "name": "Bưu Điện Khương Mai",
+      "address": "Phố Nguyễn Ngọc Nại",
+      "lat": 20.997397,
+      "lng": 105.826758,
+      "operator": "Bưu điện Trung tâm 3",
+      "phone": "",
+      "opening_hours": ""
+    },
+    {
+      "id": 9420438150,
+      "name": "Bưu Điện Khương Đình",
+      "address": "Đường Khương Đình",
+      "lat": 20.997695,
+      "lng": 105.813458,
+      "operator": "Bưu điện Trung tâm 3",
+      "phone": "",
+      "opening_hours": ""
+    },
+    {
+      "id": 9420492209,
+      "name": "Bưu Điện Hoàng Quốc Việt",
+      "address": "Đường Hoàng Quốc Việt",
+      "lat": 21.04587,
+      "lng": 105.79117,
+      "operator": "Bưu điện Trung tâm 3",
+      "phone": "",
+      "opening_hours": ""
+    },
+    {
+      "id": 9422173848,
+      "name": "Bưu Điện Yên Phụ",
+      "address": "Phố Yên Phụ",
+      "lat": 21.051152,
+      "lng": 105.838953,
+      "operator": "Vietnam Post",
+      "phone": "",
+      "opening_hours": ""
+    },
+    {
+      "id": 9422173849,
+      "name": "Bưu Điện Ngọc Lâm",
+      "address": "Phố Ngọc Lâm",
+      "lat": 21.048082,
+      "lng": 105.874248,
+      "operator": "Vietnam Post",
+      "phone": "",
+      "opening_hours": ""
+    },
+    {
+      "id": 9422173850,
+      "name": "Bưu điện Việt Nam",
+      "address": "Phố Nguyễn An Ninh",
+      "lat": 20.988763,
+      "lng": 105.84682,
+      "operator": "Vietnam Post",
+      "phone": "",
+      "opening_hours": ""
+    },
+    {
+      "id": 9791862120,
+      "name": "Bưu điện Trung tâm 1",
+      "address": "Phố Đinh Tiên Hoàng",
+      "lat": 21.026082,
+      "lng": 105.853731,
+      "operator": "Vietnam Post",
+      "phone": "",
+      "opening_hours": "Mo-Su 07:30-19:00"
+    },
+    {
+      "id": 10248628298,
+      "name": "AAL Express",
+      "address": "Phố Trần Quốc Hoàn",
+      "lat": 21.041674,
+      "lng": 105.782155,
+      "operator": "AAL Express JSC",
+      "phone": "",
+      "opening_hours": ""
+    },
+    {
+      "id": 10846733402,
+      "name": "Bưu Điện Yên Thái",
+      "address": "Đường Thụy Khuê",
+      "lat": 21.048481,
+      "lng": 105.807964,
+      "operator": "Vietnam Post",
+      "phone": "",
+      "opening_hours": ""
+    },
+    {
+      "id": 11212149507,
+      "name": "DHL",
+      "address": "Phố Phạm Ngọc Thạch",
+      "lat": 21.00955,
+      "lng": 105.835515,
+      "operator": "Vietnam Post",
+      "phone": "+84 24 3775 6937",
+      "opening_hours": "Mo-Sa 08:00-12:00,13:00-18:00"
+    },
+    {
+      "id": 11263842275,
+      "name": "Chuyển phát nhanh Văn Minh",
+      "address": "Phố Xã Đàn",
+      "lat": 21.015283,
+      "lng": 105.832786,
+      "operator": "Vietnam Post",
+      "phone": "",
+      "opening_hours": ""
+    },
+    {
+      "id": 11285982899,
+      "name": "Bưu điện Thành phố Hà Nội",
+      "address": "Phố Đinh Tiên Hoàng",
+      "lat": 21.026698,
+      "lng": 105.853673,
+      "operator": "Vietnam Post",
+      "phone": "",
+      "opening_hours": "Mo-Su 07:30-19:00"
+    },
+    {
+      "id": 11461525769,
+      "name": "Bưu cục Giao dịch EMS Hoàn Kiếm",
+      "address": "Phố Tràng Tiền",
+      "lat": 21.024801,
+      "lng": 105.856027,
+      "operator": "Vietnam Post",
+      "phone": "",
+      "opening_hours": ""
+    },
+    {
+      "id": 11564316606,
+      "name": "247Express",
+      "address": "Đường Đặng Thùy Trâm",
+      "lat": 21.043931,
+      "lng": 105.786054,
+      "operator": "247Express",
+      "phone": "",
+      "opening_hours": ""
+    },
+    {
+      "id": 11568907802,
+      "name": "Viettel Post",
+      "address": "Phố Đặng Thùy Trâm",
+      "lat": 21.043851,
+      "lng": 105.785706,
+      "operator": "Viettel Post",
+      "phone": "",
+      "opening_hours": ""
+    },
+    {
+      "id": 11571556924,
+      "name": "J&T Express",
+      "address": "Ngõ 3 Phạm Tuấn Tài",
+      "lat": 21.043881,
+      "lng": 105.784743,
+      "operator": "Vietnam Post",
+      "phone": "",
+      "opening_hours": ""
+    },
+    {
+      "id": 11672848994,
+      "name": "Viettel Post",
+      "address": "Phố Lê Đại Hành",
+      "lat": 21.009772,
+      "lng": 105.850316,
+      "operator": "Vietnam Post",
+      "phone": "+84352036739",
+      "opening_hours": ""
+    },
+    {
+      "id": 12082718342,
+      "name": "Bưu điện CP16",
+      "address": "Phố Ông Ích Khiêm",
+      "lat": 21.033627,
+      "lng": 105.833826,
+      "operator": "Cục Bưu điện Trung ương",
+      "phone": "",
+      "opening_hours": ""
+    }
+  ],
+  "nearest_3_offices": [
+    {
+      "id": 10248628298,
+      "name": "AAL Express",
+      "address": "Phố Trần Quốc Hoàn",
+      "lat": 21.041674,
+      "lng": 105.782155,
+      "operator": "AAL Express JSC",
+      "phone": "",
+      "opening_hours": "",
+      "distance": 2.53
+    },
+    {
+      "id": 11571556924,
+      "name": "J&T Express",
+      "address": "Ngõ 3 Phạm Tuấn Tài",
+      "lat": 21.043881,
+      "lng": 105.784743,
+      "operator": "Vietnam Post",
+      "phone": "",
+      "opening_hours": "",
+      "distance": 2.79
+    },
+    {
+      "id": 11568907802,
+      "name": "Viettel Post",
+      "address": "Phố Đặng Thùy Trâm",
+      "lat": 21.043851,
+      "lng": 105.785706,
+      "operator": "Viettel Post",
+      "phone": "",
+      "opening_hours": "",
+      "distance": 2.89
+    }
+  ]
+}

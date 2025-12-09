@@ -46,7 +46,70 @@
     #postOfficeList::-webkit-scrollbar-thumb:hover {
         background: #555;
     }
+
+    /* Location checker card */
+    .location-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    }
+
+    .location-card h5 {
+        font-weight: 600;
+        margin-bottom: 15px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .location-info {
+        background: rgba(255, 255, 255, 0.15);
+        backdrop-filter: blur(10px);
+        border-radius: 10px;
+        padding: 15px;
+        margin-top: 10px;
+    }
+
+    .location-info p {
+        margin: 8px 0;
+        display: flex;
+        align-items: start;
+        gap: 8px;
+    }
+
+    .location-info strong {
+        min-width: 80px;
+        opacity: 0.9;
+    }
+
+    .btn-check-location {
+        background: white;
+        color: #667eea;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 8px;
+        font-weight: 600;
+        transition: all 0.3s;
+    }
+
+    .btn-check-location:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+
+    .mini-map {
+        height: 200px;
+        border-radius: 10px;
+        margin-top: 15px;
+        border: 3px solid rgba(255,255,255,0.3);
+    }
 </style>
+
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
 <div class="container mt-5 mb-5 d-flex align-items-center">
     <div class="card shadow-lg border-0">
@@ -63,7 +126,7 @@
             <div class="col-md-7">
                 <div class="card-body p-4">
                     <h4 class="text-center mb-4 text-primary fw-bold">
-                        Ứng tuyển tài xế giao hàng Viettel Post
+                        Ứng tuyển tài xế giao hàng Viettel Post - Hà Nội
                     </h4>
 
                     @if(session('success'))
@@ -80,18 +143,35 @@
                         </div>
                     @endif
 
-                    @if($errors->any())
-                        <div class="alert alert-danger">
-                            <strong>Lỗi:</strong>
-                            <ul class="mb-0 mt-2">
-                                @foreach($errors->all() as $error)
-                                    <li>{{ $error }}</li>
-                                @endforeach
-                            </ul>
-                        </div>
-                    @endif
+                    <!-- CARD KIỂM TRA VỊ TRÍ -->
+                    <div class="location-card">
+                        <h5>
+                            <i class="bi bi-geo-alt-fill"></i>
+                            Vị trí hiện tại của bạn
+                        </h5>
+                        <button type="button" id="btnCheckLocation" class="btn btn-check-location">
+                            <i class="bi bi-crosshair"></i> Kiểm tra vị trí
+                        </button>
 
-                    <form method="POST" action="{{ route('driver.store') }}" enctype="multipart/form-data" novalidate id="driverApplicationForm">
+                        <div id="locationInfo" style="display: none;">
+                            <div class="location-info">
+                                <p><strong>📍 Tọa độ:</strong> <span id="coords">-</span></p>
+                                <p><strong>🏠 Địa chỉ:</strong> <span id="address">-</span></p>
+                                <p><strong>🏘️ Khu vực:</strong> <span id="district">-</span></p>
+                                <p><strong>🌆 Thành phố:</strong> <span id="city">-</span></p>
+                            </div>
+                            <div id="miniMap" class="mini-map"></div>
+                        </div>
+
+                        <div id="locationLoading" style="display: none;">
+                            <div class="d-flex align-items-center gap-2 mt-3">
+                                <div class="spinner-border spinner-border-sm text-white" role="status"></div>
+                                <span>Đang lấy thông tin vị trí...</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <form method="POST" action="{{ route('driver-apply.store') }}" enctype="multipart/form-data" novalidate id="driverApplicationForm">
                         @csrf
                         
                         <div class="row g-3">
@@ -125,33 +205,30 @@
                                 @enderror
                             </div>
 
-                            <!-- TỈNH -->
-                            <div class="col-12">
-                                <label class="form-label fw-semibold">Khu vực ứng tuyển <span class="text-danger">*</span></label>
-                                <select name="province_code" id="province" class="form-select @error('province_code') is-invalid @enderror" required>
-                                    <option value="">-- Chọn Tỉnh/Thành phố --</option>
-                                </select>
-                                @error('province_code')
-                                    <small class="text-danger">{{ $message }}</small>
-                                @enderror
-                            </div>
-
-                            <!-- DANH SÁCH BƯU CỤC -->
-                            <div class="col-12" id="postOfficeListContainer" style="display: none;">
-                                <label class="form-label fw-semibold">Bưu cục gần bạn</label>
+                            <!-- DANH SÁCH BƯU CỤC GẦN BẠN -->
+                            <div class="col-12" id="postOfficeListContainer">
+                                <label class="form-label fw-semibold">
+                                    Bưu cục gần bạn <span class="text-danger">*</span>
+                                    <span class="badge bg-info text-white ms-2">Hà Nội</span>
+                                </label>
                                 
                                 <!-- Loading -->
-                                <div id="postOfficeLoading" class="d-none mb-3">
+                                <div id="postOfficeLoading" class="mb-3">
                                     <div class="alert alert-info">
                                         <span class="spinner-border spinner-border-sm me-2"></span>
-                                        <span id="loadingText">Đang tìm bưu cục...</span>
+                                        <span id="loadingText">Đang lấy vị trí hiện tại của bạn...</span>
                                     </div>
                                 </div>
 
                                 <!-- Danh sách -->
-                                <div id="postOfficeList" class="border rounded p-3 bg-light" style="max-height: 400px; overflow-y: auto;">
-                                    <p class="text-muted mb-0">Đang lấy vị trí hoặc chọn tỉnh để xem danh sách...</p>
+                                <div id="postOfficeList" class="border rounded p-3 bg-light" style="max-height: 400px; overflow-y: auto; display: none;">
+                                    <p class="text-muted mb-0">Đang tải danh sách bưu cục...</p>
                                 </div>
+
+                                <!-- Nút làm mới -->
+                                <button type="button" id="refreshLocationBtn" class="btn btn-outline-secondary btn-sm mt-2" style="display: none;">
+                                    <i class="bi bi-arrow-clockwise"></i> Làm mới vị trí
+                                </button>
                             </div>
 
                             <!-- Hidden fields -->
@@ -161,6 +238,7 @@
                             <input type="hidden" name="post_office_lat" id="postOfficeLat">
                             <input type="hidden" name="post_office_lng" id="postOfficeLng">
                             <input type="hidden" name="post_office_phone" id="postOfficePhone">
+                            <input type="hidden" name="province_code" value="1">
 
                             <!-- Loại công việc -->
                             <div class="col-12">
@@ -229,81 +307,186 @@
 
 <!-- jQuery -->
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script>
-$(document).ready(function() {
-    console.log('Khởi tạo form ứng tuyển tài xế');
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-    const $provinceSelect = $('#province');
+<script>
+    $(document).ready(function() {
+    console.log('🚀 Khởi tạo form ứng tuyển tài xế - Hà Nội');
+
     const $postOfficeList = $('#postOfficeList');
-    const $postOfficeListContainer = $('#postOfficeListContainer');
     const $postOfficeLoading = $('#postOfficeLoading');
     const $loadingText = $('#loadingText');
+    const $refreshBtn = $('#refreshLocationBtn');
 
     let selectedOffice = null;
+    let userLocation = null;
+    let isGettingLocation = false;
+    let miniMapInstance = null;
 
-    // Escape HTML
+    // ============================================
+    // FALLBACK: Vị trí mặc định (Cao đẳng FPT)
+    // ============================================
+    const HANOI_CENTER = { lat: 21.0383388, lng: 105.7471234 };
+
+    // ============================================
+    // ESCAPE HTML
+    // ============================================
     function escapeHtml(text) {
         if (!text) return '';
         const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
         return text.replace(/[&<>"']/g, m => map[m]);
     }
 
-    // Chọn bưu cục
+    // ============================================
+    // KIỂM TRA VỊ TRÍ HIỆN TẠI
+    // ============================================
+    $('#btnCheckLocation').on('click', async function() {
+        const $btn = $(this);
+        const $info = $('#locationInfo');
+        const $loading = $('#locationLoading');
+
+        $btn.prop('disabled', true);
+        $info.hide();
+        $loading.show();
+
+        try {
+            // Lấy vị trí
+            const position = await new Promise((resolve, reject) => {
+                if (!navigator.geolocation) {
+                    reject(new Error('Trình duyệt không hỗ trợ định vị'));
+                    return;
+                }
+
+                navigator.geolocation.getCurrentPosition(resolve, reject, {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0
+                });
+            });
+
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+
+            console.log('📍 Vị trí:', lat, lng);
+
+            // Gọi API check location
+            const response = await $.ajax({
+                url: "{{ route('driver-apply.check-location') }}",
+                method: 'GET',
+                data: { lat, lng },
+                timeout: 15000
+            });
+
+            if (response.success) {
+                const loc = response.location;
+                
+                $('#coords').text(`${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+                $('#address').text(loc.address || 'Không xác định');
+                $('#district').text(loc.details.district || loc.details.suburb || 'Không xác định');
+                $('#city').text(loc.details.city || loc.details.province || 'Hà Nội');
+
+                // Hiển thị bản đồ mini
+                $loading.hide();
+                $info.show();
+
+                // Khởi tạo mini map
+                if (!miniMapInstance) {
+                    miniMapInstance = L.map('miniMap').setView([lat, lng], 15);
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        attribution: '© OpenStreetMap'
+                    }).addTo(miniMapInstance);
+                }
+
+                // Xóa marker cũ và thêm mới
+                miniMapInstance.eachLayer(layer => {
+                    if (layer instanceof L.Marker) layer.remove();
+                });
+                
+                L.marker([lat, lng], {
+                    icon: L.icon({
+                        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+                        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+                        iconSize: [25, 41],
+                        iconAnchor: [12, 41]
+                    })
+                }).addTo(miniMapInstance).bindPopup('Bạn đang ở đây').openPopup();
+
+                miniMapInstance.setView([lat, lng], 15);
+            }
+
+        } catch (error) {
+            console.error('❌ Lỗi:', error);
+            $loading.hide();
+            alert('⚠️ Không thể lấy vị trí: ' + error.message);
+        } finally {
+            $btn.prop('disabled', false);
+        }
+    });
+
+    // ============================================
+    // CHỌN BƯU CỤC
+    // ============================================
     function selectPostOffice(office) {
         selectedOffice = office;
 
         $('#postOfficeId').val(office.id);
         $('#postOfficeName').val(office.name);
         $('#postOfficeAddress').val(office.address);
-        $('#postOfficeLat').val(office.latitude || office.lat);
-        $('#postOfficeLng').val(office.longitude || office.lng);
+        $('#postOfficeLat').val(office.latitude);
+        $('#postOfficeLng').val(office.longitude);
         $('#postOfficePhone').val(office.phone || '');
 
-        // Cập nhật UI
         $postOfficeList.find('.list-group-item').removeClass('active');
         $postOfficeList.find(`[data-office-id="${office.id}"]`)
             .addClass('active')
             .find('input[type=radio]').prop('checked', true);
 
-        console.log('Đã chọn bưu cục:', office.name);
+        console.log('✅ Đã chọn:', office.name, '- Khoảng cách:', office.distance + 'km');
     }
 
-    // Render danh sách
-    function renderPostOfficeList(offices, selectFirst = true) {
+    // ============================================
+    // RENDER DANH SÁCH BƯU CỤC
+    // ============================================
+    function renderPostOfficeList(offices) {
         if (!offices || offices.length === 0) {
-            $postOfficeList.html('<div class="alert alert-info mb-0">Không có bưu cục nào trong khu vực này</div>');
+            $postOfficeList.html('<div class="alert alert-warning mb-0">Không tìm thấy bưu cục nào trong khu vực Hà Nội</div>');
             return;
         }
 
-        const oldPostOfficeId = '{{ old("post_office_id") }}';
+        const oldPostOfficeId = $('#postOfficeId').val() || '';
         let html = '<div class="list-group">';
 
         offices.forEach((office, index) => {
             const number = index + 1;
-            const phone = office.phone || 'Không có số điện thoại';
-            const distance = office.distance ? `~${office.distance.toFixed(1)}km` : '';
-            const isActive = (oldPostOfficeId && office.id == oldPostOfficeId) || (!oldPostOfficeId && index === 0 && selectFirst);
+            const phone = office.phone || 'Không có SĐT';
+            const distance = office.distance ? `${office.distance.toFixed(1)}km` : '';
+            const isActive = (oldPostOfficeId && office.id == oldPostOfficeId) || (!oldPostOfficeId && index === 0);
+
+            let distanceIcon = '🟢';
+            if (office.distance > 10) distanceIcon = '🔴';
+            else if (office.distance > 5) distanceIcon = '🟡';
 
             html += `
                 <label class="list-group-item list-group-item-action ${isActive ? 'active' : ''}"
                        data-office-id="${office.id}"
                        data-office-name="${escapeHtml(office.name)}"
                        data-office-address="${escapeHtml(office.address)}"
-                       data-office-lat="${office.latitude || office.lat}"
-                       data-office-lng="${office.longitude || office.lng}"
+                       data-office-lat="${office.latitude}"
+                       data-office-lng="${office.longitude}"
                        data-office-phone="${escapeHtml(phone)}"
-                       data-office-distance="${office.distance || 0}">
+                       data-office-distance="${office.distance}">
                     <div class="d-flex align-items-start">
                         <input type="radio" name="office_selector" class="form-check-input me-3 mt-1" ${isActive ? 'checked' : ''}>
                         <div class="flex-grow-1">
                             <div class="d-flex justify-content-between align-items-center mb-1">
                                 <strong class="text-primary">${number}. ${escapeHtml(office.name)}</strong>
-                                ${distance ? `<span class="badge bg-info">${distance}</span>` : ''}
+                                <span class="badge bg-info">${distanceIcon} ${distance}</span>
                             </div>
                             <div class="text-muted small">
                                 <i class="bi bi-geo-alt"></i> ${escapeHtml(office.address)}
                             </div>
-                            ${phone !== 'Không có số điện thoại' ? `
+                            ${phone !== 'Không có SĐT' ? `
                             <div class="text-muted small mt-1">
                                 <i class="bi bi-telephone"></i> ${escapeHtml(phone)}
                             </div>` : ''}
@@ -315,7 +498,6 @@ $(document).ready(function() {
         html += '</div>';
         $postOfficeList.html(html);
 
-        // Gắn sự kiện click
         $postOfficeList.off('click', '.list-group-item').on('click', '.list-group-item', function() {
             const officeData = {
                 id: $(this).data('office-id'),
@@ -329,7 +511,6 @@ $(document).ready(function() {
             selectPostOffice(officeData);
         });
 
-        // Ưu tiên old() > chọn đầu tiên
         if (oldPostOfficeId) {
             const oldOffice = offices.find(o => o.id == oldPostOfficeId);
             if (oldOffice) {
@@ -337,132 +518,138 @@ $(document).ready(function() {
                 return;
             }
         }
-        if (selectFirst && offices.length > 0) {
+        if (offices.length > 0) {
             selectPostOffice(offices[0]);
         }
     }
 
-    // Load tỉnh
-    $.get('https://provinces.open-api.vn/api/p/', function(data) {
-        data.forEach(province => {
-            const opt = new Option(province.name, province.code);
-            $(opt).data('name', province.name);
-            $provinceSelect.append(opt);
-        });
-
-        const oldProvince = '{{ old("province_code") }}';
-        if (oldProvince) {
-            $provinceSelect.val(oldProvince).trigger('change');
-        }
-    }).fail(() => alert('Lỗi tải danh sách tỉnh'));
-
-    // Khi chọn tỉnh
-    $provinceSelect.on('change', async function() {
-        const provinceCode = $(this).val();
-        const provinceName = $(this).find('option:selected').data('name') || '';
-
-        if (!provinceCode) {
-            $postOfficeListContainer.hide();
-            return;
-        }
-
-        $postOfficeListContainer.show();
-        $postOfficeLoading.removeClass('d-none');
-        $loadingText.text(`Đang tìm bưu cục tại ${provinceName}...`);
-        $postOfficeList.html('');
-
-        try {
-            const response = await $.ajax({
-                url: '{{ route("driver-apply.getByProvince") }}',
-                method: 'GET',
-                data: { province_code: provinceCode, province_name: provinceName },
-                timeout: 40000
-            });
-
-            $postOfficeLoading.addClass('d-none');
-            if (response.success && response.data?.length > 0) {
-                renderPostOfficeList(response.data, true);
-            } else {
-                $postOfficeList.html(`<div class="alert alert-warning mb-0">Không tìm thấy bưu cục nào tại ${provinceName}</div>`);
-            }
-        } catch (error) {
-            $postOfficeLoading.addClass('d-none');
-            let msg = 'Lỗi tải danh sách. Vui lòng thử lại.';
-            if (error.statusText === 'timeout') msg = 'Hết thời gian chờ.';
-            $postOfficeList.html(`<div class="alert alert-danger mb-0">${msg}</div>`);
-        }
-    });
-
-    // Validate submit
-    $('#driverApplicationForm').on('submit', function(e) {
-        if (!$('#postOfficeId').val()) {
-            e.preventDefault();
-            alert('Vui lòng chọn bưu cục trước khi gửi hồ sơ');
-        }
-    });
-
-    // ========================================
-    // TÌM BƯU CỤC GẦN VỊ TRÍ HIỆN TẠI
-    // ========================================
+    // ============================================
+    // LẤY VỊ TRÍ HIỆN TẠI
+    // ============================================
     async function getCurrentLocation() {
         return new Promise((resolve, reject) => {
-            if (!navigator.geolocation) return reject("Trình duyệt không hỗ trợ định vị.");
+            if (!navigator.geolocation) {
+                return reject({ code: 'NOT_SUPPORTED', message: 'Trình duyệt không hỗ trợ định vị' });
+            }
+
+            const timeout = setTimeout(() => {
+                reject({ code: 'TIMEOUT', message: 'Hết thời gian chờ lấy vị trí' });
+            }, 15000);
+
             navigator.geolocation.getCurrentPosition(
-                pos => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-                err => reject(err.message),
-                { enableHighAccuracy: true, timeout: 10000 }
+                pos => {
+                    clearTimeout(timeout);
+                    resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+                },
+                err => {
+                    clearTimeout(timeout);
+                    reject({ code: err.code, message: err.message });
+                },
+                { enableHighAccuracy: false, timeout: 12000, maximumAge: 300000 }
             );
         });
     }
 
-    async function searchNearbyPostOffices(lat, lng, radius = 15000) {
-        const query = `[out:json][timeout:25];
-        (
-          node["amenity"="post_office"](around:${radius},${lat},${lng});
-          node["office"="post_office"](around:${radius},${lat},${lng});
-        );
-        out body; >; out skel qt;`;
+    // ============================================
+    // TÌM BƯU CỤC GẦN VỊ TRÍ
+    // ============================================
+    async function searchNearbyPostOffices() {
+        if (isGettingLocation) return;
+        isGettingLocation = true;
 
-        const response = await fetch("https://overpass-api.de/api/interpreter", { method: "POST", body: query });
-        const data = await response.json();
-
-        return data.elements
-            .filter(e => e.type === "node" && e.tags && (e.tags.name || e.tags["name:vi"]))
-            .map(e => ({
-                id: e.id,
-                name: e.tags["name:vi"] || e.tags.name,
-                address: e.tags["addr:full"] || e.tags["addr:street"] || "Không rõ địa chỉ",
-                lat: e.lat,
-                lng: e.lon,
-                phone: e.tags["contact:phone"] || e.tags["phone"] || null
-            }))
-            .filter(o => !/bưu[\s-]*điện/i.test(o.name));
-    }
-
-    // Chạy khi load trang
-    (async () => {
         try {
-            $postOfficeListContainer.show();
-            $postOfficeLoading.removeClass('d-none');
-            $loadingText.text('Đang lấy vị trí hiện tại...');
+            $postOfficeLoading.show();
+            $postOfficeList.hide();
+            $refreshBtn.hide();
+            $loadingText.text('Đang lấy vị trí của bạn...');
 
-            const pos = await getCurrentLocation();
+            let location = null;
+            let useDefaultLocation = false;
+
+            try {
+                location = await getCurrentLocation();
+                console.log('📍 Vị trí thực:', location);
+            } catch (geoError) {
+                console.warn('⚠️ Không lấy được vị trí thực, dùng trung tâm Hà Nội');
+                location = HANOI_CENTER;
+                useDefaultLocation = true;
+
+                if (geoError.code === 'PERMISSION_DENIED') {
+                    $loadingText.html(`<i class="bi bi-exclamation-triangle text-warning"></i> Bạn chưa cho phép truy cập vị trí. Đang hiển thị bưu cục tại trung tâm Hà Nội.`);
+                } else {
+                    $loadingText.html(`<i class="bi bi-info-circle text-info"></i> Đang hiển thị bưu cục tại trung tâm Hà Nội.`);
+                }
+            }
+
+            userLocation = location;
+            await new Promise(resolve => setTimeout(resolve, 1000));
             $loadingText.text('Đang tìm bưu cục gần bạn...');
 
-            const offices = await searchNearbyPostOffices(pos.lat, pos.lng);
-            $postOfficeLoading.addClass('d-none');
-            renderPostOfficeList(offices, true);
+            const response = await $.ajax({
+                url: "{{ route('driver-apply.nearby') }}",
+                method: 'GET',
+                data: { lat: location.lat, lng: location.lng },
+                timeout: 30000
+            });
 
-        } catch (err) {
-            console.warn("Không lấy được vị trí:", err);
-            $postOfficeLoading.addClass('d-none');
-            $postOfficeList.html(`
-                <div class="alert alert-secondary mb-0">
-                    Không thể xác định vị trí. Vui lòng chọn tỉnh để xem danh sách bưu cục.
-                </div>
-            `);
+            $postOfficeLoading.hide();
+            $postOfficeList.show();
+            $refreshBtn.show();
+
+            if (response.success && response.data?.length > 0) {
+                console.log(`✅ Tìm thấy ${response.data.length} bưu cục`);
+                
+                if (useDefaultLocation) {
+                    $postOfficeList.prepend(`
+                        <div class="alert alert-info alert-dismissible fade show mb-3">
+                            <strong>📍 Lưu ý:</strong> Danh sách hiển thị dựa trên trung tâm Hà Nội. 
+                            Bạn có thể bật định vị để tìm bưu cục gần hơn.
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    `);
+                }
+                
+                renderPostOfficeList(response.data);
+            } else {
+                $postOfficeList.html(`<div class="alert alert-warning mb-0"><strong>Không tìm thấy bưu cục!</strong><br><small>Vui lòng thử lại hoặc liên hệ hỗ trợ.</small></div>`);
+            }
+
+        } catch (error) {
+            console.error('❌ Lỗi:', error);
+            $postOfficeLoading.hide();
+            $postOfficeList.show();
+            $refreshBtn.show();
+
+            let errorMsg = '<strong>Có lỗi xảy ra!</strong><br>';
+            if (error.statusText === 'timeout') {
+                errorMsg += 'Hệ thống phản hồi chậm. Vui lòng thử lại.';
+            } else if (error.status === 0) {
+                errorMsg += 'Không có kết nối internet. Vui lòng kiểm tra mạng.';
+            } else {
+                errorMsg += 'Vui lòng thử lại hoặc liên hệ hỗ trợ.';
+            }
+
+            $postOfficeList.html(`<div class="alert alert-danger mb-0">${errorMsg}</div>`);
+        } finally {
+            isGettingLocation = false;
         }
-    })();
+    }
+
+    $refreshBtn.on('click', function() {
+        console.log('🔄 Làm mới vị trí...');
+        searchNearbyPostOffices();
+    });
+
+    $('#driverApplicationForm').on('submit', function(e) {
+        if (!$('#postOfficeId').val()) {
+            e.preventDefault();
+            alert('⚠️ Vui lòng chọn bưu cục trước khi gửi hồ sơ!');
+            $postOfficeList[0]?.scrollIntoView({ behavior: 'smooth' });
+            return false;
+        }
+    });
+
+    searchNearbyPostOffices();
 });
 </script>
 @endsection
