@@ -29,25 +29,28 @@ class AdminDriverController extends Controller
      * Duyệt hồ sơ tài xế
      */
     public function approve($id)
-    {
-        $driver = DriverProfile::findOrFail($id);
+{
+    $driver = DriverProfile::findOrFail($id);
 
-        // 1. Kiểm tra trạng thái
-        if ($driver->status === 'approved') {
-            return back()->with('warning', 'Hồ sơ này đã được duyệt trước đó.');
-        }
+    // 1. Kiểm tra trạng thái
+    if ($driver->status === 'approved') {
+        return back()->with('warning', 'Hồ sơ này đã được duyệt trước đó.');
+    }
 
-        // 2. Kiểm tra email hợp lệ
-        if (empty($driver->email)) {
-            return back()->with('error', 'Hồ sơ không có email, không thể gửi tài khoản.');
-        }
+    // 2. Kiểm tra email hợp lệ
+    if (empty($driver->email)) {
+        return back()->with('error', 'Hồ sơ không có email, không thể gửi tài khoản.');
+    }
 
-        // 3. Tạo tài khoản User (nếu chưa có)
-        $user = User::where('email', $driver->email)->first();
+    // 3. Kiểm tra user đã tồn tại theo email
+    $user = User::where('email', $driver->email)->first();
 
-        if (!$user) {
-            $randomPassword = substr(str_shuffle('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'), 0, 8);
+    if (!$user) {
 
+        $randomPassword = substr(str_shuffle('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'), 0, 8);
+
+        try {
+            // Tạo User mới
             $user = User::create([
                 'email' => $driver->email,
                 'full_name' => $driver->full_name,
@@ -56,32 +59,55 @@ class AdminDriverController extends Controller
                 'role' => 'driver',
                 'status' => 'active',
             ]);
+        } catch (\Illuminate\Database\QueryException $e) {
 
-            // 4. Tạo UserInfo rỗng (hoặc có sẵn dữ liệu nếu bạn lấy được)
-            UserInfo::create([
-                'user_id' => $user->id,
-                'full_address' => null,
-                'address_detail' => null,
-                'province_code' => null,
-                'district_code' => null,
-                'ward_code' => null,
-            ]);
-            $driver->user_id = $user->id;
-            $driver->save();
+            // Bắt lỗi trùng UNIQUE (email hoặc phone)
+            if ($e->errorInfo[1] == 1062) {
+                return back()->with(
+                    'error',
+                    'Email hoặc số điện thoại đã tồn tại trong hệ thống. Không thể tạo tài khoản tài xế.'
+                );
+            }
 
-            // 5. Gửi email thông báo
-            Mail::raw("Xin chào {$driver->full_name},\n\nHồ sơ của bạn đã được duyệt.\nTài khoản đăng nhập:\nEmail: {$driver->email}\nMật khẩu: {$randomPassword}\n\nVui lòng đăng nhập và đổi mật khẩu sau khi đăng nhập.", function ($message) use ($driver) {
-                $message->to($driver->email)
-                    ->subject('Tài khoản tài xế của bạn đã được duyệt');
-            });
+            throw $e; // nếu lỗi khác → ném ra để debug
         }
 
-        // 6. Cập nhật trạng thái hồ sơ
-        $driver->update([
-            'status' => 'approved',
-            'approved_at' => Carbon::now(),
+        // 4. Tạo UserInfo rỗng
+        UserInfo::create([
+            'user_id' => $user->id,
+            'full_address' => null,
+            'address_detail' => null,
+            'province_code' => null,
+            'district_code' => null,
+            'ward_code' => null,
         ]);
 
-        return back()->with('success', 'Duyệt hồ sơ thành công và đã gửi thông tin tài khoản cho tài xế.');
+        // Gán user_id cho hồ sơ tài xế
+        $driver->user_id = $user->id;
+        $driver->save();
+
+        // 5. Gửi email thông báo
+        Mail::raw(
+            "Xin chào {$driver->full_name},\n\n".
+            "Hồ sơ của bạn đã được duyệt.\n".
+            "Tài khoản đăng nhập:\n".
+            "Email: {$driver->email}\n".
+            "Mật khẩu: {$randomPassword}\n\n".
+            "Vui lòng đổi mật khẩu sau khi đăng nhập.",
+            function ($message) use ($driver) {
+                $message->to($driver->email)
+                        ->subject('Tài khoản tài xế của bạn đã được duyệt');
+            }
+        );
     }
+
+    // 6. Cập nhật trạng thái hồ sơ
+    $driver->update([
+        'status' => 'approved',
+        'approved_at' => Carbon::now(),
+    ]);
+
+    return back()->with('success', 'Duyệt hồ sơ thành công và đã gửi thông tin tài khoản cho tài xế.');
+}
+
 }

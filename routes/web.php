@@ -59,17 +59,20 @@ Route::get('/register', [AuthController::class, 'showRegisterForm'])->name('regi
 Route::post('/register', [AuthController::class, 'register']);
 
 // Ứng tuyển tài xế
-Route::get('apply', [DriverController::class, 'create'])->name('driver.apply');
-Route::post('apply', [DriverController::class, 'store'])->name('driver.store');
-Route::get('/post-offices-apply', [DriverController::class, 'getByProvince'])
-    ->name('driver-apply.getByProvince');
+Route::prefix('driver-apply')->name('driver-apply.')->group(function () {
+    Route::get('/', [DriverController::class, 'create'])->name('index');
+    Route::post('/', [DriverController::class, 'store'])->name('store');
+    Route::get('nearby', [DriverController::class, 'getNearbyPostOffices'])->name('nearby');
+    Route::get('/check-location', [DriverController::class, 'checkLocation'])->name('check-location');
+});
 
 
-Route::get('/api/post-offices/{id}/detail', [DriverController::class, 'getDetail'])
-    ->name('api.post-offices.detail');
 
-Route::get('/api/post-offices/nearest', [DriverController::class, 'getNearby'])
-    ->name('api.post-offices.nearest');
+// Route::get('/api/post-offices/{id}/detail', [DriverController::class, 'getDetail'])
+//     ->name('api.post-offices.detail');
+
+// Route::get('/api/post-offices/nearest', [DriverController::class, 'getNearby'])
+//     ->name('api.post-offices.nearest');
 // Admin
 Route::prefix('admin')
     ->middleware(['auth', 'role:admin'])
