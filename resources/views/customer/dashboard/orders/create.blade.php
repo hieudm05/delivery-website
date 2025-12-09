@@ -1393,6 +1393,11 @@ function createRecipientCard(recipient, index) {
                             <span>Phụ phí:</span>
                             <strong class="extra-cost-${recipient.id}">0 đ</strong>
                         </div>
+                        <!-- ✅ THÊM PHÍ KHOẢNG CÁCH -->
+                        <div class="cost-item distance-fee-row-${recipient.id}" style="display:none;">
+                            <span>Phí khoảng cách:</span>
+                            <strong class="distance-fee-${recipient.id} text-info">0 đ</strong>
+                        </div>
                         <div class="cost-item cod-fee-row-${recipient.id}" style="display:none;">
                             <span>Phí COD:</span>
                             <strong class="cod-fee-${recipient.id}">0 đ</strong>
@@ -1913,6 +1918,12 @@ function fetchCoordinates(address, recipientId) {
                         <i class="bi bi-check-circle"></i> Đã tìm thấy tọa độ
                     </small>
                 `);
+                 try {
+                        calculateCost(recipientId);
+                        console.log('🔄 Called calculateCost after geocode for', recipientId, lat, lng);
+                    } catch (e) {
+                        console.error('Error calling calculateCost after geocode', e);
+                    }
             } else {
                 $(`.geocode-status-${recipientId}`).html(`
                     <small class="text-warning">
@@ -2203,12 +2214,18 @@ function calculateCost(recipientId) {
     
     const payer = $(`input[name="recipients[${recipientId}][payer]"]:checked`).val() || 'sender';
     
+    // ✅ Lấy tọa độ người nhận
+    const recipientLat = $(`.recipient-lat-${recipientId}`).val();
+    const recipientLng = $(`.recipient-lng-${recipientId}`).val();
+
     const data = {
         products_json: JSON.stringify(productsData),
         services: services,
         cod_amount: codAmount,
         payer: payer,
         item_type: productsData[0]?.type || 'package',
+        recipient_latitude: recipientLat,   // ✅ THÊM DÒNG NÀY
+        recipient_longitude: recipientLng,  // ✅ THÊM DÒNG NÀY
         _token: $('meta[name="csrf-token"]').attr('content') || '{{ csrf_token() }}'
     };
     
@@ -2234,6 +2251,16 @@ function calculateCost(recipientId) {
                 } else {
                     $(`.cod-fee-${recipientId}`).text('0 đ');
                     $(`.cod-fee-row-${recipientId}`).hide();
+                }
+
+                // ✅ HIỂN THỊ PHÍ KHOẢNG CÁCH
+                if (res.distance_fee && res.distance_fee > 0) {
+                    $(`.distance-fee-${recipientId}`).text(res.distance_fee.toLocaleString('vi-VN') + ' đ');
+                    $(`.distance-fee-row-${recipientId}`).show();
+                    console.log(`✅ Distance Fee: ${res.distance_fee} đ (${res.distance_km} km)`);
+                } else {
+                    $(`.distance-fee-${recipientId}`).text('0 đ');
+                    $(`.distance-fee-row-${recipientId}`).hide();
                 }
                 
                 $(`.total-cost-${recipientId}`).text((res.total || 0).toLocaleString('vi-VN') + ' đ');
@@ -2268,6 +2295,8 @@ function calculateCost(recipientId) {
 function resetCostDisplay(recipientId) {
     $(`.base-cost-${recipientId}`).text('0 đ');
     $(`.extra-cost-${recipientId}`).text('0 đ');
+    $(`.distance-fee-${recipientId}`).text('0 đ'); 
+    $(`.distance-fee-row-${recipientId}`).hide();  
     $(`.total-cost-${recipientId}`).text('0 đ');
     $(`.sender-pays-${recipientId}`).text('0 đ');
     $(`.recipient-pays-${recipientId}`).text('0 đ');

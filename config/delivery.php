@@ -11,6 +11,29 @@ return [
         'extra_weight_fee' => (float) env('SHIPPING_EXTRA_WEIGHT_FEE', 5), // 5đ/gram
     ],
 
+     /*
+    |--------------------------------------------------------------------------
+    | Distance Fee Configuration (Hanoi)
+    |--------------------------------------------------------------------------
+    */
+    'distance' => [
+        'center' => [
+            'latitude' => 21.0285,  // Hoàn Kiếm, Hà Nội
+            'longitude' => 105.8542,
+        ],
+        'ranges' => [
+            ['max_km' => 10, 'fee' => 0, 'label' => 'Nội thành'],
+            ['max_km' => 20, 'fee' => 10000, 'label' => 'Ngoại thành gần'],
+            ['max_km' => 30, 'fee' => 20000, 'label' => 'Ngoại thành xa'],
+            [
+                'max_km' => PHP_INT_MAX,
+                'base_fee' => 30000,
+                'per_km_fee' => 2000,
+                'label' => 'Ngoại thành rất xa'
+            ],
+        ],
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Service Fees
