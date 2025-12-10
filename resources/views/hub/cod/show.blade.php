@@ -1,36 +1,130 @@
 @extends('hub.layouts.app')
 @section('title', 'Chi tiết giao dịch COD #' . $transaction->id)
 
+@push('styles')
+<style>
+    .timeline {
+        position: relative;
+        padding-left: 50px;
+    }
+    .timeline::before {
+        content: '';
+        position: absolute;
+        left: 20px;
+        top: 0;
+        bottom: 0;
+        width: 3px;
+        background: linear-gradient(180deg, #e9ecef 0%, #dee2e6 100%);
+    }
+    .timeline-item {
+        position: relative;
+        margin-bottom: 2rem;
+        padding-bottom: 2rem;
+    }
+    .timeline-item:last-child {
+        margin-bottom: 0;
+        padding-bottom: 0;
+    }
+    .timeline-marker {
+        position: absolute;
+        left: -38px;
+        width: 40px;
+        height: 40px;
+        background: white;
+        border: 3px solid #dee2e6;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        z-index: 2;
+    }
+    .timeline-item.completed .timeline-marker {
+        border-color: #198754;
+        background: #d1e7dd;
+    }
+    .timeline-item.pending .timeline-marker {
+        border-color: #ffc107;
+        background: #fff3cd;
+    }
+    .timeline-item.waiting .timeline-marker {
+        border-color: #6c757d;
+        background: #e9ecef;
+    }
+    .timeline-content {
+        width: unset;
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        border: 1px solid #e9ecef;
+    }
+    .qr-code-container {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 12px;
+        padding: 2rem;
+        text-align: center;
+        color: white;
+    }
+    .qr-code-image {
+        background: white;
+        padding: 1rem;
+        border-radius: 8px;
+        display: inline-block;
+        margin: 1rem 0;
+    }
+    .bank-info-card {
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        border-radius: 8px;
+        padding: 1rem;
+        margin-top: 1rem;
+    }
+    .amount-display {
+        font-size: 2.5rem;
+        font-weight: 700;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+    }
+    .status-badge-lg {
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+        font-weight: 600;
+        border-radius: 50px;
+    }
+</style>
+@endpush
+
 @section('content')
-    <div class="container">
+    <div class="container-fluid py-4">
         <!-- HEADER -->
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div>
-                <h3 class="mb-0">
-                    <i class="bi bi-receipt"></i> Chi tiết giao dịch COD #{{ $transaction->id }}
+                <h3 class="mb-0 fw-bold">
+                    <i class="bi bi-receipt-cutoff text-primary"></i> Chi tiết giao dịch COD #{{ $transaction->id }}
                 </h3>
-                <p class="text-muted mb-0">Đơn hàng #{{ $transaction->order_id }}</p>
+                <p class="text-muted mb-0 mt-1">
+                    <i class="bi bi-box-seam"></i> Đơn hàng #{{ $transaction->order_id }} • 
+                    <i class="bi bi-calendar3"></i> {{ $transaction->created_at->format('d/m/Y H:i') }}
+                </p>
             </div>
             <div>
-                <a href="{{ route('hub.cod.index') }}" class="btn btn-secondary">
+                <a href="{{ route('hub.cod.index') }}" class="btn btn-outline-secondary">
                     <i class="bi bi-arrow-left"></i> Quay lại
                 </a>
             </div>
         </div>
 
-        <div class="row">
-            <!-- COL 1: THÔNG TIN GIAO DỊCH -->
+        <div class="row g-4">
+            <!-- COL 1: LUỒNG TIỀN -->
             <div class="col-lg-8">
                 <!-- LUỒNG TIỀN -->
-                <div class="card shadow mb-4">
-                    <div class="card-header text-white">
-                        <h5 class="mb-0"><i class="bi bi-arrow-left-right"></i> Luồng tiền COD</h5>
+                <div class="card shadow-sm border-0 mb-4">
+                    <div class="card-header bg-gradient text-white py-3" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                        <h5 class="mb-0 fw-semibold"><i class="bi bi-arrow-left-right"></i> Luồng tiền COD</h5>
                     </div>
-                    <div class="card-body">
+                    <div class="card-body p-4">
                         <div class="timeline">
                             <!-- BƯỚC 1: Driver → Hub -->
-                            <div
-                                class="timeline-item {{ $transaction->shipper_payment_status === 'confirmed' ? 'completed' : ($transaction->shipper_payment_status === 'transferred' ? 'pending' : 'waiting') }}">
+                            <div class="timeline-item {{ $transaction->shipper_payment_status === 'confirmed' ? 'completed' : ($transaction->shipper_payment_status === 'transferred' ? 'pending' : 'waiting') }}">
                                 <div class="timeline-marker">
                                     @if ($transaction->shipper_payment_status === 'confirmed')
                                         <i class="bi bi-check-circle-fill text-success"></i>
@@ -41,50 +135,84 @@
                                     @endif
                                 </div>
                                 <div class="timeline-content">
-                                    <h6 class="mb-2">
-                                        <i class="bi bi-truck"></i> Driver → Hub
-                                        <span
-                                            class="badge bg-{{ $transaction->shipper_payment_status === 'confirmed' ? 'success' : ($transaction->shipper_payment_status === 'transferred' ? 'warning' : 'secondary') }} ms-2">
+                                    <div class="d-flex justify-content-between align-items-start mb-3">
+                                        <div>
+                                            <h6 class="mb-1 fw-bold">
+                                                <i class="bi bi-truck"></i> Driver → Hub
+                                            </h6>
+                                            <small class="text-muted">Tài xế chuyển tiền thu được cho Hub</small>
+                                        </div>
+                                        <span class="badge status-badge-lg bg-{{ $transaction->shipper_payment_status === 'confirmed' ? 'success' : ($transaction->shipper_payment_status === 'transferred' ? 'warning' : 'secondary') }}">
                                             {{ $transaction->shipper_status_label }}
                                         </span>
-                                    </h6>
-                                    <p class="mb-1"><strong>Số tiền:</strong> <span
-                                            class="text-primary fs-5">{{ number_format($transaction->total_collected) }}đ</span>
-                                    </p>
+                                    </div>
+                                    
+                                    <div class="alert alert-light border mb-3">
+                                        <div class="row g-3">
+                                            <div class="col-md-6">
+                                                <small class="text-muted d-block mb-2"><i class="bi bi-cash-stack"></i> Số tiền</small>
+                                                <h4 class="mb-0 text-primary fw-bold">{{ number_format($transaction->total_collected) }}đ</h4>
+                                            </div>
+                                            <div class="col-md-6">
+                                                @if($driverBankAccount)
+                                                    <small class="text-muted d-block mb-2"><i class="bi bi-bank"></i> Tài khoản Driver</small>
+                                                    <div class="text-dark fw-semibold">{{ $driverBankAccount->bank_short_name ?? $driverBankAccount->bank_name }}</div>
+                                                    <small class="text-muted">{{ $driverBankAccount->account_number }}</small>
+                                                    <div class="mt-1">
+                                                        <span class="badge bg-success-subtle text-success">
+                                                            <i class="bi bi-check-circle-fill"></i> Đã xác minh
+                                                        </span>
+                                                    </div>
+                                                @else
+                                                    <div class="alert alert-warning mb-0 py-2">
+                                                        <i class="bi bi-exclamation-triangle"></i> Driver chưa có tài khoản ngân hàng
+                                                    </div>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    </div>
 
                                     @if ($transaction->shipper_payment_status === 'transferred')
-                                        <div class="alert alert-warning mb-3">
-                                            <i class="bi bi-exclamation-triangle"></i> Driver đã chuyển tiền, đang chờ bạn
-                                            xác nhận
+                                        <div class="alert alert-warning border-warning mb-3">
+                                            <div class="d-flex align-items-start">
+                                                <i class="bi bi-exclamation-triangle-fill fs-5 me-2"></i>
+                                                <div>
+                                                    <strong>Driver đã chuyển tiền</strong>
+                                                    <p class="mb-0 mt-2 small">Vui lòng kiểm tra và xác nhận đã nhận tiền</p>
+                                                </div>
+                                            </div>
                                         </div>
-                                        <button type="button" class="btn btn-success" data-bs-toggle="modal"
-                                            data-bs-target="#confirmFromDriverModal">
+                                        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#confirmFromDriverModal">
                                             <i class="bi bi-check-circle"></i> Xác nhận đã nhận tiền
                                         </button>
                                     @elseif($transaction->shipper_payment_status === 'confirmed')
-                                        <div class="alert alert-success mb-0">
-                                            <p class="mb-1"><i class="bi bi-check-circle"></i> Đã xác nhận nhận tiền</p>
-                                            <small>Thời gian:
-                                                {{ $transaction->hub_confirm_time->format('d/m/Y H:i') }}</small><br>
-                                            @if ($transaction->hubConfirmer)
-                                                <small>Người xác nhận: {{ $transaction->hubConfirmer->full_name }}</small>
-                                            @endif
-                                            @if ($transaction->hub_confirm_note)
-                                                <p class="mb-0 mt-2"><strong>Ghi chú:</strong>
-                                                    {{ $transaction->hub_confirm_note }}</p>
-                                            @endif
+                                        <div class="alert alert-success border-success mb-0">
+                                            <div class="d-flex align-items-start">
+                                                <i class="bi bi-check-circle-fill text-success me-2 fs-5"></i>
+                                                <div class="flex-grow-1">
+                                                    <strong>Đã xác nhận nhận tiền</strong>
+                                                    <p class="mb-1 mt-2 small">
+                                                        <i class="bi bi-clock"></i> {{ $transaction->hub_confirm_time->format('d/m/Y H:i') }}
+                                                    </p>
+                                                    @if ($transaction->hubConfirmer)
+                                                        <p class="mb-1 small"><i class="bi bi-person"></i> {{ $transaction->hubConfirmer->full_name }}</p>
+                                                    @endif
+                                                    @if ($transaction->hub_confirm_note)
+                                                        <p class="mb-0 mt-2 small"><strong>Ghi chú:</strong> {{ $transaction->hub_confirm_note }}</p>
+                                                    @endif
+                                                </div>
+                                            </div>
                                         </div>
                                     @else
-                                        <div class="alert alert-secondary mb-0">
-                                            <i class="bi bi-clock"></i> Chờ driver chuyển tiền
+                                        <div class="alert alert-secondary border mb-0">
+                                            <i class="bi bi-clock"></i> Đang chờ driver chuyển tiền
                                         </div>
                                     @endif
                                 </div>
                             </div>
 
                             <!-- BƯỚC 2: Hub → Sender (COD) -->
-                            <div
-                                class="timeline-item {{ $transaction->sender_payment_status === 'completed' ? 'completed' : ($transaction->sender_payment_status === 'pending' ? 'pending' : 'waiting') }}">
+                            <div class="timeline-item {{ $transaction->sender_payment_status === 'completed' ? 'completed' : ($transaction->sender_payment_status === 'pending' ? 'pending' : 'waiting') }}">
                                 <div class="timeline-marker">
                                     @if ($transaction->sender_payment_status === 'completed')
                                         <i class="bi bi-check-circle-fill text-success"></i>
@@ -95,55 +223,94 @@
                                     @endif
                                 </div>
                                 <div class="timeline-content">
-                                    <h6 class="mb-2">
-                                        <i class="bi bi-send"></i> Hub → Sender (COD)
-                                        <span
-                                            class="badge bg-{{ $transaction->sender_payment_status === 'completed' ? 'success' : ($transaction->sender_payment_status === 'pending' ? 'warning' : 'secondary') }} ms-2">
+                                    <div class="d-flex justify-content-between align-items-start mb-3">
+                                        <div>
+                                            <h6 class="mb-1 fw-bold">
+                                                <i class="bi bi-send"></i> Hub → Sender (COD)
+                                            </h6>
+                                            <small class="text-muted">Hub chuyển tiền COD cho người gửi</small>
+                                        </div>
+                                        <span class="badge status-badge-lg bg-{{ $transaction->sender_payment_status === 'completed' ? 'success' : ($transaction->sender_payment_status === 'pending' ? 'warning' : 'secondary') }}">
                                             {{ $transaction->sender_status_label }}
                                         </span>
-                                    </h6>
-                                    <p class="mb-1"><strong>Số tiền:</strong> <span
-                                            class="text-success fs-5">{{ number_format($transaction->sender_receive_amount) }}đ</span>
-                                    </p>
+                                    </div>
+
+                                    <div class="alert alert-light border mb-3">
+                                        <div class="row g-3">
+                                            <div class="col-md-6">
+                                                <small class="text-muted d-block mb-2"><i class="bi bi-cash-stack"></i> Số tiền COD</small>
+                                                <h4 class="mb-0 text-success fw-bold">{{ number_format($transaction->sender_receive_amount) }}đ</h4>
+                                            </div>
+                                            <div class="col-md-6">
+                                                @if($senderBankAccount)
+                                                    <small class="text-muted d-block mb-2"><i class="bi bi-bank"></i> Tài khoản Sender</small>
+                                                    <div class="text-dark fw-semibold">{{ $senderBankAccount->bank_short_name ?? $senderBankAccount->bank_name }}</div>
+                                                    <small class="text-muted">{{ $senderBankAccount->account_number }}</small>
+                                                    <div class="mt-1">
+                                                        <span class="badge bg-success-subtle text-success">
+                                                            <i class="bi bi-check-circle-fill"></i> Đã xác minh
+                                                        </span>
+                                                    </div>
+                                                @else
+                                                    <div class="alert alert-danger mb-0 py-2">
+                                                        <i class="bi bi-exclamation-triangle-fill"></i> Sender chưa có tài khoản ngân hàng
+                                                    </div>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    </div>
 
                                     @if ($transaction->sender_payment_status === 'pending')
-                                        <div class="alert alert-info mb-3">
-                                            <i class="bi bi-info-circle"></i> Cần chuyển tiền COD cho sender
-                                        </div>
-                                        <button type="button" class="btn btn-primary" data-bs-toggle="modal"
-                                            data-bs-target="#transferToSenderModal">
-                                            <i class="bi bi-send"></i> Chuyển tiền cho Sender
-                                        </button>
-                                    @elseif($transaction->sender_payment_status === 'completed')
-                                        <div class="alert alert-success mb-0">
-                                            <p class="mb-1"><i class="bi bi-check-circle"></i> Đã chuyển tiền cho sender
-                                            </p>
-                                            <small>Thời gian:
-                                                {{ $transaction->sender_transfer_time->format('d/m/Y H:i') }}</small><br>
-                                            <small>Phương thức:
-                                                @if ($transaction->sender_transfer_method === 'bank_transfer')
-                                                    Chuyển khoản
-                                                @elseif($transaction->sender_transfer_method === 'wallet')
-                                                    Ví điện tử
-                                                @else
-                                                    Tiền mặt
-                                                @endif
-                                            </small>
-                                            @if ($transaction->sender_transfer_proof)
-                                                <div class="mt-2">
-                                                    <a href="{{ asset('storage/' . $transaction->sender_transfer_proof) }}"
-                                                        target="_blank" class="btn btn-sm">
-                                                        <i class="bi bi-image"></i> Xem chứng từ
-                                                    </a>
+                                        @if(!$senderHasBankAccount)
+                                            <div class="alert alert-danger border-danger mb-3">
+                                                <div class="d-flex align-items-start">
+                                                    <i class="bi bi-exclamation-triangle-fill fs-5 me-2"></i>
+                                                    <div>
+                                                        <strong>Không thể chuyển tiền</strong>
+                                                        <p class="mb-0 mt-2 small">Sender chưa có tài khoản ngân hàng. Vui lòng liên hệ sender để cập nhật thông tin.</p>
+                                                    </div>
                                                 </div>
-                                            @endif
-                                            @if ($transaction->sender_transfer_note)
-                                                <p class="mb-0 mt-2"><strong>Ghi chú:</strong>
-                                                    {{ $transaction->sender_transfer_note }}</p>
-                                            @endif
+                                            </div>
+                                        @else
+                                            <div class="alert alert-info border-info mb-3">
+                                                <i class="bi bi-info-circle-fill"></i> <strong>Cần chuyển tiền COD cho sender</strong>
+                                            </div>
+                                            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#transferToSenderModal">
+                                                <i class="bi bi-send-fill"></i> Chuyển tiền cho Sender
+                                            </button>
+                                        @endif
+                                    @elseif($transaction->sender_payment_status === 'completed')
+                                        <div class="alert alert-success border-success mb-0">
+                                            <div class="d-flex align-items-start">
+                                                <i class="bi bi-check-circle-fill text-success me-2 fs-5"></i>
+                                                <div class="flex-grow-1">
+                                                    <strong>Đã chuyển tiền cho sender</strong>
+                                                    <p class="mb-1 mt-2 small">
+                                                        <i class="bi bi-clock"></i> {{ $transaction->sender_transfer_time->format('d/m/Y H:i') }}
+                                                    </p>
+                                                    <p class="mb-1 small">
+                                                        <i class="bi bi-credit-card"></i> 
+                                                        @if ($transaction->sender_transfer_method === 'bank_transfer')
+                                                            Chuyển khoản ngân hàng
+                                                        @elseif($transaction->sender_transfer_method === 'wallet')
+                                                            Ví điện tử
+                                                        @else
+                                                            Tiền mặt
+                                                        @endif
+                                                    </p>
+                                                    @if ($transaction->sender_transfer_proof)
+                                                        <a href="{{ asset('storage/' . $transaction->sender_transfer_proof) }}" target="_blank" class="btn btn-sm btn-outline-primary mt-2">
+                                                            <i class="bi bi-image"></i> Xem chứng từ
+                                                        </a>
+                                                    @endif
+                                                    @if ($transaction->sender_transfer_note)
+                                                        <p class="mb-0 mt-2 small"><strong>Ghi chú:</strong> {{ $transaction->sender_transfer_note }}</p>
+                                                    @endif
+                                                </div>
+                                            </div>
                                         </div>
                                     @else
-                                        <div class="alert alert-secondary mb-0">
+                                        <div class="alert alert-secondary border mb-0">
                                             <i class="bi bi-lock"></i> Chưa sẵn sàng (cần xác nhận bước 1)
                                         </div>
                                     @endif
@@ -151,8 +318,7 @@
                             </div>
 
                             <!-- BƯỚC 3: Hub → Driver (Commission) -->
-                            <div
-                                class="timeline-item {{ $transaction->driver_commission_status === 'paid' ? 'completed' : ($transaction->driver_commission_status === 'pending' && $transaction->shipper_payment_status === 'confirmed' ? 'pending' : 'waiting') }}">
+                            <div class="timeline-item {{ $transaction->driver_commission_status === 'paid' ? 'completed' : ($transaction->driver_commission_status === 'pending' && $transaction->shipper_payment_status === 'confirmed' ? 'pending' : 'waiting') }}">
                                 <div class="timeline-marker">
                                     @if ($transaction->driver_commission_status === 'paid')
                                         <i class="bi bi-check-circle-fill text-success"></i>
@@ -163,35 +329,77 @@
                                     @endif
                                 </div>
                                 <div class="timeline-content">
-                                    <h6 class="mb-2">
-                                        <i class="bi bi-cash"></i> Hub → Driver (Commission)
-                                        <span
-                                            class="badge bg-{{ $transaction->driver_commission_status === 'paid' ? 'success' : 'secondary' }} ms-2">
+                                    <div class="d-flex justify-content-between align-items-start mb-3">
+                                        <div>
+                                            <h6 class="mb-1 fw-bold">
+                                                <i class="bi bi-cash-coin"></i> Hub → Driver (Commission)
+                                            </h6>
+                                            <small class="text-muted">Hub trả hoa hồng cho tài xế</small>
+                                        </div>
+                                        <span class="badge status-badge-lg bg-{{ $transaction->driver_commission_status === 'paid' ? 'success' : 'secondary' }}">
                                             {{ $transaction->driver_commission_status_label }}
                                         </span>
-                                    </h6>
-                                    <p class="mb-1"><strong>Commission:</strong> <span
-                                            class="text-primary fs-5">{{ number_format($transaction->driver_commission) }}đ</span>
-                                    </p>
-                                    <small class="text-muted">= {{ number_format($transaction->shipping_fee) }}đ ×
-                                        {{ config('delivery.driver.commission_rate') * 100 }}%</small>
+                                    </div>
+
+                                    <div class="alert alert-light border mb-3">
+                                        <div class="row g-3">
+                                            <div class="col-md-6">
+                                                <small class="text-muted d-block mb-2"><i class="bi bi-cash-coin"></i> Commission</small>
+                                                <h4 class="mb-0 text-primary fw-bold">{{ number_format($transaction->driver_commission) }}đ</h4>
+                                                <small class="text-muted">= {{ number_format($transaction->shipping_fee) }}đ × 50%</small>
+                                            </div>
+                                            <div class="col-md-6">
+                                                @if($driverBankAccount)
+                                                    <small class="text-muted d-block mb-2"><i class="bi bi-bank"></i> Tài khoản Driver</small>
+                                                    <div class="text-dark fw-semibold">{{ $driverBankAccount->bank_short_name ?? $driverBankAccount->bank_name }}</div>
+                                                    <small class="text-muted">{{ $driverBankAccount->account_number }}</small>
+                                                    <div class="mt-1">
+                                                        <span class="badge bg-success-subtle text-success">
+                                                            <i class="bi bi-check-circle-fill"></i> Đã xác minh
+                                                        </span>
+                                                    </div>
+                                                @else
+                                                    <div class="alert alert-warning mb-0 py-2">
+                                                        <i class="bi bi-exclamation-triangle"></i> Driver chưa có tài khoản
+                                                    </div>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    </div>
 
                                     @if ($transaction->canPayDriverCommission())
-                                        <div class="alert alert-info mb-3 mt-2">
-                                            <i class="bi bi-info-circle"></i> Cần trả commission cho driver
-                                        </div>
-                                        <button type="button" class="btn btn-primary" data-bs-toggle="modal"
-                                            data-bs-target="#payDriverCommissionModal">
-                                            <i class="bi bi-cash"></i> Trả commission
-                                        </button>
+                                        @if(!$driverHasBankAccount)
+                                            <div class="alert alert-danger border-danger mb-3">
+                                                <div class="d-flex align-items-start">
+                                                    <i class="bi bi-exclamation-triangle-fill fs-5 me-2"></i>
+                                                    <div>
+                                                        <strong>Không thể trả commission</strong>
+                                                        <p class="mb-0 mt-2 small">Driver chưa có tài khoản ngân hàng. Vui lòng liên hệ driver để cập nhật.</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        @else
+                                            <div class="alert alert-info border-info mb-3">
+                                                <i class="bi bi-info-circle-fill"></i> <strong>Cần trả commission cho driver</strong>
+                                            </div>
+                                            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#payDriverCommissionModal">
+                                                <i class="bi bi-cash-coin"></i> Trả commission
+                                            </button>
+                                        @endif
                                     @elseif($transaction->driver_commission_status === 'paid')
-                                        <div class="alert alert-success mb-0 mt-2">
-                                            <p class="mb-1"><i class="bi bi-check-circle"></i> Đã trả commission</p>
-                                            <small>Thời gian:
-                                                {{ $transaction->driver_paid_at->format('d/m/Y H:i') }}</small>
+                                        <div class="alert alert-success border-success mb-0">
+                                            <div class="d-flex align-items-start">
+                                                <i class="bi bi-check-circle-fill text-success me-2 fs-5"></i>
+                                                <div>
+                                                    <strong>Đã trả commission</strong>
+                                                    <p class="mb-0 mt-2 small">
+                                                        <i class="bi bi-clock"></i> {{ $transaction->driver_paid_at->format('d/m/Y H:i') }}
+                                                    </p>
+                                                </div>
+                                            </div>
                                         </div>
                                     @else
-                                        <div class="alert alert-secondary mb-0 mt-2">
+                                        <div class="alert alert-secondary border mb-0">
                                             <i class="bi bi-lock"></i> Chưa sẵn sàng (cần xác nhận bước 1)
                                         </div>
                                     @endif
@@ -199,8 +407,7 @@
                             </div>
 
                             <!-- BƯỚC 4: Hub → System (COD Fee) -->
-                            <div
-                                class="timeline-item {{ $transaction->hub_system_status === 'confirmed' ? 'completed' : ($transaction->hub_system_status === 'transferred' ? 'pending' : ($transaction->hub_system_status === 'pending' ? 'pending' : 'waiting')) }}">
+                            <div class="timeline-item {{ $transaction->hub_system_status === 'confirmed' ? 'completed' : ($transaction->hub_system_status === 'transferred' ? 'pending' : ($transaction->hub_system_status === 'pending' ? 'pending' : 'waiting')) }}">
                                 <div class="timeline-marker">
                                     @if ($transaction->hub_system_status === 'confirmed')
                                         <i class="bi bi-check-circle-fill text-success"></i>
@@ -211,63 +418,103 @@
                                     @endif
                                 </div>
                                 <div class="timeline-content">
-                                    <h6 class="mb-2">
-                                        <i class="bi bi-database"></i> Hub → System (COD Fee)
-                                        <span
-                                            class="badge bg-{{ $transaction->hub_system_status === 'confirmed' ? 'success' : ($transaction->hub_system_status === 'transferred' ? 'info' : ($transaction->hub_system_status === 'pending' ? 'warning' : 'secondary')) }} ms-2">
+                                    <div class="d-flex justify-content-between align-items-start mb-3">
+                                        <div>
+                                            <h6 class="mb-1 fw-bold">
+                                                <i class="bi bi-database"></i> Hub → System (COD Fee)
+                                            </h6>
+                                            <small class="text-muted">Hub nộp phí COD cho hệ thống</small>
+                                        </div>
+                                        <span class="badge status-badge-lg bg-{{ $transaction->hub_system_status === 'confirmed' ? 'success' : ($transaction->hub_system_status === 'transferred' ? 'info' : ($transaction->hub_system_status === 'pending' ? 'warning' : 'secondary')) }}">
                                             {{ $transaction->system_status_label }}
                                         </span>
-                                    </h6>
-                                    <p class="mb-1"><strong>Số tiền:</strong> <span
-                                            class="text-danger fs-5">{{ number_format($transaction->hub_system_amount) }}đ</span>
-                                    </p>
+                                    </div>
+
+                                    <div class="alert alert-light border mb-3">
+                                        <div class="row g-3">
+                                            <div class="col-md-6">
+                                                <small class="text-muted d-block mb-2"><i class="bi bi-cash-stack"></i> Số tiền nộp</small>
+                                                <h4 class="mb-0 text-danger fw-bold">{{ number_format($transaction->hub_system_amount) }}đ</h4>
+                                            </div>
+                                            <div class="col-md-6">
+                                                @if($systemBankAccount)
+                                                    <small class="text-muted d-block mb-2"><i class="bi bi-bank"></i> Tài khoản System</small>
+                                                    <div class="text-dark fw-semibold">{{ $systemBankAccount->bank_short_name ?? $systemBankAccount->bank_name }}</div>
+                                                    <small class="text-muted">{{ $systemBankAccount->account_number }}</small>
+                                                    <div class="mt-1">
+                                                        <span class="badge bg-primary-subtle text-primary">
+                                                            <i class="bi bi-shield-check"></i> Tài khoản hệ thống
+                                                        </span>
+                                                    </div>
+                                                @else
+                                                    <div class="alert alert-danger mb-0 py-2">
+                                                        <i class="bi bi-exclamation-triangle-fill"></i> Chưa cấu hình tài khoản
+                                                    </div>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    </div>
 
                                     @if ($transaction->hub_system_status === 'pending')
-                                        <div class="alert alert-info mb-3">
-                                            <i class="bi bi-info-circle"></i> Cần nộp COD fee cho hệ thống
-                                        </div>
-                                        <button type="button" class="btn btn-danger" data-bs-toggle="modal"
-                                            data-bs-target="#transferToSystemModal">
-                                            <i class="bi bi-database"></i> Nộp cho hệ thống
-                                        </button>
-                                    @elseif($transaction->hub_system_status === 'transferred')
-                                        <div class="alert alert-warning mb-0">
-                                            <p class="mb-1"><i class="bi bi-clock"></i> Đã nộp, chờ admin xác nhận</p>
-                                            <small>Thời gian:
-                                                {{ $transaction->hub_system_transfer_time->format('d/m/Y H:i') }}</small><br>
-                                            <small>Phương thức:
-                                                @if ($transaction->hub_system_method === 'bank_transfer')
-                                                    Chuyển khoản
-                                                @else
-                                                    Tiền mặt
-                                                @endif
-                                            </small>
-                                            @if ($transaction->hub_system_proof)
-                                                <div class="mt-2">
-                                                    <a href="{{ asset('storage/' . $transaction->hub_system_proof) }}"
-                                                        target="_blank" class="btn btn-sm ">
-                                                        <i class="bi bi-image"></i> Xem chứng từ
-                                                    </a>
+                                        @if(!$systemHasBankAccount)
+                                            <div class="alert alert-danger border-danger mb-3">
+                                                <div class="d-flex align-items-start">
+                                                    <i class="bi bi-exclamation-triangle-fill fs-5 me-2"></i>
+                                                    <div>
+                                                        <strong>Không thể nộp tiền</strong>
+                                                        <p class="mb-0 mt-2 small">Hệ thống chưa cấu hình tài khoản ngân hàng. Vui lòng liên hệ admin.</p>
+                                                    </div>
                                                 </div>
-                                            @endif
+                                            </div>
+                                        @else
+                                            <div class="alert alert-info border-info mb-3">
+                                                <i class="bi bi-info-circle-fill"></i> <strong>Cần nộp COD fee cho hệ thống</strong>
+                                            </div>
+                                            <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#transferToSystemModal">
+                                                <i class="bi bi-database"></i> Nộp cho hệ thống
+                                            </button>
+                                        @endif
+                                    @elseif($transaction->hub_system_status === 'transferred')
+                                        <div class="alert alert-warning border-warning mb-0">
+                                            <div class="d-flex align-items-start">
+                                                <i class="bi bi-clock-fill text-warning me-2 fs-5"></i>
+                                                <div class="flex-grow-1">
+                                                    <strong>Đã nộp, chờ admin xác nhận</strong>
+                                                    <p class="mb-1 mt-2 small">
+                                                        <i class="bi bi-clock"></i> {{ $transaction->hub_system_transfer_time->format('d/m/Y H:i') }}
+                                                    </p>
+                                                    <p class="mb-1 small">
+                                                        <i class="bi bi-credit-card"></i> 
+                                                        {{ $transaction->hub_system_method === 'bank_transfer' ? 'Chuyển khoản' : 'Tiền mặt' }}
+                                                    </p>
+                                                    @if ($transaction->hub_system_proof)
+                                                        <a href="{{ asset('storage/' . $transaction->hub_system_proof) }}" target="_blank" class="btn btn-sm btn-outline-warning mt-2">
+                                                            <i class="bi bi-image"></i> Xem chứng từ
+                                                        </a>
+                                                    @endif
+                                                </div>
+                                            </div>
                                         </div>
                                     @elseif($transaction->hub_system_status === 'confirmed')
-                                        <div class="alert alert-success mb-0">
-                                            <p class="mb-1"><i class="bi bi-check-circle"></i> Admin đã xác nhận nhận
-                                                tiền</p>
-                                            <small>Thời gian:
-                                                {{ $transaction->system_confirm_time->format('d/m/Y H:i') }}</small>
-                                            @if ($transaction->systemConfirmer)
-                                                <br><small>Người xác nhận:
-                                                    {{ $transaction->systemConfirmer->full_name }}</small>
-                                            @endif
-                                            @if ($transaction->system_confirm_note)
-                                                <p class="mb-0 mt-2"><strong>Ghi chú:</strong>
-                                                    {{ $transaction->system_confirm_note }}</p>
-                                            @endif
+                                        <div class="alert alert-success border-success mb-0">
+                                            <div class="d-flex align-items-start">
+                                                <i class="bi bi-check-circle-fill text-success me-2 fs-5"></i>
+                                                <div class="flex-grow-1">
+                                                    <strong>Admin đã xác nhận nhận tiền</strong>
+                                                    <p class="mb-1 mt-2 small">
+                                                        <i class="bi bi-clock"></i> {{ $transaction->system_confirm_time->format('d/m/Y H:i') }}
+                                                    </p>
+                                                    @if ($transaction->systemConfirmer)
+                                                        <p class="mb-1 small"><i class="bi bi-person"></i> {{ $transaction->systemConfirmer->full_name }}</p>
+                                                    @endif
+                                                    @if ($transaction->system_confirm_note)
+                                                        <p class="mb-0 mt-2 small"><strong>Ghi chú:</strong> {{ $transaction->system_confirm_note }}</p>
+                                                    @endif
+                                                </div>
+                                            </div>
                                         </div>
                                     @else
-                                        <div class="alert alert-secondary mb-0">
+                                        <div class="alert alert-secondary border mb-0">
                                             <i class="bi bi-lock"></i> Chưa sẵn sàng (cần xác nhận bước 1)
                                         </div>
                                     @endif
@@ -278,809 +525,614 @@
                 </div>
 
                 <!-- PHÂN CHIA TIỀN -->
-                <!-- PHÂN CHIA TIỀN -->
-                <div class="card shadow mb-4">
-                    <div class="card-header text-white">
-                        <h5 class="mb-0"><i class="bi bi-cash-stack"></i> Phân chia tiền</h5>
+                <div class="card shadow-sm border-0 mb-4">
+                    <div class="card-header text-white py-3" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);">
+                        <h5 class="mb-0 fw-semibold"><i class="bi bi-cash-stack"></i> Phân chia tiền</h5>
                     </div>
-                    <div class="card-body">
-                        <!-- DÒNG 1: TỔNG QUAN -->
-                        <div class="alert">
-                            <div class="row text-center">
+                    <div class="card-body p-4">
+                        <!-- TỔNG QUAN -->
+                        <div class="alert alert-light border mb-4">
+                            <div class="row text-center g-3">
                                 <div class="col-md-4">
-                                    <h6 class="text-muted mb-1">💰 Driver thu từ khách</h6>
-                                    <h3 class="text-primary mb-0">{{ number_format($transaction->total_collected) }}đ</h3>
+                                    <small class="text-muted d-block mb-2">💰 Driver thu từ khách</small>
+                                    <h3 class="text-primary mb-0 fw-bold">{{ number_format($transaction->total_collected) }}đ</h3>
                                 </div>
                                 <div class="col-md-4">
-                                    <h6 class="text-muted mb-1">📦 COD Amount</h6>
-                                    <h3 class="text-dark mb-0">{{ number_format($transaction->cod_amount) }}đ</h3>
+                                    <small class="text-muted d-block mb-2">📦 COD Amount</small>
+                                    <h3 class="text-dark mb-0 fw-bold">{{ number_format($transaction->cod_amount) }}đ</h3>
                                 </div>
                                 <div class="col-md-4">
-                                    <h6 class="text-muted mb-1">🚚 Shipping Fee</h6>
-                                    <h3 class="text-dark mb-0">{{ number_format($transaction->shipping_fee) }}đ</h3>
+                                    <small class="text-muted d-block mb-2">🚚 Shipping Fee</small>
+                                    <h3 class="text-dark mb-0 fw-bold">{{ number_format($transaction->shipping_fee) }}đ</h3>
                                 </div>
                             </div>
                         </div>
 
-                        <hr class="my-4">
-
-                        <!-- DÒNG 2: PHÂN CHIA CHO CÁC BÊN -->
-                        <h6 class="text-muted mb-3"><i class="bi bi-arrow-down-circle"></i> Phân chia cho các bên:</h6>
-                        <div class="row text-center">
-                            <!-- SENDER NHẬN (COD) -->
-                            <div class="col-md-3 mb-3">
-                                <div class="border rounded p-3 bg-light">
-                                    <div class="d-flex justify-content-between align-items-center mb-2">
-                                        <h6 class="text-muted mb-0">👤 Sender nhận</h6>
-                                        @if ($transaction->sender_payment_status === 'completed')
-                                            <i class="bi bi-check-circle-fill text-success"></i>
-                                        @else
-                                            <i class="bi bi-clock text-warning"></i>
-                                        @endif
+                        <!-- PHÂN CHIA -->
+                        <h6 class="text-muted mb-3 fw-semibold"><i class="bi bi-arrow-down-circle"></i> Phân chia cho các bên:</h6>
+                        <div class="row g-3">
+                            <!-- SENDER -->
+                            <div class="col-md-3">
+                                <div class="card h-100 border border-success border-2">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <h6 class="text-muted mb-0 small">👤 Sender nhận</h6>
+                                            @if ($transaction->sender_payment_status === 'completed')
+                                                <i class="bi bi-check-circle-fill text-success"></i>
+                                            @else
+                                                <i class="bi bi-clock text-warning"></i>
+                                            @endif
+                                        </div>
+                                        <h4 class="text-success mb-2 fw-bold">{{ number_format($transaction->sender_receive_amount) }}đ</h4>
+                                        <small class="text-muted d-block">
+                                            = {{ number_format($transaction->cod_amount) }}đ<br>
+                                            - {{ number_format($transaction->cod_fee) }}đ (phí COD)
+                                            @if ($transaction->sender_debt_deducted > 0)
+                                                <br>- {{ number_format($transaction->sender_debt_deducted) }}đ (trừ nợ)
+                                            @endif
+                                        </small>
                                     </div>
-                                    <h4 class="text-success mb-1">
-                                        {{ number_format($transaction->sender_receive_amount) }}đ</h4>
-                                    <small class="text-muted d-block">
-                                        = {{ number_format($transaction->cod_amount) }}đ<br>
-                                        - {{ number_format($transaction->cod_fee) }}đ (phí COD)
-                                        @if ($transaction->sender_debt_deducted > 0)
-                                            <br>- {{ number_format($transaction->sender_debt_deducted) }}đ (trừ nợ)
-                                        @endif
-                                    </small>
                                 </div>
                             </div>
 
-                            <!-- DRIVER COMMISSION -->
-                            <div class="col-md-3 mb-3">
-                                <div class="border rounded p-3 bg-light">
-                                    <div class="d-flex justify-content-between align-items-center mb-2">
-                                        <h6 class="text-muted mb-0">🚗 Driver nhận</h6>
-                                        @if ($transaction->driver_commission_status === 'paid')
-                                            <i class="bi bi-check-circle-fill text-success"></i>
-                                        @else
-                                            <i class="bi bi-clock text-warning"></i>
-                                        @endif
+                            <!-- DRIVER -->
+                            <div class="col-md-3">
+                                <div class="card h-100 border border-primary border-2">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <h6 class="text-muted mb-0 small">🚗 Driver nhận</h6>
+                                            @if ($transaction->driver_commission_status === 'paid')
+                                                <i class="bi bi-check-circle-fill text-success"></i>
+                                            @else
+                                                <i class="bi bi-clock text-warning"></i>
+                                            @endif
+                                        </div>
+                                        <h4 class="text-primary mb-2 fw-bold">{{ number_format($transaction->driver_commission) }}đ</h4>
+                                        <small class="text-muted d-block">
+                                            = {{ number_format($transaction->shipping_fee) }}đ × 50%<br>
+                                            (Commission)
+                                        </small>
                                     </div>
-                                    <h4 class="text-primary mb-1">{{ number_format($transaction->driver_commission) }}đ
-                                    </h4>
-                                    <small class="text-muted d-block">
-                                        = {{ number_format($transaction->shipping_fee) }}đ × 50%<br>
-                                        (Commission)
-                                    </small>
                                 </div>
                             </div>
 
-                            <!-- HUB PROFIT -->
-                            <div class="col-md-3 mb-3">
-                                <div class="border rounded p-3 bg-opacity-10">
-                                    <div class="d-flex justify-content-between align-items-center mb-2">
-                                        <h6 class="text-muted mb-0">🏢 Hub giữ lại</h6>
-                                        <i class="bi bi-building text-warning"></i>
+                            <!-- HUB -->
+                            <div class="col-md-3">
+                                <div class="card h-100 border border-warning border-2">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <h6 class="text-muted mb-0 small">🏢 Hub giữ lại</h6>
+                                            <i class="bi bi-building text-warning"></i>
+                                        </div>
+                                        <h4 class="text-warning mb-2 fw-bold">{{ number_format($transaction->hub_profit) }}đ</h4>
+                                        <small class="text-muted d-block">
+                                            = {{ number_format($transaction->shipping_fee) }}đ × 50%<br>
+                                            (Commission)
+                                        </small>
                                     </div>
-                                    <h4 class="text-warning mb-1">{{ number_format($transaction->hub_profit) }}đ</h4>
-                                    <small class="text-muted d-block">
-                                        = 60% lợi nhuận<br>
-                                        (Sau khi trả Sender + Driver)
-                                    </small>
                                 </div>
                             </div>
 
-                            <!-- ADMIN PROFIT -->
-                            <div class="col-md-3 mb-3">
-                                <div class="border rounded p-3  bg-opacity-10">
-                                    <div class="d-flex justify-content-between align-items-center mb-2">
-                                        <h6 class="text-muted mb-0">⚙️ Admin nhận</h6>
-                                        @if ($transaction->hub_system_status === 'confirmed')
-                                            <i class="bi bi-check-circle-fill text-success"></i>
-                                        @elseif($transaction->hub_system_status === 'transferred')
-                                            <i class="bi bi-clock text-warning"></i>
-                                        @else
-                                            <i class="bi bi-circle text-secondary"></i>
-                                        @endif
+                            <!-- SYSTEM -->
+                            <div class="col-md-3">
+                                <div class="card h-100 border border-danger border-2">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <h6 class="text-muted mb-0 small">💼 System nhận</h6>
+                                            @if ($transaction->hub_system_status === 'confirmed')
+                                                <i class="bi bi-check-circle-fill text-success"></i>
+                                            @else
+                                                <i class="bi bi-clock text-warning"></i>
+                                            @endif
+                                        </div>
+                                        <h4 class="text-danger mb-2 fw-bold">{{ number_format($transaction->hub_system_amount) }}đ</h4>
+                                        <small class="text-muted d-block">
+                                            = {{ number_format($transaction->cod_fee) }}đ (phí COD)
+                                            @if ($transaction->sender_debt_deducted > 0)
+                                                <br>+ {{ number_format($transaction->sender_debt_deducted) }}đ (nợ)
+                                            @endif
+                                        </small>
                                     </div>
-                                    <h4 class="text-danger mb-1">{{ number_format($transaction->admin_profit) }}đ</h4>
-                                    <small class="text-muted d-block">
-                                        = 40% lợi nhuận<br>
-                                        (Hub phải nộp)
-                                    </small>
                                 </div>
                             </div>
                         </div>
-
-                        <hr class="my-4">
-
-                        <!-- DÒNG 3: KIỂM TRA CÂN BẰNG -->
-                        @php
-                            $totalDistributed =
-                                $transaction->sender_receive_amount +
-                                $transaction->driver_commission +
-                                $transaction->hub_profit +
-                                $transaction->admin_profit;
-                            $difference = abs($transaction->total_collected - $totalDistributed);
-                            $isBalanced = $difference < 0.01;
-                        @endphp
-
-
-                        <!-- DÒNG 4: CÔNG THỨC (CHỈ HIỂN THỊ KHI DEBUG) -->
-                        @if (config('app.debug'))
-                            <details class="mt-3">
-                                <summary class="text-muted" style="cursor: pointer;">
-                                    <i class="bi bi-calculator"></i> Xem chi tiết công thức tính
-                                </summary>
-                                <div class="alert alert-secondary mt-2 mb-0">
-                                    <pre class="mb-0" style="font-size: 11px;">
-                            <strong>CÔNG THỨC:</strong>
-
-                            1. Total Collected = {{ number_format($transaction->total_collected) }}đ
-                            @if ($transaction->payer_shipping === 'recipient')
-                            = COD ({{ number_format($transaction->cod_amount) }}) + Shipping ({{ number_format($transaction->shipping_fee) }})
-                            @else
-                            = COD Only ({{ number_format($transaction->cod_amount) }})
-                            @endif
-
-                            2. Sender Receive = {{ number_format($transaction->sender_receive_amount) }}đ
-                            = COD ({{ number_format($transaction->cod_amount) }})
-                            - COD Fee ({{ number_format($transaction->cod_fee) }})
-                            @if ($transaction->sender_debt_deducted > 0)
-                            - Debt ({{ number_format($transaction->sender_debt_deducted) }})
-                            @endif
-
-                            3. Driver Commission = {{ number_format($transaction->driver_commission) }}đ
-                            = Shipping ({{ number_format($transaction->shipping_fee) }}) × 50%
-
-                            4. Hub & Admin Profit:
-                            Hub received = {{ number_format($transaction->total_collected) }}đ
-                            Hub must pay = Sender ({{ number_format($transaction->sender_receive_amount) }}) + Driver ({{ number_format($transaction->driver_commission) }})
-                                            = {{ number_format($transaction->sender_receive_amount + $transaction->driver_commission) }}đ
-                            
-                            Remaining = {{ number_format($transaction->total_collected) }} - {{ number_format($transaction->sender_receive_amount + $transaction->driver_commission) }}
-                                        = {{ number_format($transaction->total_collected - $transaction->sender_receive_amount - $transaction->driver_commission) }}đ
-                            
-                            Hub Profit (60%) = {{ number_format($transaction->hub_profit) }}đ
-                            Admin Profit (40%) = {{ number_format($transaction->admin_profit) }}đ
-
-                            <strong>KIỂM TRA CÂN BẰNG:</strong>
-                            Total Collected = Sender + Driver + Hub + Admin
-                            {{ number_format($transaction->total_collected) }} = {{ number_format($transaction->sender_receive_amount) }} + {{ number_format($transaction->driver_commission) }} + {{ number_format($transaction->hub_profit) }} + {{ number_format($transaction->admin_profit) }}
-                            {{ number_format($transaction->total_collected) }} = {{ number_format($totalDistributed) }}
-                            Chênh lệch: {{ number_format($difference) }}đ {{ $isBalanced ? '✓' : '✗' }}
-                                            </pre>
-                                </div>
-                            </details>
-                        @endif
                     </div>
                 </div>
             </div>
 
-            <!-- COL 2: THÔNG TIN LIÊN QUAN -->
+            <!-- COL 2: THÔNG TIN BỔ SUNG -->
             <div class="col-lg-4">
                 <!-- THÔNG TIN ĐƠN HÀNG -->
-                <div class="card shadow mb-4">
-                    <div class="card-header  text-white">
-                        <h6 class="mb-0"><i class="bi bi-box"></i> Thông tin đơn hàng</h6>
+                <div class="card shadow-sm border-0 mb-4">
+                    <div class="card-header bg-light py-3">
+                        <h6 class="mb-0 fw-semibold"><i class="bi bi-box-seam"></i> Thông tin đơn hàng</h6>
                     </div>
                     <div class="card-body">
-                        <table class="table table-sm">
+                        <table class="table table-sm table-borderless mb-0">
                             <tr>
-                                <td><strong>Mã đơn:</strong></td>
-                                <td><a href="{{ route('hub.orders.show', $transaction->order_id) }}"
-                                        target="_blank">#{{ $transaction->order_id }}</a></td>
+                                <td class="text-muted" width="40%"><i class="bi bi-hash"></i> Mã đơn</td>
+                                <td class="fw-semibold">#{{ $transaction->order_id }}</td>
                             </tr>
                             <tr>
-                                <td><strong>Tiền COD:</strong></td>
-                                <td>{{ number_format($transaction->cod_amount) }}đ</td>
+                                <td class="text-muted"><i class="bi bi-person"></i> Người gửi</td>
+                                <td class="fw-semibold">{{ $transaction->sender->full_name ?? 'N/A' }}</td>
                             </tr>
                             <tr>
-                                <td><strong>Phí ship:</strong></td>
-                                <td>{{ number_format($transaction->shipping_fee) }}đ</td>
+                                <td class="text-muted"><i class="bi bi-truck"></i> Tài xế</td>
+                                <td class="fw-semibold">{{ $transaction->driver->full_name ?? 'N/A' }}</td>
                             </tr>
                             <tr>
-                                <td><strong>Phí COD:</strong></td>
-                                <td>{{ number_format($transaction->platform_fee) }}đ</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Người trả ship:</strong></td>
-                                <td>
-                                    @if ($transaction->payer_shipping === 'sender')
-                                        <span class="badge bg-info">Người gửi</span>
-                                    @else
-                                        <span class="badge bg-warning">Người nhận</span>
-                                    @endif
-                                </td>
-                            </tr>
-                            <tr>
-                                <td><strong>Tạo lúc:</strong></td>
-                                <td>{{ $transaction->created_at->format('d/m/Y H:i') }}</td>
+                                <td class="text-muted"><i class="bi bi-calendar3"></i> Ngày tạo</td>
+                                <td class="fw-semibold">{{ $transaction->created_at->format('d/m/Y H:i') }}</td>
                             </tr>
                         </table>
                     </div>
                 </div>
 
-                <!-- DRIVER -->
-                <div class="card shadow mb-4">
-                    <div class="card-header bg-secondary text-white">
-                        <h6 class="mb-0"><i class="bi bi-truck"></i> Tài xế</h6>
+                <!-- TRẠNG THÁI TỔNG THỂ -->
+                <div class="card shadow-sm border-0 mb-4">
+                    <div class="card-header bg-light py-3">
+                        <h6 class="mb-0 fw-semibold"><i class="bi bi-check2-square"></i> Trạng thái tổng thể</h6>
                     </div>
                     <div class="card-body">
-                        <p class="mb-1"><strong>{{ $transaction->driver->full_name }}</strong></p>
-                        <p class="mb-1"><i class="bi bi-phone"></i> {{ $transaction->driver->phone }}</p>
-                        <p class="mb-1"><i class="bi bi-envelope"></i> {{ $transaction->driver->email }}</p>
-                        @if ($transaction->shipperBankAccount)
-                            <hr>
-                            <p class="mb-1 text-muted"><small>Tài khoản ngân hàng:</small></p>
-                            <p class="mb-0">
-                                <strong>{{ $transaction->shipperBankAccount->bank_short_name ?? $transaction->shipperBankAccount->bank_name }}</strong>
-                            </p>
-                            <p class="mb-0">{{ $transaction->shipperBankAccount->account_number }}</p>
-                            <p class="mb-0">{{ $transaction->shipperBankAccount->account_name }}</p>
-                        @endif
-                    </div>
-                </div>
-
-                <!-- SENDER -->
-                <div class="card shadow mb-4">
-                    <div class="card-header bg-secondary text-white">
-                        <h6 class="mb-0"><i class="bi bi-person"></i> Người gửi</h6>
-                    </div>
-                    <div class="card-body">
-                        <p class="mb-1"><strong>{{ $transaction->sender->full_name }}</strong></p>
-                        <p class="mb-1"><i class="bi bi-phone"></i> {{ $transaction->sender->phone }}</p>
-                        <p class="mb-1"><i class="bi bi-envelope"></i> {{ $transaction->sender->email }}</p>
-                        @if ($senderBankAccount)
-                            <hr>
-                            <p class="mb-1 text-muted"><small>Tài khoản nhận COD:</small></p>
-                            <p class="mb-0">
-                                <strong>{{ $senderBankAccount->bank_short_name ?? $senderBankAccount->bank_name }}</strong>
-                            </p>
-                            <p class="mb-0">{{ $senderBankAccount->account_number }}</p>
-                            <p class="mb-0">{{ $senderBankAccount->account_name }}</p>
-
-                            @if ($transaction->sender_payment_status === 'pending')
-                                <button type="button" class="btn btn-sm btn-primary mt-2 w-100"
-                                    onclick="showSenderQR('{{ $senderBankAccount->bank_code }}', '{{ $senderBankAccount->account_number }}', '{{ $transaction->sender_receive_amount }}', 'COD don {{ $transaction->order_id }}')">
-                                    <i class="bi bi-qr-code"></i> Tạo QR chuyển khoản
-                                </button>
-                            @endif
-                        @endif
-                    </div>
-                </div>
-
-                <!-- TRẠNG THÁI TỔNG QUÁT -->
-                @if ($transaction->isFullyCompleted())
-                    <div class="alert alert-success">
-                        <i class="bi bi-check-circle-fill"></i> <strong>Giao dịch đã hoàn tất</strong>
-                        <hr>
-                        <small>Tất cả các bước đã được thực hiện thành công</small>
-                    </div>
-                @endif
-            </div>
-        </div>
-    </div>
-
-    <!-- MODAL: XÁC NHẬN NHẬN TIỀN TỪ DRIVER -->
-    <div class="modal fade" id="confirmFromDriverModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <form action="{{ route('hub.cod.confirm', $transaction->id) }}" method="POST">
-                    @csrf
-                    <div class="modal-header  text-white">
-                        <h5 class="modal-title"><i class="bi bi-check-circle"></i> Xác nhận nhận tiền từ Driver</h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="alert ">
-                            <p class="mb-2"><strong>Driver:</strong> {{ $transaction->driver->full_name }}</p>
-                            <p class="mb-2"><strong>Số tiền nhận:</strong> <span
-                                    class="fs-5 text-primary">{{ number_format($transaction->total_collected) }}đ</span>
-                            </p>
-                            @if ($transaction->shipper_transfer_time)
-                                <p class="mb-0"><small>Driver chuyển lúc:
-                                        {{ $transaction->shipper_transfer_time->format('d/m/Y H:i') }}</small></p>
-                            @endif
-                        </div>
-
                         <div class="mb-3">
-                            <label class="form-label fw-bold">Ghi chú xác nhận</label>
-                            <textarea name="note" class="form-control" rows="3" placeholder="Ghi chú (nếu có)..."></textarea>
-                        </div>
-
-                        <div class="alert alert-warning mb-0">
-                            <i class="bi bi-exclamation-triangle"></i> Sau khi xác nhận, bạn sẽ có thể:
-                            <ul class="mb-0 mt-2">
-                                <li>Chuyển COD cho Sender</li>
-                                <li>Trả commission cho Driver</li>
-                                <li>Nộp COD fee cho hệ thống</li>
-                            </ul>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
-                        <button type="submit" class="btn btn-success">Xác nhận đã nhận tiền</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- MODAL: CHUYỂN TIỀN CHO SENDER -->
-    <div class="modal fade" id="transferToSenderModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <form action="{{ route('hub.cod.transfer-sender', $transaction->id) }}" method="POST"
-                    enctype="multipart/form-data">
-                    @csrf
-                    <div class="modal-header text-white">
-                        <h5 class="modal-title"><i class="bi bi-send"></i> Chuyển tiền COD cho Sender</h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="alert">
-                            <p class="mb-2"><strong>Sender:</strong> {{ $transaction->sender->full_name }}</p>
-                            <p class="mb-0"><strong>Số tiền COD:</strong> <span
-                                    class="fs-5 text-success">{{ number_format($transaction->sender_receive_amount) }}đ</span>
-                            </p>
-                        </div>
-
-                        @if ($senderBankAccount)
-                            <div class="alert alert-warning ">
-                                <p class="mb-1"><strong>Tài khoản nhận:</strong></p>
-                                <p class="mb-1">
-                                    {{ $senderBankAccount->bank_short_name ?? $senderBankAccount->bank_name }}</p>
-                                <p class="mb-1">{{ $senderBankAccount->account_number }} -
-                                    {{ $senderBankAccount->account_name }}</p>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <small class="text-muted">Driver → Hub</small>
+                                <span class="badge bg-{{ $transaction->shipper_payment_status === 'confirmed' ? 'success' : 'warning' }}">
+                                    {{ $transaction->shipper_status_label }}
+                                </span>
                             </div>
-                        @endif
-
-                        <div class="mb-3">
-                            <label class="form-label fw-bold">Phương thức chuyển <span
-                                    class="text-danger">*</span></label>
-                            <select name="method" class="form-select" required>
-                                <option value="">-- Chọn phương thức --</option>
-                                <option value="bank_transfer">Chuyển khoản ngân hàng</option>
-                                <option value="wallet">Ví điện tử</option>
-                                <option value="cash">Tiền mặt</option>
-                            </select>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label fw-bold">Tài khoản Hub chuyển từ</label>
-                            <select name="bank_account_id" class="form-select">
-                                <option value="">-- Không chọn --</option>
-                                @foreach ($hubBankAccounts as $acc)
-                                    <option value="{{ $acc->id }}">
-                                        {{ $acc->bank_short_name ?? $acc->bank_name }} - {{ $acc->account_number }}
-                                    </option>
-                                @endforeach
-                            </select>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label fw-bold">Ảnh chứng từ</label>
-                            <input type="file" name="proof" class="form-control" accept="image/*">
-                            <small class="text-muted">Upload ảnh xác nhận đã chuyển tiền (tối đa 5MB)</small>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label fw-bold">Ghi chú</label>
-                            <textarea name="note" class="form-control" rows="3" placeholder="Ghi chú (nếu có)..."></textarea>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
-                        <button type="submit" class="btn btn-primary">Xác nhận đã chuyển</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- MODAL: TRẢ COMMISSION CHO DRIVER -->
-    <div class="modal fade" id="payDriverCommissionModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <form action="{{ route('hub.cod.pay-driver-commission', $transaction->id) }}" method="POST">
-                    @csrf
-                    <div class="modal-header  text-white">
-                        <h5 class="modal-title"><i class="bi bi-cash"></i> Trả commission cho Driver</h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="alert ">
-                            <p class="mb-2"><strong>Driver:</strong> {{ $transaction->driver->full_name }}</p>
-                            <p class="mb-2"><strong>Commission:</strong> <span
-                                    class="fs-5 text-primary">{{ number_format($transaction->driver_commission) }}đ</span>
-                            </p>
-                            <p class="mb-0"><small>= {{ number_format($transaction->shipping_fee) }}đ ×
-                                    {{ config('delivery.driver_commission_rate') * 100 }}%</small></p>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label fw-bold">Ghi chú</label>
-                            <textarea name="note" class="form-control" rows="2" placeholder="Ghi chú (nếu có)..."></textarea>
-                        </div>
-
-                        <div class="alert alert-warning mb-0">
-                            <i class="bi bi-info-circle"></i> Xác nhận bạn đã trả commission cho driver này
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
-                        <button type="submit" class="btn btn-primary">Xác nhận đã trả</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <div class="modal fade" id="transferToSystemModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <form action="{{ route('hub.cod.transfer-system') }}" method="POST" enctype="multipart/form-data">
-                    @csrf
-                    <input type="hidden" name="transaction_ids[]" value="{{ $transaction->id }}">
-
-                    <div class="modal-header bg-danger text-white">
-                        <h5 class="modal-title"><i class="bi bi-database"></i> Nộp COD Fee cho Hệ thống</h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="alert">
-                            <p class="mb-2"><strong>Giao dịch:</strong> #{{ $transaction->id }}</p>
-                            <p class="mb-0"><strong>Số tiền nộp:</strong> <span
-                                    class="fs-5">{{ number_format($transaction->hub_system_amount) }}đ</span></p>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label fw-bold">Phương thức nộp <span class="text-danger">*</span></label>
-                            <select name="method" id="systemMethod" class="form-select" required>
-                                <option value="">-- Chọn phương thức --</option>
-                                <option value="bank_transfer">Chuyển khoản ngân hàng</option>
-                                <option value="cash">Tiền mặt</option>
-                            </select>
-                        </div>
-
-                        <div class="mb-3" id="systemBankInfo" style="display: none;">
-                            <label class="form-label fw-bold">Thông tin tài khoản Hệ thống</label>
-                            <div id="systemBankInfoContent">
-                                <!-- Sẽ được load bằng JS -->
-                                <div class="text-center py-3">
-                                    <div class="spinner-border text-primary" role="status">
-                                        <span class="visually-hidden">Loading...</span>
-                                    </div>
-                                </div>
+                            <div class="progress" style="height: 8px;">
+                                <div class="progress-bar bg-{{ $transaction->shipper_payment_status === 'confirmed' ? 'success' : 'warning' }}" 
+                                     style="width: {{ $transaction->shipper_payment_status === 'confirmed' ? '100' : '50' }}%"></div>
                             </div>
-                            <button type="button" class="btn btn-sm mt-2" onclick="generateSystemQR()">
-                                <i class="bi bi-qr-code"></i> Tạo mã QR chuyển khoản
-                            </button>
-                            <div id="systemQrCode" class="mt-3 text-center"></div>
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label fw-bold">Ảnh chứng từ <span class="text-danger">*</span></label>
-                            <input type="file" name="proof" class="form-control" accept="image/*" required>
-                            <small class="text-muted">Bắt buộc upload ảnh xác nhận đã chuyển tiền (tối đa 5MB)</small>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <small class="text-muted">Hub → Sender</small>
+                                <span class="badge bg-{{ $transaction->sender_payment_status === 'completed' ? 'success' : ($transaction->sender_payment_status === 'pending' ? 'warning' : 'secondary') }}">
+                                    {{ $transaction->sender_status_label }}
+                                </span>
+                            </div>
+                            <div class="progress" style="height: 8px;">
+                                <div class="progress-bar bg-{{ $transaction->sender_payment_status === 'completed' ? 'success' : 'warning' }}" 
+                                     style="width: {{ $transaction->sender_payment_status === 'completed' ? '100' : ($transaction->sender_payment_status === 'pending' ? '50' : '0') }}%"></div>
+                            </div>
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label fw-bold">Ghi chú</label>
-                            <textarea name="note" class="form-control" rows="3" placeholder="Ghi chú (nếu có)..."></textarea>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <small class="text-muted">Hub → Driver (Commission)</small>
+                                <span class="badge bg-{{ $transaction->driver_commission_status === 'paid' ? 'success' : 'secondary' }}">
+                                    {{ $transaction->driver_commission_status_label }}
+                                </span>
+                            </div>
+                            <div class="progress" style="height: 8px;">
+                                <div class="progress-bar bg-{{ $transaction->driver_commission_status === 'paid' ? 'success' : 'secondary' }}" 
+                                     style="width: {{ $transaction->driver_commission_status === 'paid' ? '100' : '0' }}%"></div>
+                            </div>
                         </div>
 
-                        <div class="alert alert-warning mb-0">
-                            <i class="bi bi-exclamation-triangle"></i> Sau khi nộp, giao dịch sẽ chờ Admin hệ thống xác
-                            nhận
+                        <div>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <small class="text-muted">Hub → System</small>
+                                <span class="badge bg-{{ $transaction->hub_system_status === 'confirmed' ? 'success' : ($transaction->hub_system_status === 'transferred' ? 'info' : 'secondary') }}">
+                                    {{ $transaction->system_status_label }}
+                                </span>
+                            </div>
+                            <div class="progress" style="height: 8px;">
+                                <div class="progress-bar bg-{{ $transaction->hub_system_status === 'confirmed' ? 'success' : 'info' }}" 
+                                     style="width: {{ $transaction->hub_system_status === 'confirmed' ? '100' : ($transaction->hub_system_status === 'transferred' ? '50' : '0') }}%"></div>
+                            </div>
                         </div>
                     </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
-                        <button type="submit" class="btn btn-danger">Xác nhận đã nộp</button>
-                    </div>
-                </form>
+                </div>
             </div>
         </div>
     </div>
 
+    <!-- MODALS -->
+    @include('hub.cod.modals.confirm-from-driver')
+    @include('hub.cod.modals.transfer-to-sender')
+    @include('hub.cod.modals.pay-driver-commission')
+    @include('hub.cod.modals.transfer-to-system')
+    {{-- Add this to the bottom of your show.blade.php file, before @endsection --}}
 
-    <!-- MODAL: SHOW QR CODE FOR SENDER -->
-    <div class="modal fade" id="senderQrModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header bg-primary text-white">
-                    <h5 class="modal-title"><i class="bi bi-qr-code"></i> QR Code chuyển khoản cho Sender</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body text-center" id="senderQrContent">
-                    <!-- QR will be inserted here -->
+@push('scripts')
+<script>
+    // ===============================================
+// THAY THẾ TOÀN BỘ PHẦN <script> TRONG show.blade.php
+// ===============================================
+
+document.addEventListener('DOMContentLoaded', function() {
+    
+    // ========== TRANSFER TO SENDER MODAL ==========
+    const transferToSenderModal = document.getElementById('transferToSenderModal');
+    if (transferToSenderModal) {
+        transferToSenderModal.addEventListener('shown.bs.modal', function() {
+            const methodSelect = document.getElementById('senderTransferMethod');
+            if (methodSelect && methodSelect.value === 'bank_transfer') {
+                loadSenderQrCode();
+            }
+        });
+        
+        const methodSelect = document.getElementById('senderTransferMethod');
+        if (methodSelect) {
+            methodSelect.addEventListener('change', function() {
+                const qrSection = document.getElementById('senderQrCodeSection');
+                if (this.value === 'bank_transfer') {
+                    qrSection.classList.remove('d-none');
+                    loadSenderQrCode();
+                } else {
+                    qrSection.classList.add('d-none');
+                }
+            });
+        }
+    }
+    
+    // ========== PAY DRIVER COMMISSION MODAL ==========
+    const payDriverModal = document.getElementById('payDriverCommissionModal');
+    if (payDriverModal) {
+        payDriverModal.addEventListener('shown.bs.modal', function() {
+            @if($driverHasBankAccount)
+                loadDriverQrCode();
+            @endif
+        });
+    }
+    
+    // ========== TRANSFER TO SYSTEM MODAL ==========
+    const transferToSystemModal = document.getElementById('transferToSystemModal');
+    if (transferToSystemModal) {
+        transferToSystemModal.addEventListener('shown.bs.modal', function() {
+            const methodSelect = document.getElementById('systemTransferMethod');
+            if (methodSelect && methodSelect.value === 'bank_transfer') {
+                loadSystemQrCode();
+            }
+        });
+        
+        const methodSelect = document.getElementById('systemTransferMethod');
+        if (methodSelect) {
+            methodSelect.addEventListener('change', function() {
+                const qrSection = document.getElementById('systemQrCodeSection');
+                const proofInput = document.querySelector('#transferToSystemModal input[name="proof"]');
+                
+                if (this.value === 'bank_transfer') {
+                    qrSection.classList.remove('d-none');
+                    loadSystemQrCode();
+                    if (proofInput) proofInput.required = true;
+                } else {
+                    qrSection.classList.add('d-none');
+                    if (proofInput) proofInput.required = false;
+                }
+            });
+        }
+    }
+});
+
+// ✅ FIXED: Load Sender QR Code
+function loadSenderQrCode() {
+    const qrContainer = document.getElementById('senderQrCodeContainer');
+    if (!qrContainer) return;
+    
+    qrContainer.innerHTML = `
+        <div class="text-center py-4">
+            <div class="spinner-border text-primary mb-3" role="status"></div>
+            <p class="text-muted mb-0">Đang tạo mã QR...</p>
+        </div>
+    `;
+    
+    // ✅ FIXED: Sử dụng route helper đúng
+    fetch('{{ route("hub.cod.get-sender-qr", $transaction->id) }}')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                renderQrCode(qrContainer, data, 'success');
+            } else {
+                showQrError(qrContainer, data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showQrError(qrContainer, 'Lỗi kết nối. Vui lòng thử lại.');
+        });
+}
+
+// ✅ FIXED: Load Driver QR Code
+function loadDriverQrCode() {
+    const qrContainer = document.getElementById('driverQrCodeContainer');
+    if (!qrContainer) return;
+    
+    qrContainer.innerHTML = `
+        <div class="text-center py-4">
+            <div class="spinner-border text-primary mb-3" role="status"></div>
+            <p class="text-muted mb-0">Đang tạo mã QR...</p>
+        </div>
+    `;
+    
+    // ✅ FIXED: Sử dụng route helper đúng
+    fetch('{{ route("hub.cod.get-driver-qr", $transaction->id) }}')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                renderQrCode(qrContainer, data, 'primary');
+            } else {
+                showQrError(qrContainer, data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showQrError(qrContainer, 'Lỗi kết nối. Vui lòng thử lại.');
+        });
+}
+
+// ✅ FIXED: Load System QR Code
+function loadSystemQrCode() {
+    const qrContainer = document.getElementById('systemQrCodeContainer');
+    if (!qrContainer) return;
+    
+    qrContainer.innerHTML = `
+        <div class="text-center py-4">
+            <div class="spinner-border text-danger mb-3" role="status"></div>
+            <p class="text-muted mb-0">Đang tạo mã QR...</p>
+        </div>
+    `;
+    
+    const amount = {{ $transaction->hub_system_amount }};
+    const content = 'COD #{{ $transaction->id }} - System Fee';
+    
+    // ✅ FIXED: Sử dụng route helper + query params đúng
+    const url = '{{ route("hub.cod.get-system-qr") }}' + 
+                `?amount=${amount}&content=${encodeURIComponent(content)}`;
+    
+    fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                renderQrCode(qrContainer, data, 'danger');
+            } else {
+                showQrError(qrContainer, data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showQrError(qrContainer, 'Lỗi kết nối. Vui lòng thử lại.');
+        });
+}
+
+// Render QR Code
+function renderQrCode(container, data, theme = 'primary') {
+    const gradients = {
+        'success': 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        'primary': 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+        'danger': 'linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%)'
+    };
+    
+    container.innerHTML = `
+        <div class="qr-wrapper" style="background: ${gradients[theme]}; padding: 2rem; border-radius: 12px;">
+            <div class="text-white text-center mb-3">
+                <h6 class="mb-0"><i class="bi bi-qr-code-scan"></i> Quét mã để chuyển tiền</h6>
+            </div>
+            
+            <div class="bg-white p-3 rounded-3 shadow-sm mx-auto mb-3" style="max-width: 250px;">
+                <img src="${data.qr_url}" alt="QR Code" class="img-fluid rounded">
+            </div>
+            
+            <div class=" bg-opacity-10 rounded-3 p-3 mb-3 text-white">
+                <div class="row g-2 text-center small">
+                    <div class="col-12">
+                        <div class="opacity-75 mb-1"><i class="bi bi-bank"></i> Ngân hàng</div>
+                        <strong>${data.bank_info.bank_short_name}</strong>
+                    </div>
+                    <div class="col-6">
+                        <div class="opacity-75 mb-1"><i class="bi bi-credit-card"></i> STK</div>
+                        <strong>${data.bank_info.account_number}</strong>
+                    </div>
+                    <div class="col-6">
+                        <div class="opacity-75 mb-1"><i class="bi bi-person"></i> Chủ TK</div>
+                        <strong>${data.bank_info.account_name}</strong>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
+    `;
+}
 
-    <style>
-        /* Timeline styles */
-        .timeline {
-            position: relative;
-            padding-left: 50px;
-        }
+// Show Error
+function showQrError(container, message) {
+    container.innerHTML = `
+        <div class="alert alert-danger mb-0">
+            <i class="bi bi-exclamation-triangle-fill"></i> <strong>${message}</strong>
+        </div>
+    `;
+}
 
-        .timeline::before {
-            content: '';
-            position: absolute;
-            left: 20px;
-            top: 0;
-            bottom: 0;
-            width: 2px;
-            background: #e9ecef;
-        }
+// Helper Functions
+function formatCurrency(amount) {
+    return new Intl.NumberFormat('vi-VN').format(amount);
+}
 
-        .timeline-item {
-            position: relative;
-            padding-bottom: 30px;
-        }
+function copyBankInfo(accountNumber, content) {
+    const text = `STK: ${accountNumber}\nNội dung: ${content}`;
+    
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(text).then(() => {
+            showToast('✓ Đã copy thông tin', 'success');
+        });
+    } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        showToast('✓ Đã copy thông tin', 'success');
+    }
+}
 
-        .timeline-item:last-child {
-            padding-bottom: 0;
-        }
+function showToast(message, type = 'info') {
+    const colors = { success: 'bg-success', error: 'bg-danger', info: 'bg-info' };
+    const toast = document.createElement('div');
+    toast.className = `toast align-items-center text-white ${colors[type]} border-0`;
+    toast.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">${message}</div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    `;
+    
+    let container = document.getElementById('toastContainer');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toastContainer';
+        container.className = 'toast-container position-fixed top-0 end-0 p-3';
+        container.style.zIndex = '9999';
+        document.body.appendChild(container);
+    }
+    
+    container.appendChild(toast);
+    const bsToast = new bootstrap.Toast(toast, { delay: 3000 });
+    bsToast.show();
+    
+    toast.addEventListener('hidden.bs.toast', () => toast.remove());
+}
+</script>
+@endpush
+@endsection
 
-        .timeline-item.completed .timeline-content {
-            opacity: 1;
-        }
+@push('scripts')
+<script>
+// Auto load QR code when modal opens
+document.addEventListener('DOMContentLoaded', function() {
+    // Transfer to Sender Modal
+    const transferToSenderModal = document.getElementById('transferToSenderModal');
+    if (transferToSenderModal) {
+        transferToSenderModal.addEventListener('shown.bs.modal', function() {
+            const methodSelect = document.getElementById('senderTransferMethod');
+            const qrSection = document.getElementById('senderQrCodeSection');
+            
+            // ✅ CHECK và HIỂN THỊ ngay khi modal mở
+            if (methodSelect && methodSelect.value === 'bank_transfer') {
+                qrSection.classList.remove('d-none');
+                loadSenderQrCode();
+            }
+        });
+    
+   if (transferToSystemModal) {
+        // Khi modal vừa mở (shown.bs.modal)
+        transferToSystemModal.addEventListener('shown.bs.modal', function() {
+            const methodSelect = document.getElementById('systemTransferMethod');
+            const qrSection = document.getElementById('systemQrCodeSection');
 
-        .timeline-item.pending .timeline-content {
-            opacity: 1;
-        }
+            // 1. Mặc định chọn "bank_transfer"
+            if (methodSelect) {
+                methodSelect.value = 'bank_transfer'; // hoặc giá trị tương ứng trong <option>
+            }
 
-        .timeline-item.waiting .timeline-content {
-            opacity: 0.6;
-        }
-
-        .timeline-marker {
-            position: absolute;
-            left: -30px;
-            top: 5px;
-            width: 40px;
-            height: 40px;
-            background: white;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1;
-            box-shadow: 0 0 0 4px #fff;
-        }
-
-        .timeline-marker i {
-            font-size: 20px;
-        }
-
-        .timeline-content {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 8px;
-            border-left: 4px solid #dee2e6;
-        }
-
-        .timeline-item.completed .timeline-content {
-            border-left-color: #28a745;
-        }
-
-        .timeline-item.pending .timeline-content {
-            border-left-color: #ffc107;
-        }
-
-        .timeline-item.waiting .timeline-content {
-            border-left-color: #6c757d;
-        }
-    </style>
-
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Show/hide bank info based on method in transfer to system modal
-            const systemMethodSelect = document.getElementById('systemMethod');
-            if (systemMethodSelect) {
-                systemMethodSelect.addEventListener('change', function() {
-                    const bankInfo = document.getElementById('systemBankInfo');
-                    if (this.value === 'bank_transfer') {
-                        bankInfo.style.display = 'block';
-                    } else {
-                        bankInfo.style.display = 'none';
-                    }
-                });
+            // 2. Hiển thị phần QR và load ngay lập tức
+            if (qrSection) {
+                qrSection.classList.remove('d-none');
+                loadSystemQrCode();
             }
         });
 
-        // Generate System QR Code
-        function generateSystemQR() {
-            const amount = {{ $transaction->hub_system_amount }};
-            const bankCode = '{{ config('system.bank_code', 'VCB') }}';
-            const accountNo = '{{ config('system.bank_account', '1234567890') }}';
-            const content = 'COD {{ $transaction->id }}';
+        // Khi thay đổi phương thức (vẫn giữ logic cũ)
+        const methodSelect = document.getElementById('systemTransferMethod');
+        if (methodSelect) {
+            methodSelect.addEventListener('change', function() {
+                const qrSection = document.getElementById('systemQrCodeSection');
+                const proofInput = document.querySelector('#transferToSystemModal input[name="proof"]');
 
-            const qrUrl =
-                `https://img.vietqr.io/image/${bankCode}-${accountNo}-compact2.jpg?amount=${amount}&addInfo=${encodeURIComponent(content)}`;
-
-            document.getElementById('systemQrCode').innerHTML = `
-        <img src="${qrUrl}" alt="QR Code" class="img-fluid" style="max-width: 300px; border-radius: 8px;">
-        <p class="mt-3 mb-0"><strong>Số tiền: ${new Intl.NumberFormat('vi-VN').format(amount)}đ</strong></p>
-        <p class="mb-0"><small class="text-muted">Quét mã QR để chuyển khoản</small></p>
-    `;
+                if (this.value === 'bank_transfer') {
+                    qrSection.classList.remove('d-none');
+                    loadSystemQrCode();
+                    if (proofInput) proofInput.required = true;
+                } else {
+                    qrSection.classList.add('d-none');
+                    if (proofInput) proofInput.required = false;
+                }
+            });
         }
+    }
+});
 
-        // Show QR for Sender transfer
-        function showSenderQR(bankCode, accountNo, amount, content) {
-            const qrUrl =
-                `https://img.vietqr.io/image/${bankCode}-${accountNo}-compact2.jpg?amount=${amount}&addInfo=${encodeURIComponent(content)}`;
 
-            const modalContent = `
-        <img src="${qrUrl}" alt="QR Code" class="img-fluid mb-3" style="max-width: 300px; border-radius: 8px;">
-        <h5 class="mb-2">${new Intl.NumberFormat('vi-VN').format(amount)}đ</h5>
-        <p class="mb-1"><strong>Nội dung:</strong> ${content}</p>
-        <hr>
-        <div class="text-start">
-            <p class="mb-1"><strong>Ngân hàng:</strong> ${bankCode}</p>
-            <p class="mb-1"><strong>Số TK:</strong> ${accountNo}</p>
-        </div>
-    `;
 
-            document.getElementById('senderQrContent').innerHTML = modalContent;
-
-            const modal = new bootstrap.Modal(document.getElementById('senderQrModal'));
-            modal.show();
-        }
-    </script>
-    <script>
-        // Global variable to store system bank info
-        let systemBankInfo = null;
-
-        document.addEventListener('DOMContentLoaded', function() {
-            // Show/hide bank info based on method in transfer to system modal
-            const systemMethodSelect = document.getElementById('systemMethod');
-            if (systemMethodSelect) {
-                systemMethodSelect.addEventListener('change', function() {
-                    const bankInfo = document.getElementById('systemBankInfo');
-                    if (this.value === 'bank_transfer') {
-                        bankInfo.style.display = 'block';
-                        // Load system bank info
-                        loadSystemBankInfo();
-                    } else {
-                        bankInfo.style.display = 'none';
-                    }
-                });
-            }
-        });
-
-        // ✅ Load System Bank Info từ API
-        function loadSystemBankInfo() {
-            // Nếu đã load rồi thì không load lại
-            if (systemBankInfo) {
-                displaySystemBankInfo(systemBankInfo);
-                return;
-            }
-
-            const amount = {{ $transaction->hub_system_amount }};
-            const content = 'COD {{ $transaction->id }}';
-
-            fetch(`{{ route('hub.cod.api.system-qr') }}?amount=${amount}&content=${encodeURIComponent(content)}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        systemBankInfo = data.bank_info;
-                        displaySystemBankInfo(data.bank_info);
-                    } else {
-                        document.getElementById('systemBankInfoContent').innerHTML = `
-                    <div class="alert alert-danger mb-0">
-                        <i class="bi bi-exclamation-triangle"></i> ${data.error}
+// Load QR Code for System
+function loadSystemQrCode() {
+    const qrContainer = document.getElementById('systemQrCodeContainer');
+    if (!qrContainer) return;
+    
+    const amount = {{ $transaction->hub_system_amount }};
+    const content = 'COD #{{ $transaction->id }} - System Fee';
+    
+    qrContainer.innerHTML = '<div class="text-center"><div class="spinner-border text-danger" role="status"></div><p class="mt-2">Đang tạo mã QR...</p></div>';
+    
+    // Show QR container
+    document.getElementById('systemQrCodeSection').classList.remove('d-none');
+    
+    // Call actual API
+    const url = '{{ route("hub.cod.get-system-qr") }}' + 
+                `?amount=${amount}&content=${encodeURIComponent(content)}`;
+    
+    fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                qrContainer.innerHTML = `
+                    <div class="qr-code-container">
+                        <h5 class="mb-3"><i class="bi bi-qr-code"></i> Quét mã QR để nộp tiền</h5>
+                        <div class="qr-code-image">
+                            <img src="${data.qr_url}" alt="QR Code" class="img-fluid" style="max-width: 200px;">
+                        </div>
+                        <div class="bank-info-card">
+                            <div class="text-dark">
+                                <strong>${data.bank_info.bank_short_name}</strong><br>
+                                <span>${data.bank_info.account_number}</span><br>
+                                <small>${data.bank_info.account_name}</small>
+                            </div>
+                        </div>
+                        <div class="amount-display mt-3">
+                            ${amount.toLocaleString('vi-VN')}đ
+                        </div>
+                        <small class="d-block mt-2">Nội dung: ${content}</small>
                     </div>
                 `;
-                    }
-                })
-                .catch(error => {
-                    console.error('Error loading system bank info:', error);
-                    document.getElementById('systemBankInfoContent').innerHTML = `
-                <div class="alert alert-danger mb-0">
-                    <i class="bi bi-exclamation-triangle"></i> Không thể tải thông tin tài khoản hệ thống
-                </div>
-            `;
-                });
-        }
-
-        // Display System Bank Info
-        function displaySystemBankInfo(bankInfo) {
-            document.getElementById('systemBankInfoContent').innerHTML = `
-        <div class="alert alert-secondary mb-0">
-            <p class="mb-1"><strong>Ngân hàng:</strong> ${bankInfo.bank_short_name || bankInfo.bank_name}</p>
-            <p class="mb-1"><strong>Số tài khoản:</strong> <code class="text-dark">${bankInfo.account_number}</code></p>
-            <p class="mb-1"><strong>Chủ tài khoản:</strong> ${bankInfo.account_name}</p>
-            <p class="mb-0"><strong>Nội dung:</strong> <code class="text-dark">COD {{ $transaction->id }}</code></p>
-        </div>
-    `;
-        }
-
-        // Generate System QR Code
-        function generateSystemQR() {
-            const amount = {{ $transaction->hub_system_amount }};
-            const content = 'COD {{ $transaction->id }}';
-
-            // Hiển thị loading
-            document.getElementById('systemQrCode').innerHTML = `
-        <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">Loading...</span>
-        </div>
-    `;
-
-            fetch(`{{ route('hub.cod.api.system-qr') }}?amount=${amount}&content=${encodeURIComponent(content)}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        document.getElementById('systemQrCode').innerHTML = `
-                    <img src="${data.qr_url}" alt="QR Code" class="img-fluid" style="max-width: 300px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                    <p class="mt-3 mb-0"><strong>Số tiền: ${new Intl.NumberFormat('vi-VN').format(amount)}đ</strong></p>
-                    <p class="mb-0"><small class="text-muted">Quét mã QR để chuyển khoản</small></p>
-                `;
-                    } else {
-                        document.getElementById('systemQrCode').innerHTML = `
+            } else {
+                qrContainer.innerHTML = `
                     <div class="alert alert-danger">
                         <i class="bi bi-exclamation-triangle"></i> ${data.error}
                     </div>
                 `;
-                    }
-                })
-                .catch(error => {
-                    console.error('Error generating QR:', error);
-                    document.getElementById('systemQrCode').innerHTML = `
+            }
+        })
+        .catch(error => {
+            qrContainer.innerHTML = `
                 <div class="alert alert-danger">
                     <i class="bi bi-exclamation-triangle"></i> Không thể tạo mã QR
                 </div>
             `;
-                });
-        }
+        });
+}
 
-        // Show QR for Sender transfer
-        function showSenderQR(bankCode, accountNo, amount, content) {
-            const qrUrl =
-                `https://img.vietqr.io/image/${bankCode}-${accountNo}-compact2.jpg?amount=${amount}&addInfo=${encodeURIComponent(content)}`;
+// Handle transfer method change for Sender
+document.getElementById('senderTransferMethod')?.addEventListener('change', function() {
+    const qrSection = document.getElementById('senderQrCodeSection');
+    if (this.value === 'bank_transfer') {
+        loadSenderQrCode();
+    } else {
+        qrSection.classList.add('d-none');
+    }
+});
 
-            const modalContent = `
-        <img src="${qrUrl}" alt="QR Code" class="img-fluid mb-3" style="max-width: 300px; border-radius: 8px;">
-        <h5 class="mb-2">${new Intl.NumberFormat('vi-VN').format(amount)}đ</h5>
-        <p class="mb-1"><strong>Nội dung:</strong> ${content}</p>
-        <hr>
-        <div class="text-start">
-            <p class="mb-1"><strong>Ngân hàng:</strong> ${bankCode}</p>
-            <p class="mb-1"><strong>Số TK:</strong> ${accountNo}</p>
-        </div>
-    `;
-
-            document.getElementById('senderQrContent').innerHTML = modalContent;
-
-            const modal = new bootstrap.Modal(document.getElementById('senderQrModal'));
-            modal.show();
-        }
-    </script>
-
-    @if (session('success'))
-        <script>
-            document.addEventListener('DOMContentLoaded', function() {
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Thành công!',
-                    text: '{{ session('success') }}',
-                    timer: 3000,
-                    showConfirmButton: false
-                });
-            });
-        </script>
-    @endif
-
-    @if ($errors->any())
-        <script>
-            document.addEventListener('DOMContentLoaded', function() {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Lỗi!',
-                    html: '<ul class="text-start">@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul>',
-                });
-            });
-        </script>
-    @endif
-@endsection
+// Handle transfer method change for System
+document.getElementById('systemTransferMethod')?.addEventListener('change', function() {
+    const qrSection = document.getElementById('systemQrCodeSection');
+    if (this.value === 'bank_transfer') {
+        loadSystemQrCode();
+    } else {
+        qrSection.classList.add('d-none');
+    }
+});
+</script>
+@endpush

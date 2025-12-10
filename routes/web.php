@@ -513,15 +513,28 @@ Route::prefix('hub')
         Route::prefix('cod')->name('cod.')->group(function () {
             // Dashboard & List
             Route::get('/', [HubCodController::class, 'index'])->name('index');
+            Route::get('get-system-qr', [HubCodController::class, 'getSystemQrCode'])
+                ->name('get-system-qr');
             Route::get('/{id}', [HubCodController::class, 'show'])->name('show');
 
-            // Payment Actions
-            Route::post('/{id}/confirm', [HubCodController::class, 'confirmFromDriver'])->name('confirm');
-            Route::post('/{id}/transfer-sender', [HubCodController::class, 'transferToSender'])->name('transfer-sender');
+             // lấy mã qr
+            Route::get('/get-sender-qr/{id}', [HubCodController::class, 'getSenderQrCode'])
+                ->name('get-sender-qr');
+                
+            Route::get('/get-driver-qr/{id}', [HubCodController::class, 'getDriverQrCode'])
+                ->name('get-driver-qr');
+                
+            Route::post('/transfer-system', [HubCodController::class, 'transferToSystem'])->name('transfer-system');
+             // Step 1: Hub confirms receiving money from Driver
+            Route::post('/{id}/confirm-from-driver', [HubCodController::class, 'confirmFromDriver'])->name('confirm-from-driver');
+            // Step 2: Hub transfers COD to Sender
+            Route::post('/{id}/transfer-to-sender', [HubCodController::class, 'transferToSender'])->name('transfer-to-sender');
+            // Step 3: Hub pays commission to Driver
             Route::post('/{id}/pay-driver-commission', [HubCodController::class, 'payDriverCommission'])->name('pay-driver-commission');
             Route::post('/batch-pay-driver-commission', [HubCodController::class, 'batchPayDriverCommission'])->name('batch-pay-driver-commission');
-            Route::post('/transfer-system', [HubCodController::class, 'transferToSystem'])->name('transfer-system');
-
+            
+            // Step 4: Hub transfers COD fee to System
+            Route::post('/transfer-to-system', [HubCodController::class, 'transferToSystem'])->name('transfer-to-system');
             // Dispute
             Route::post('/{id}/dispute', [HubCodController::class, 'dispute'])->name('dispute');
 
@@ -533,8 +546,6 @@ Route::prefix('hub')
             Route::get('/logs/export', [HubCodController::class, 'exportActivityLogs'])->name('export-activity-logs');
             Route::get('/logs/recent', [HubCodController::class, 'getRecentLogs'])->name('recent-logs');
 
-            // API Routes
-            Route::get('/api/system-qr', [HubCodController::class, 'getSystemQrCode'])->name('api.system-qr');
         });
         // ✅ ISSUE MANAGEMENT - Xử lý vấn đề giao hàng
         Route::prefix('issues')
