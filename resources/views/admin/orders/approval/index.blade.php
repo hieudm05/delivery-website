@@ -125,7 +125,7 @@
     <div class="card mb-3">
         <div class="card-body">
             <div class="d-flex align-items-center gap-3">
-                <input type="checkbox" id="selectAll" class="form-check-input" style="cursor: pointer;">
+                <input type="checkbox" id="selectAll" class="pb-1" style="cursor: pointer;">
                 <label for="selectAll" class="form-check-label" style="cursor: pointer;">Chọn tất cả</label>
                 <button type="button" class="btn btn-success" onclick="submitBatchApproval()">
                     <i class="bi bi-check-all"></i> Duyệt hàng loạt (<span id="selectedCount">0</span>)
@@ -164,7 +164,7 @@
                             @foreach($orders as $order)
                             <tr>
                                 <td>
-                                    <input type="checkbox" class="order-checkbox form-check-input" 
+                                    <input type="checkbox" class="order-checkbox" 
                                            value="{{ $order->id }}"
                                            data-order-id="{{ $order->id }}"
                                            style="cursor: pointer;">
@@ -223,7 +223,7 @@
                                 </td>
                                 <td>
                                     <div class="btn-group btn-group-sm">
-                                        <a href="{{ route('admin.orders.approval.show', $order->id) }}" 
+                                        <a href="{{ route('admin.orders.tracking.show', $order->id) }}" 
                                            class="btn btn-outline-primary" title="Xem chi tiết">
                                             <i class="bi bi-eye"></i>
                                         </a>
