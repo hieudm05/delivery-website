@@ -129,7 +129,8 @@ class BankAccountAdminController extends Controller
                 'created_by' => Auth::id(),
             ]);
 
-            $bankAccount->generateQrCode();
+            $bankAccount->generateQrCode(0, 'Xac thuc tai khoan');
+            $bankAccount->save();
 
             DB::commit();
 

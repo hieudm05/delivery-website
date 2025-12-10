@@ -6,15 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Models\Customer\Dashboard\Orders\CodTransaction;
 use App\Models\BankAccount;
 use App\Models\Customer\Dashboard\Orders\CodTransactionLog;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class HubCodController extends Controller
 {
-    /**
-     * Dashboard tổng quan COD của Hub
-     */
     public function index(Request $request)
     {
         $hubId = Auth::id();
@@ -30,7 +28,7 @@ class HubCodController extends Controller
             case 'pending_sender':
                 $query->where('sender_payment_status', 'pending');
                 break;
-            case 'pending_driver_commission': // ✅ MỚI
+            case 'pending_driver_commission':
                 $query->where('driver_commission_status', 'pending')
                       ->where('shipper_payment_status', 'confirmed');
                 break;
@@ -44,7 +42,6 @@ class HubCodController extends Controller
 
         $transactions = $query->latest()->paginate(20);
 
-        // Thống kê
         $stats = [
             'waiting_confirm' => CodTransaction::byHub($hubId)
                 ->where('shipper_payment_status', 'transferred')
@@ -52,7 +49,7 @@ class HubCodController extends Controller
             'pending_sender' => CodTransaction::byHub($hubId)
                 ->where('sender_payment_status', 'pending')
                 ->sum('sender_receive_amount'),
-            'pending_driver_commission' => CodTransaction::byHub($hubId) // ✅ MỚI
+            'pending_driver_commission' => CodTransaction::byHub($hubId)
                 ->where('driver_commission_status', 'pending')
                 ->where('shipper_payment_status', 'confirmed')
                 ->sum('driver_commission'),
@@ -68,9 +65,6 @@ class HubCodController extends Controller
         return view('hub.cod.index', compact('transactions', 'tab', 'stats'));
     }
 
-    /**
-     * Chi tiết giao dịch
-     */
     public function show($id)
     {
         $hubId = Auth::id();
@@ -87,26 +81,61 @@ class HubCodController extends Controller
         ->byHub($hubId)
         ->findOrFail($id);
 
+        // ✅ Hub Bank Accounts
         $hubBankAccounts = BankAccount::where('user_id', $hubId)
             ->where('is_active', true)
             ->verified()
             ->get();
 
+        // ✅ Sender Bank Account (Primary)
         $senderBankAccount = null;
+        $senderHasBankAccount = false;
         if ($transaction->sender_id) {
             $senderBankAccount = BankAccount::where('user_id', $transaction->sender_id)
                 ->where('is_primary', true)
                 ->where('is_active', true)
                 ->verified()
                 ->first();
+            
+            $senderHasBankAccount = !is_null($senderBankAccount);
         }
 
-        return view('hub.cod.show', compact('transaction', 'hubBankAccounts', 'senderBankAccount'));
+        // ✅ Driver Bank Account (Primary) - FIXED
+        $driverBankAccount = null;
+        $driverHasBankAccount = false;
+        if ($transaction->driver_id) {
+            $driverBankAccount = BankAccount::where('user_id', $transaction->driver_id)
+                ->where('is_primary', true)
+                ->where('is_active', true)
+                ->verified()
+                ->first();
+            
+            $driverHasBankAccount = !is_null($driverBankAccount);
+        }
+
+        // ✅ System Bank Account - FIXED
+        $systemBankAccount = null;
+        $systemHasBankAccount = false;
+        try {
+            $systemBankAccount = BankAccount::getSystemAccountWithFallback();
+            $systemHasBankAccount = !is_null($systemBankAccount);
+        } catch (\Exception $e) {
+            // System account not found
+            $systemHasBankAccount = false;
+        }
+
+        return view('hub.cod.show', compact(
+            'transaction', 
+            'hubBankAccounts', 
+            'senderBankAccount',
+            'senderHasBankAccount',
+            'driverBankAccount',
+            'driverHasBankAccount',
+            'systemBankAccount',
+            'systemHasBankAccount'
+        ));
     }
 
-    /**
-     * Hub xác nhận đã nhận tiền từ Driver
-     */
     public function confirmFromDriver(Request $request, $id)
     {
         $request->validate([
@@ -127,8 +156,8 @@ class HubCodController extends Controller
 
             DB::commit();
 
-            return redirect()->route('hub.cod.index', ['tab' => 'pending_sender'])
-                ->with('success', 'Đã xác nhận nhận tiền từ tài xế #' . $transaction->driver_id);
+            return redirect()->route('hub.cod.show', $id)
+                ->with('success', 'Đã xác nhận nhận tiền từ tài xế');
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -136,9 +165,6 @@ class HubCodController extends Controller
         }
     }
 
-    /**
-     * Hub chuyển tiền cho Sender
-     */
     public function transferToSender(Request $request, $id)
     {
         $request->validate([
@@ -183,8 +209,8 @@ class HubCodController extends Controller
 
             DB::commit();
 
-            return redirect()->route('hub.cod.index', ['tab' => 'completed'])
-                ->with('success', 'Đã chuyển tiền cho người gửi #' . $transaction->sender_id);
+            return redirect()->route('hub.cod.show', $id)
+                ->with('success', 'Đã chuyển tiền cho người gửi');
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -192,9 +218,6 @@ class HubCodController extends Controller
         }
     }
 
-    /**
-     * ✅ MỚI: Hub trả commission cho Driver
-     */
     public function payDriverCommission(Request $request, $id)
     {
         $request->validate([
@@ -215,8 +238,8 @@ class HubCodController extends Controller
 
             DB::commit();
 
-            return back()->with('success', 
-                'Đã trả commission ' . number_format($transaction->driver_commission) . 'đ cho driver');
+            return redirect()->route('hub.cod.show', $id)
+                ->with('success', 'Đã trả commission ' . number_format($transaction->driver_commission) . 'đ cho driver');
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -224,9 +247,6 @@ class HubCodController extends Controller
         }
     }
 
-    /**
-     * ✅ MỚI: Trả commission hàng loạt
-     */
     public function batchPayDriverCommission(Request $request)
     {
         $request->validate([
@@ -267,9 +287,6 @@ class HubCodController extends Controller
         }
     }
 
-    /**
-     * Hub nộp tiền cho Admin hệ thống
-     */
     public function transferToSystem(Request $request)
     {
         $request->validate([
@@ -321,9 +338,6 @@ class HubCodController extends Controller
         }
     }
 
-    /**
-     * ✅ Tranh chấp giao dịch
-     */
     public function dispute(Request $request, $id)
     {
         $request->validate([
@@ -342,15 +356,11 @@ class HubCodController extends Controller
                 $proofPath = $request->file('proof')->store('cod_proofs/disputes', 'public');
             }
 
-            // Update status to disputed
             $transaction->update([
                 'shipper_payment_status' => 'disputed',
                 'shipper_note' => $request->reason,
                 'shipper_transfer_proof' => $proofPath,
             ]);
-
-            // TODO: Notify admin about dispute
-            // event(new CodDisputeCreated($transaction));
 
             DB::commit();
 
@@ -363,6 +373,163 @@ class HubCodController extends Controller
     }
 
     /**
+     * ✅ API: Generate QR Code for Sender
+     */
+    public function getSenderQrCode(Request $request, $id)
+    {
+        try {
+            $hubId = Auth::id();
+            $transaction = CodTransaction::byHub($hubId)->findOrFail($id);
+            
+            $senderBankAccount = BankAccount::where('user_id', $transaction->sender_id)
+                ->where('is_primary', true)
+                ->where('is_active', true)
+                ->verified()
+                ->first();
+            
+            if (!$senderBankAccount) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Sender chưa có tài khoản ngân hàng'
+                ], 404);
+            }
+            
+            $amount = $transaction->sender_receive_amount;
+            $content = 'COD #' . $transaction->id . ' - Sender';
+            
+            $qrUrl = $senderBankAccount->generateQrCode($amount, $content);
+            
+            if (!$qrUrl) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Không thể tạo mã QR'
+                ], 500);
+            }
+            
+            return response()->json([
+                'success' => true,
+                'qr_url' => $qrUrl,
+                'bank_info' => [
+                    'bank_name' => $senderBankAccount->bank_name,
+                    'bank_short_name' => $senderBankAccount->bank_short_name ?? $senderBankAccount->bank_name,
+                    'bank_code' => $senderBankAccount->bank_code,
+                    'account_number' => $senderBankAccount->account_number,
+                    'account_name' => $senderBankAccount->account_name,
+                ],
+                'amount' => $amount,
+                'content' => $content
+            ]);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * ✅ API: Generate QR Code for Driver Commission
+     */
+    public function getDriverQrCode(Request $request, $id)
+    {
+        try {
+            $hubId = Auth::id();
+            $transaction = CodTransaction::byHub($hubId)->findOrFail($id);
+            
+            $driverBankAccount = BankAccount::where('user_id', $transaction->driver_id)
+                ->where('is_primary', true)
+                ->where('is_active', true)
+                ->verified()
+                ->first();
+            
+            if (!$driverBankAccount) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Driver chưa có tài khoản ngân hàng'
+                ], 404);
+            }
+            
+            $amount = $transaction->driver_commission;
+            $content = 'COD #' . $transaction->id . ' - Commission';
+            
+            $qrUrl = $driverBankAccount->generateQrCode($amount, $content);
+            
+            if (!$qrUrl) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Không thể tạo mã QR'
+                ], 500);
+            }
+            
+            return response()->json([
+                'success' => true,
+                'qr_url' => $qrUrl,
+                'bank_info' => [
+                    'bank_name' => $driverBankAccount->bank_name,
+                    'bank_short_name' => $driverBankAccount->bank_short_name ?? $driverBankAccount->bank_name,
+                    'bank_code' => $driverBankAccount->bank_code,
+                    'account_number' => $driverBankAccount->account_number,
+                    'account_name' => $driverBankAccount->account_name,
+                ],
+                'amount' => $amount,
+                'content' => $content
+            ]);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * ✅ API: Generate QR Code for System
+     */
+    public function getSystemQrCode(Request $request)
+    {
+        try {
+            $amount = $request->get('amount', 0);
+            $content = $request->get('content', 'COD payment');
+            
+            $systemBankAccount = BankAccount::getSystemAccountWithFallback();
+            if (!$systemBankAccount) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Không tìm thấy tài khoản ngân hàng hệ thống'
+                ], 404);
+            }
+            
+            $qrUrl = $systemBankAccount->generateQrCode($amount, $content);
+            
+            if (!$qrUrl) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Không thể tạo mã QR'
+                ], 500);
+            }
+            
+            return response()->json([
+                'success' => true,
+                'qr_url' => $qrUrl,
+                'bank_info' => [
+                    'bank_name' => $systemBankAccount->bank_name,
+                    'bank_short_name' => $systemBankAccount->bank_short_name ?? $systemBankAccount->bank_name,
+                    'bank_code' => $systemBankAccount->bank_code,
+                    'account_number' => $systemBankAccount->account_number,
+                    'account_name' => $systemBankAccount->account_name,
+                ]
+            ]);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+     /**
      * ✅ Thống kê COD
      */
     public function statistics(Request $request)
@@ -446,9 +613,7 @@ class HubCodController extends Controller
             'endDate'
         ));
     }
-    /**
- * ✅ Xem lịch sử hoạt động COD
- */
+
 public function activityLogs(Request $request)
 {
     $hubId = Auth::id();
@@ -585,53 +750,4 @@ public function getRecentLogs($limit = 10)
         });
 }
 
-/**
- * ✅ API: Lấy QR code tài khoản hệ thống
- * SỬ DỤNG BankAccount::getSystemAccountWithFallback()
- */
-public function getSystemQrCode(Request $request)
-{
-    try {
-        $amount = $request->get('amount', 0);
-        $content = $request->get('content', 'COD payment');
-        
-        // ✅ Lấy System Bank Account từ database
-        $systemBankAccount = BankAccount::getSystemAccountWithFallback();
-        
-        if (!$systemBankAccount) {
-            return response()->json([
-                'success' => false,
-                'error' => 'Không tìm thấy tài khoản ngân hàng hệ thống. Vui lòng liên hệ admin.'
-            ], 404);
-        }
-        
-        // Tạo QR code
-        $qrUrl = $systemBankAccount->generateQrCode($amount, $content);
-        
-        if (!$qrUrl) {
-            return response()->json([
-                'success' => false,
-                'error' => 'Không thể tạo mã QR'
-            ], 500);
-        }
-        
-        return response()->json([
-            'success' => true,
-            'qr_url' => $qrUrl,
-            'bank_info' => [
-                'bank_name' => $systemBankAccount->bank_name,
-                'bank_short_name' => $systemBankAccount->bank_short_name ?? $systemBankAccount->bank_name,
-                'bank_code' => $systemBankAccount->bank_code,
-                'account_number' => $systemBankAccount->account_number,
-                'account_name' => $systemBankAccount->account_name,
-            ]
-        ]);
-        
-    } catch (\Exception $e) {
-        return response()->json([
-            'success' => false,
-            'error' => $e->getMessage()
-        ], 500);
-    }
-}
 }
