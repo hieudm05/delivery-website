@@ -409,96 +409,6 @@ public function update(Request $request, $id)
             ->with('error', '❌ Lỗi: ' . $e->getMessage());
     }
 }
-/**
- * ✅ TẠO ĐƠN ĐƠN GIẢN (1 người gửi → 1 người nhận)
- */
-private function createStandaloneOrder($request, $recipientData)
-{
-    
-    // Parse products
-    $products = json_decode($recipientData['products_json'], true);
-    
-    // Calculate fees
-    $calculationResult = $this->calculateOrderFees($products, $recipientData);
-    
-    // Create order
-    $order = Order::create([
-        'order_group_id' => null, // ✅ ĐƠN ĐỘC LẬP
-        'sender_id' => $request->sender_id,
-        'sender_name' => $request->sender_name,
-        'sender_phone' => $request->sender_phone,
-        'sender_address' => $request->sender_address,
-        'sender_latitude' => $request->sender_latitude,
-        'sender_longitude' => $request->sender_longitude,
-        'post_office_id' => $request->post_office_id ?? 11564316606,
-        'pickup_time' => $request->pickup_time_formatted,
-        
-        'recipient_name' => $recipientData['recipient_name'],
-        'recipient_phone' => $recipientData['recipient_phone'],
-        'province_code' => $recipientData['province_code'],
-        'district_code' => $recipientData['district_code'],
-        'ward_code' => $recipientData['ward_code'],
-        'address_detail' => $recipientData['address_detail'],
-        'recipient_latitude' => $recipientData['recipient_latitude'] ?? null,
-        'recipient_longitude' => $recipientData['recipient_longitude'] ?? null,
-        'recipient_full_address' => $recipientData['recipient_full_address'],
-        'delivery_time' => $recipientData['delivery_time_formatted'],
-        
-        'item_type' => $recipientData['item_type'] ?? 'package',
-       'services' => !empty($recipientData['services']) 
-        ? (is_string($recipientData['services']) 
-            ? json_decode($recipientData['services'], true) 
-            : $recipientData['services'])
-        : [],
-        'cod_amount' => $recipientData['cod_amount'] ?? 0,
-        'cod_fee' => $calculationResult['cod_fee'],
-        'shipping_fee' => $calculationResult['shipping_fee'],
-        'distance_fee' => $calculationResult['distance_fee'],
-        'distance_km' => $calculationResult['distance_km'], 
-        'sender_total' => $calculationResult['sender_pays'],
-        'recipient_total' => $calculationResult['recipient_pays'],
-        'payer' => $recipientData['payer'],
-        'note' => $recipientData['note'] ?? $request->note ?? null,
-        'products_json' => $products,
-        'status' => 'pending',
-    ]);
-    
-    // \Log::info("Order created: #{$order->id}");
-    
-    // Lưu products vào bảng order_products
-    foreach ($products as $product) {
-        $order->products()->create([
-            'name' => $product['name'] ?? 'Không rõ',
-            'quantity' => $product['quantity'] ?? 1,
-            'weight' => $product['weight'] ?? 0,
-            'value' => $product['value'] ?? 0,
-            'length' => $product['length'] ?? 0,
-            'width' => $product['width'] ?? 0,
-            'height' => $product['height'] ?? 0,
-            'specials' => $product['specials'] ?? [],
-        ]);
-    }
-    
-    // Upload ảnh (nếu có)
-    if (isset($recipientData['images']) && is_array($recipientData['images'])) {
-        $notes = $recipientData['image_notes'] ?? [];
-        $this->handleImageUpload($order, $recipientData['images'], $notes, 'pickup');
-    }
-    
-    // Lưu địa chỉ nếu user chọn
-    if (!empty($recipientData['save_address'])) {
-        $this->saveRecipientAddress($recipientData);
-    }
-
-     try {
-            $this->processOrderApproval($order);
-        } catch (\Exception $e) {
-            // \Log::warning("Failed to process order approval: " . $e->getMessage());
-            // Không throw error, vì đơn đã tạo thành công
-        }
-    
-    return $order;
-}
 
 /**
  * ✅ TẠO ORDER GROUP (Đơn tổng)
@@ -519,88 +429,6 @@ private function createOrderGroup($request)
         'note' => $request->note,
     ]);
 }
-
-/**
- * ✅ TẠO ORDER CON (Thuộc group)
- */
-private function createGroupOrder($orderGroup, $request, $recipientData)
-{
-    $products = json_decode($recipientData['products_json'], true);
-    $calculationResult = $this->calculateOrderFees($products, $recipientData);
-    
-    $order = Order::create([
-        'order_group_id' => $orderGroup->id, // ✅ THUỘC GROUP
-        'user_id' => Auth::id(),
-        'sender_id' => $request->sender_id,
-        'sender_name' => $request->sender_name,
-        'sender_phone' => $request->sender_phone,
-        'sender_address' => $request->sender_address,
-        'sender_latitude' => $request->sender_latitude,
-        'sender_longitude' => $request->sender_longitude,
-        'post_office_id' => $request->post_office_id ?? 11564316606,
-        'pickup_time' => $request->pickup_time_formatted,
-        
-        'recipient_name' => $recipientData['recipient_name'],
-        'recipient_phone' => $recipientData['recipient_phone'],
-        'province_code' => $recipientData['province_code'],
-        'district_code' => $recipientData['district_code'],
-        'ward_code' => $recipientData['ward_code'],
-        'address_detail' => $recipientData['address_detail'],
-        'recipient_latitude' => $recipientData['recipient_latitude'] ?? null,
-        'recipient_longitude' => $recipientData['recipient_longitude'] ?? null,
-        'recipient_full_address' => $recipientData['recipient_full_address'],
-        'delivery_time' => $recipientData['delivery_time_formatted'],
-        
-        'item_type' => $recipientData['item_type'] ?? 'package',
-        'services' => !empty($recipientData['services']) 
-        ? (is_string($recipientData['services']) 
-            ? json_decode($recipientData['services'], true) 
-            : $recipientData['services'])
-        : [],
-        'cod_amount' => $recipientData['cod_amount'] ?? 0,
-        'cod_fee' => $calculationResult['cod_fee'],
-        'shipping_fee' => $calculationResult['shipping_fee'],
-        'distance_fee' => $calculationResult['distance_fee'], 
-        'distance_km' => $calculationResult['distance_km'], 
-        'sender_total' => $calculationResult['sender_pays'],
-        'recipient_total' => $calculationResult['recipient_pays'],
-        'payer' => $recipientData['payer'],
-        'note' => $recipientData['note'] ?? null,
-        'products_json' => $products,
-        'status' => 'pending',
-    ]);
-    
-    // Lưu products
-    foreach ($products as $product) {
-        $order->products()->create([
-            'name' => $product['name'] ?? 'Không rõ',
-            'quantity' => $product['quantity'] ?? 1,
-            'weight' => $product['weight'] ?? 0,
-            'value' => $product['value'] ?? 0,
-            'length' => $product['length'] ?? 0,
-            'width' => $product['width'] ?? 0,
-            'height' => $product['height'] ?? 0,
-            'specials' => $product['specials'] ?? [],
-        ]);
-    }
-    
-    // Upload ảnh
-    if (isset($recipientData['images']) && is_array($recipientData['images'])) {
-        $notes = $recipientData['image_notes'] ?? [];
-        $this->handleImageUpload($order, $recipientData['images'], $notes, 'pickup');
-    }
-    
-    // Lưu địa chỉ
-    if (!empty($recipientData['save_address'])) {
-        $this->saveRecipientAddress($recipientData);
-    }
-     try {
-            $this->processOrderApproval($order);
-        } catch (\Exception $e) {
-           
-        }
-    return $order;
-    }
 
      private function processOrderApproval(Order $order)
     {
@@ -681,8 +509,87 @@ private function saveRecipientAddress($recipientData)
         }
     }
 
-    /**
- * ✅ TÍNH PHÍ SHIP DựA TRÊN KHOẢNG CÁCH ĐỊA LÝ
+/**
+ * ✅ TÍNH PHÍ THEO KHOẢNG CÁCH ĐỊA LÝ
+ * 
+ * Cấu trúc phí:
+ * - Nội thành (< 15km): 0đ phụ phí
+ * - Ngoại thành gần (15-25km): +10,000đ
+ * - Ngoại thành xa (25-40km): +20,000đ
+ * - Xa hơn (> 40km): +30,000đ + 2,000đ/km thêm
+ * 
+ * @param array $recipientData Phải chứa: sender_latitude, sender_longitude, recipient_latitude, recipient_longitude
+ * @return array ['fee' => int, 'distance_km' => float, 'distance_fee' => int]
+ */
+private function calculateDistanceFee($recipientData)
+{
+    // ✅ Lấy tọa độ NGƯỜI GỬI (không phải trung tâm Hà Nội)
+    $senderLat = $recipientData['sender_latitude'] ?? null;
+    $senderLng = $recipientData['sender_longitude'] ?? null;
+
+    // Lấy tọa độ người nhận
+    $recipientLat = $recipientData['recipient_latitude'] ?? null;
+    $recipientLng = $recipientData['recipient_longitude'] ?? null;
+
+    $defaultReturn = [
+        'fee' => 0,
+        'distance_km' => 0,
+        'distance_fee' => 0
+    ];
+
+    // ✅ Kiểm tra đầy đủ cả 4 tọa độ
+    if (!is_numeric($senderLat) || !is_numeric($senderLng) ||
+        !is_numeric($recipientLat) || !is_numeric($recipientLng)) {
+        \Log::warning('❌ Missing coordinates for distance calculation', [
+            'sender' => [$senderLat, $senderLng],
+            'recipient' => [$recipientLat, $recipientLng]
+        ]);
+        return $defaultReturn;
+    }
+
+    // ✅ Tính khoảng cách từ NGƯỜI GỬI → NGƯỜI NHẬN
+    $distance = $this->haversine($senderLat, $senderLng, $recipientLat, $recipientLng);
+
+    \Log::info("📏 Khoảng cách: {$distance} km", [
+        'sender' => [$senderLat, $senderLng],
+        'recipient' => [$recipientLat, $recipientLng]
+    ]);
+
+    // ✅ Phân loại khoảng cách và tính phí
+    $selectedFee = 0;
+    $rangeDescription = '';
+
+    if ($distance < 10) {
+        // Nội thành: < 10km → KHÔNG TÍNH PHÍ
+        $selectedFee = 0;
+        $rangeDescription = 'Nội thành (< 15km)';
+    } elseif ($distance < 25) {
+        // Ngoại thành gần: 10-25km
+        $selectedFee = 15000;
+        $rangeDescription = 'Ngoại thành gần (15-25km)';
+    } elseif ($distance < 40) {
+        // Ngoại thành xa: 25-40km
+        $selectedFee = 25000;
+        $rangeDescription = 'Ngoại thành xa (25-40km)';
+    } else {
+        // Rất xa: > 40km
+        $extraKm = max(0, $distance - 40);
+        $selectedFee = 35000 + round($extraKm * 2000);
+        $rangeDescription = "Rất xa (> 40km, thêm " . round($extraKm, 1) . "km)";
+    }
+
+    \Log::info("💰 Phí khoảng cách: " . number_format($selectedFee) . "đ ({$rangeDescription})");
+
+    return [
+        'fee' => $selectedFee,
+        'distance_km' => round($distance, 2),
+        'distance_fee' => $selectedFee,
+        'range_description' => $rangeDescription
+    ];
+}
+
+/**
+ * ✅ TÍNH TỔNG PHÍ ĐƠN HÀNG
  */
 private function calculateOrderFees($products, $recipientData)
 {
@@ -729,16 +636,16 @@ private function calculateOrderFees($products, $recipientData)
     $baseFee = (float) config('delivery.shipping.base_fee', 20000);
     $extraWeightFee = (float) config('delivery.shipping.extra_weight_fee', 5);
     
-    // Tính cước cơ bản
+    // Tính cước cơ bản theo trọng lượng
     $base = $baseFee;
     if ($totalWeight > 1000) {
         $base += ($totalWeight - 1000) * $extraWeightFee;
     }
     
-       // ✅ TÍNH PHÍ THEO KHOẢNG CÁCH ĐỊA LÝ
+    // ✅ TÍNH PHÍ KHOẢNG CÁCH (từ người gửi đến người nhận)
     $distanceResult = $this->calculateDistanceFee($recipientData);
-    $distanceFee = $distanceResult['fee'] ?? 0;           // ← Thêm fallback
-    $distanceKm = $distanceResult['distance_km'] ?? 0;    // ← Thêm fallback
+    $distanceFee = $distanceResult['fee'] ?? 0;
+    $distanceKm = $distanceResult['distance_km'] ?? 0;
     
     // Tính phụ phí theo đặc tính hàng hóa
     $extra = 0;
@@ -785,8 +692,6 @@ private function calculateOrderFees($products, $recipientData)
         $codPercent = (float) config('delivery.fees.cod_percent', 0.01);
         $codFee = round($codBaseFee + ($codAmount * $codPercent));
     }
-
-    $shippingFee = round($base + $extra + $distanceFee);
     
     // Tính tiền người gửi và người nhận trả
     $payer = $recipientData['payer'] ?? 'sender';
@@ -802,8 +707,8 @@ private function calculateOrderFees($products, $recipientData)
     $result = [
         'base_cost' => $base,
         'extra_cost' => $extra,
-        'distance_fee' => $distanceFee,  // THÊM PHÍ KHOẢNG CÁCH
-        'distance_km' => $distanceKm,     
+        'distance_fee' => $distanceFee,
+        'distance_km' => $distanceKm,
         'shipping_fee' => $shippingFee,
         'cod_fee' => $codFee,
         'cod_amount' => $codAmount,
@@ -815,84 +720,9 @@ private function calculateOrderFees($products, $recipientData)
 }
 
 /**
- * ✅ TÍNH PHÍ THEO KHOẢNG CÁCH ĐỊA LÝ
- * 
- * Cấu trúc phí:
- * - Nội thành (< 10km): 0đ phụ phí
- * - Ngoại thành gần (10-20km): +10,000đ
- * - Ngoại thành xa (20-30km): +20,000đ
- * - Xa hơn (> 30km): +30,000đ + 2,000đ/km thêm
+ * ✅ API CALCULATE - Nhận cả sender và recipient coordinates
  */
-/**
- * 
- * @return array ['fee' => int, 'distance_km' => float]
- */
-   private function calculateDistanceFee($recipientData)
-    {
-        // Lấy tọa độ trung tâm
-        $centerLat = config('delivery.distance.center.latitude', 21.0285);
-        $centerLng = config('delivery.distance.center.longitude', 105.8542);
-
-        // Lấy tọa độ người nhận
-        $recipientLat = $recipientData['recipient_latitude'] ?? null;
-        $recipientLng = $recipientData['recipient_longitude'] ?? null;
-
-        // ✅ FIX: Luôn trả về CẢ 3 keys để tránh lỗi Undefined
-        $defaultReturn = [
-            'fee' => 0,
-            'distance_km' => 0,
-            'distance_fee' => 0  // ← Thêm key này
-        ];
-
-        // --------------------------
-        // 1. Nếu thiếu tọa độ → trả về default
-        // --------------------------
-        if (!is_numeric($recipientLat) || !is_numeric($recipientLng)) {
-            return $defaultReturn;
-        }
-
-        // --------------------------
-        // 2. Tính khoảng cách
-        // --------------------------
-        $distance = $this->haversine($centerLat, $centerLng, $recipientLat, $recipientLng);
-
-        // Lấy config
-        $ranges = config('delivery.distance.ranges', []);
-
-        $selectedFee = 0;
-
-        foreach ($ranges as $range) {
-            if ($distance <= ($range['max_km'] ?? PHP_INT_MAX)) {
-
-                // Nếu có base + per km
-                if (isset($range['base_fee']) && isset($range['per_km_fee'])) {
-                    $extraKm = max(0, $distance - 30);
-                    $selectedFee = round($range['base_fee'] + ($extraKm * $range['per_km_fee']));
-                } else {
-                    $selectedFee = $range['fee'] ?? 0;
-                }
-
-                // ✅ FIX: Trả về đầy đủ 3 keys
-                return [
-                    'fee' => $selectedFee,
-                    'distance_km' => round($distance, 2),
-                    'distance_fee' => $selectedFee  // ← Thêm key này
-                ];
-            }
-        }
-
-        // --------------------------
-        // 3. Không match range → trả về default
-        // --------------------------
-        return [
-            'fee' => 0,
-            'distance_km' => round($distance, 2),
-            'distance_fee' => 0  // ← Thêm key này
-        ];
-    }
-
-
-  public function calculate(Request $request)
+public function calculate(Request $request)
 {
     try {
         $products = [];
@@ -921,12 +751,14 @@ private function calculateOrderFees($products, $recipientData)
         $codAmount = $request->input('cod_amount', 0);
         $payer = $request->input('payer', 'sender');
         
-        // ✅ THÊM TỌA ĐỘ NGƯỜI NHẬN
+        // ✅ QUAN TRỌNG: Thêm CẢ sender và recipient coordinates
         $recipientData = [
             'services' => $services,
             'cod_amount' => $codAmount,
             'payer' => $payer,
             'item_type' => $request->input('item_type', 'package'),
+            'sender_latitude' => $request->input('sender_latitude'),
+            'sender_longitude' => $request->input('sender_longitude'),
             'recipient_latitude' => $request->input('recipient_latitude'),
             'recipient_longitude' => $request->input('recipient_longitude'),
         ];
@@ -950,12 +782,197 @@ private function calculateOrderFees($products, $recipientData)
         ]);
 
     } catch (\Exception $e) {
+        \Log::error('❌ Calculate error: ' . $e->getMessage());
         return response()->json([
             'success' => false,
             'message' => 'Lỗi tính toán: ' . $e->getMessage()
         ], 500);
     }
 }
+
+/**
+ * ✅ TẠO ĐƠN ĐƠN GIẢN (1 người gửi → 1 người nhận)
+ */
+private function createStandaloneOrder($request, $recipientData)
+{
+    // Parse products
+    $products = json_decode($recipientData['products_json'], true);
+    
+    // ✅ QUAN TRỌNG: Thêm sender coordinates vào recipientData
+    $recipientData['sender_latitude'] = $request->sender_latitude;
+    $recipientData['sender_longitude'] = $request->sender_longitude;
+    
+    // Calculate fees
+    $calculationResult = $this->calculateOrderFees($products, $recipientData);
+    
+    // Create order
+    $order = Order::create([
+        'order_group_id' => null, // ✅ ĐƠN ĐỘC LẬP
+        'sender_id' => $request->sender_id,
+        'sender_name' => $request->sender_name,
+        'sender_phone' => $request->sender_phone,
+        'sender_address' => $request->sender_address,
+        'sender_latitude' => $request->sender_latitude,
+        'sender_longitude' => $request->sender_longitude,
+        'post_office_id' => $request->post_office_id ?? 11564316606,
+        'pickup_time' => $request->pickup_time_formatted,
+        
+        'recipient_name' => $recipientData['recipient_name'],
+        'recipient_phone' => $recipientData['recipient_phone'],
+        'province_code' => $recipientData['province_code'],
+        'district_code' => $recipientData['district_code'],
+        'ward_code' => $recipientData['ward_code'],
+        'address_detail' => $recipientData['address_detail'],
+        'recipient_latitude' => $recipientData['recipient_latitude'] ?? null,
+        'recipient_longitude' => $recipientData['recipient_longitude'] ?? null,
+        'recipient_full_address' => $recipientData['recipient_full_address'],
+        'delivery_time' => $recipientData['delivery_time_formatted'],
+        
+        'item_type' => $recipientData['item_type'] ?? 'package',
+        'services' => !empty($recipientData['services']) 
+            ? (is_string($recipientData['services']) 
+                ? json_decode($recipientData['services'], true) 
+                : $recipientData['services'])
+            : [],
+        'cod_amount' => $recipientData['cod_amount'] ?? 0,
+        'cod_fee' => $calculationResult['cod_fee'],
+        'shipping_fee' => $calculationResult['shipping_fee'],
+        'distance_fee' => $calculationResult['distance_fee'],
+        'distance_km' => $calculationResult['distance_km'], 
+        'sender_total' => $calculationResult['sender_pays'],
+        'recipient_total' => $calculationResult['recipient_pays'],
+        'payer' => $recipientData['payer'],
+        'note' => $recipientData['note'] ?? $request->note ?? null,
+        'products_json' => $products,
+        'status' => 'pending',
+    ]);
+    
+    // \Log::info("Order created: #{$order->id}");
+    
+    // Lưu products vào bảng order_products
+    foreach ($products as $product) {
+        $order->products()->create([
+            'name' => $product['name'] ?? 'Không rõ',
+            'quantity' => $product['quantity'] ?? 1,
+            'weight' => $product['weight'] ?? 0,
+            'value' => $product['value'] ?? 0,
+            'length' => $product['length'] ?? 0,
+            'width' => $product['width'] ?? 0,
+            'height' => $product['height'] ?? 0,
+            'specials' => $product['specials'] ?? [],
+        ]);
+    }
+    
+    // Upload ảnh (nếu có)
+    if (isset($recipientData['images']) && is_array($recipientData['images'])) {
+        $notes = $recipientData['image_notes'] ?? [];
+        $this->handleImageUpload($order, $recipientData['images'], $notes, 'pickup');
+    }
+    
+    // Lưu địa chỉ nếu user chọn
+    if (!empty($recipientData['save_address'])) {
+        $this->saveRecipientAddress($recipientData);
+    }
+
+    try {
+        $this->processOrderApproval($order);
+    } catch (\Exception $e) {
+        // \Log::warning("Failed to process order approval: " . $e->getMessage());
+        // Không throw error, vì đơn đã tạo thành công
+    }
+    
+    return $order;
+}
+
+/**
+ * ✅ TẠO ORDER CON (Thuộc group)
+ */
+private function createGroupOrder($orderGroup, $request, $recipientData)
+{
+    $products = json_decode($recipientData['products_json'], true);
+    
+    // ✅ QUAN TRỌNG: Thêm sender coordinates
+    $recipientData['sender_latitude'] = $request->sender_latitude;
+    $recipientData['sender_longitude'] = $request->sender_longitude;
+    
+    $calculationResult = $this->calculateOrderFees($products, $recipientData);
+    
+    $order = Order::create([
+        'order_group_id' => $orderGroup->id, // ✅ THUỘC GROUP
+        'user_id' => Auth::id(),
+        'sender_id' => $request->sender_id,
+        'sender_name' => $request->sender_name,
+        'sender_phone' => $request->sender_phone,
+        'sender_address' => $request->sender_address,
+        'sender_latitude' => $request->sender_latitude,
+        'sender_longitude' => $request->sender_longitude,
+        'post_office_id' => $request->post_office_id ?? 11564316606,
+        'pickup_time' => $request->pickup_time_formatted,
+        
+        'recipient_name' => $recipientData['recipient_name'],
+        'recipient_phone' => $recipientData['recipient_phone'],
+        'province_code' => $recipientData['province_code'],
+        'district_code' => $recipientData['district_code'],
+        'ward_code' => $recipientData['ward_code'],
+        'address_detail' => $recipientData['address_detail'],
+        'recipient_latitude' => $recipientData['recipient_latitude'] ?? null,
+        'recipient_longitude' => $recipientData['recipient_longitude'] ?? null,
+        'recipient_full_address' => $recipientData['recipient_full_address'],
+        'delivery_time' => $recipientData['delivery_time_formatted'],
+        
+        'item_type' => $recipientData['item_type'] ?? 'package',
+        'services' => !empty($recipientData['services']) 
+            ? (is_string($recipientData['services']) 
+                ? json_decode($recipientData['services'], true) 
+                : $recipientData['services'])
+            : [],
+        'cod_amount' => $recipientData['cod_amount'] ?? 0,
+        'cod_fee' => $calculationResult['cod_fee'],
+        'shipping_fee' => $calculationResult['shipping_fee'],
+        'distance_fee' => $calculationResult['distance_fee'], 
+        'distance_km' => $calculationResult['distance_km'], 
+        'sender_total' => $calculationResult['sender_pays'],
+        'recipient_total' => $calculationResult['recipient_pays'],
+        'payer' => $recipientData['payer'],
+        'note' => $recipientData['note'] ?? null,
+        'products_json' => $products,
+        'status' => 'pending',
+    ]);
+    
+    // Lưu products
+    foreach ($products as $product) {
+        $order->products()->create([
+            'name' => $product['name'] ?? 'Không rõ',
+            'quantity' => $product['quantity'] ?? 1,
+            'weight' => $product['weight'] ?? 0,
+            'value' => $product['value'] ?? 0,
+            'length' => $product['length'] ?? 0,
+            'width' => $product['width'] ?? 0,
+            'height' => $product['height'] ?? 0,
+            'specials' => $product['specials'] ?? [],
+        ]);
+    }
+    
+    // Upload ảnh
+    if (isset($recipientData['images']) && is_array($recipientData['images'])) {
+        $notes = $recipientData['image_notes'] ?? [];
+        $this->handleImageUpload($order, $recipientData['images'], $notes, 'pickup');
+    }
+    
+    // Lưu địa chỉ
+    if (!empty($recipientData['save_address'])) {
+        $this->saveRecipientAddress($recipientData);
+    }
+    
+    try {
+        $this->processOrderApproval($order);
+    } catch (\Exception $e) {
+        // Silent fail
+    }
+    
+    return $order;
+}
+
 
 
     public function getNearby(Request $request)

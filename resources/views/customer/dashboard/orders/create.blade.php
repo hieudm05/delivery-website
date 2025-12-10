@@ -672,6 +672,7 @@ function filterHanoiOnly(data) {
     return [hanoi]; // Chỉ trả về Hà Nội
 }
 // NEW: central applyMode function (use for initial set + clicks)
+// NEW: central applyMode function (use for initial set + clicks)
 function applyMode(newMode, init = false) {
     orderMode = newMode;
     $('#order_mode').val(orderMode);
@@ -688,6 +689,11 @@ function applyMode(newMode, init = false) {
             $(`.form-document-${recipient.id}`).hide();
             $(`.products-list-${recipient.id}`).hide();
             $(`.item-type[data-recipient-id="${recipient.id}"]`).closest('.mb-2').hide();
+            
+            // ✅ RE-POPULATE PROVINCE (fix cho multi mode)
+            if (!init) {
+                populateProvinceSelect(recipient.id);
+            }
         });
 
         console.log('📋 Chuyển sang chế độ: ĐƠN NHIỀU NGƯỜI');
@@ -717,6 +723,11 @@ function applyMode(newMode, init = false) {
                 } else {
                     $(`.form-package-${recipient.id}`).show();
                     $(`.form-document-${recipient.id}`).hide();
+                }
+                
+                // ✅ RE-POPULATE PROVINCE (fix cho single mode)
+                if (!init) {
+                    populateProvinceSelect(recipient.id);
                 }
             } else {
                 // hide product inputs for other recipients
@@ -1373,7 +1384,7 @@ function createRecipientCard(recipient, index) {
                     <div class="mb-3">
                         <label class="form-label fw-bold">Người thanh toán cước phí</label>
                         <div class="form-check">
-                            <input class="form-check-input payer-radio" type="radio" name="recipients[${recipient.id}][payer]" id="payer-sender-${recipient.id}" value="sender" data-recipient-id="${recipient.id}" ${d.payer === 'sender' ? 'checked' : ''}>
+                            <input class="form-check-input payer-radio" type="radio" name="recipients[${recipient.id}][payer]" id="payer-sender-${recipient.id}" value="sender" data-recipient-id="${recipient.id}" ${d.payer === 'recipient' ? '' : 'checked'}>
                             <label class="form-check-label" for="payer-sender-${recipient.id}">Người gửi</label>
                         </div>
                         <div class="form-check">
@@ -2217,6 +2228,13 @@ function calculateCost(recipientId) {
     // ✅ Lấy tọa độ người nhận
     const recipientLat = $(`.recipient-lat-${recipientId}`).val();
     const recipientLng = $(`.recipient-lng-${recipientId}`).val();
+    
+    // ✅ ĐÂY LÀ FIX CHÍNH: LẤY TỌA ĐỘ NGƯỜI GỬI
+    const senderLat = $('#sender-latitude').val();
+    const senderLng = $('#sender-longitude').val();
+    
+    console.log('📍 Sender coords:', senderLat, senderLng);
+    console.log('📍 Recipient coords:', recipientLat, recipientLng);
 
     const data = {
         products_json: JSON.stringify(productsData),
@@ -2224,8 +2242,10 @@ function calculateCost(recipientId) {
         cod_amount: codAmount,
         payer: payer,
         item_type: productsData[0]?.type || 'package',
-        recipient_latitude: recipientLat,   // ✅ THÊM DÒNG NÀY
-        recipient_longitude: recipientLng,  // ✅ THÊM DÒNG NÀY
+        sender_latitude: senderLat,         // ✅ THÊM SENDER
+        sender_longitude: senderLng,        // ✅ THÊM SENDER
+        recipient_latitude: recipientLat,
+        recipient_longitude: recipientLng,
         _token: $('meta[name="csrf-token"]').attr('content') || '{{ csrf_token() }}'
     };
     
