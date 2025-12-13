@@ -399,23 +399,19 @@ Route::prefix('customer')
         });
         // Quản lý COD
         Route::prefix('cod')->name('cod.')->group(function () {
-            // Danh sách giao dịch
+            // ✅ ROUTE TĨNH TRƯỚC (phải đặt trước route động)
             Route::get('/', [CustomerCodController::class, 'index'])->name('index');
-
             Route::get('/statistics', [CustomerCodController::class, 'statistics'])->name('statistics');
+            
+            // ✅ ROUTE ĐỘNG SAU (order by: tĩnh trước, động sau)
             Route::get('/{id}/qr', [CustomerCodController::class, 'getQrCode'])->name('qr');
-
-            // Chi tiết giao dịch
-            Route::get('/{id}', [CustomerCodController::class, 'show'])->name('show');
-
-            // Thống kê
-            // routes/web.php
-            Route::post('/{id}/pay-debt', [CustomerCodController::class, 'payDebt'])->name('payDebt');
-            // ✅ NEW: Thanh toán phí hệ thống (Sender)
+            Route::get('/{id}/debt-qr', [CustomerCodController::class, 'getDebtQrCode'])->name('debt-qr');
             Route::post('/{id}/pay-fee', [CustomerCodController::class, 'paySenderFee'])->name('pay-fee');
-
-            // ✅ NEW: Yêu cầu xử lý ưu tiên
+            Route::post('/{id}/pay-debt', [CustomerCodController::class, 'payDebt'])->name('payDebt');
             Route::post('/{id}/request-priority', [CustomerCodController::class, 'requestPriority'])->name('request-priority');
+            
+            // ✅ Route show phải ở cuối cùng (vì {id} bắt cả cái gì không match được)
+            Route::get('/{id}', [CustomerCodController::class, 'show'])->name('show');
         });
     });
 

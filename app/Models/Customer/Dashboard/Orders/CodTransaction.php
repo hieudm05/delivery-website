@@ -49,6 +49,16 @@ class CodTransaction extends Model
         'sender_fee_confirmed_at',
         'sender_fee_rejection_reason',
         'debt_processed',
+
+        'sender_debt_payment_method',
+        'sender_debt_payment_proof',
+        'sender_debt_paid_at',
+        'sender_debt_payment_status',
+        'sender_debt_confirmed_at',
+        'sender_debt_confirmed_by',
+        'sender_debt_rejection_reason',
+        'sender_debt_rejected_at',
+        'sender_debt_rejected_by',
         
         'created_by', 'updated_by',
     ];
@@ -78,6 +88,10 @@ class CodTransaction extends Model
         'recipient_fee_paid_at' => 'datetime',
         'sender_fee_confirmed_at' => 'datetime',
         'debt_processed' => 'boolean',
+
+        'sender_debt_paid_at' => 'datetime',
+        'sender_debt_confirmed_at' => 'datetime',
+        'sender_debt_rejected_at' => 'datetime',
     ];
 
     // ============ RELATIONSHIPS ============
@@ -668,4 +682,13 @@ class CodTransaction extends Model
     return $this->sender_receive_amount > 0 && 
         $this->sender_payment_status === 'pending';
 }
+    public function debtConfirmer()
+    {
+        return $this->belongsTo(User::class, 'sender_debt_confirmed_by');
+    }
+
+    public function debtRejecter()
+    {
+        return $this->belongsTo(User::class, 'sender_debt_rejected_by');
+    }
 }

@@ -130,11 +130,18 @@
                         <small class="text-muted d-block mb-2 fw-bold">
                             <i class="bi bi-list-ul"></i> Chi tiết theo bưu cục:
                         </small>
-                        @foreach($debtStats['by_hub'] as $debt)
+                       @foreach($debtStats['by_hub'] as $debt)
                             <div class="d-flex justify-content-between mb-2 p-2 bg-light rounded">
                                 <small class="text-truncate" style="max-width: 65%;">
                                     <i class="bi bi-building text-primary"></i>
                                     {{ $debt['hub_name'] }}
+                                    
+                                    {{-- ✅ THÊM CỜ CHỜ XÁC NHẬN --}}
+                                    @if($debt['pending_payment'])
+                                        <span class="badge bg-warning text-dark ms-1" style="font-size: 0.65rem;">
+                                            Chờ xác nhận
+                                        </span>
+                                    @endif
                                 </small>
                                 <small class="text-danger fw-bold">
                                     {{ number_format($debt['amount']) }}₫

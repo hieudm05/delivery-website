@@ -31,14 +31,23 @@ public function index(Request $request)
 
     switch ($tab) {
         case 'pending_fee':
-            // ✅ Chỉ đơn KHÔNG có COD + chưa thanh toán + KHÔNG bị hoàn
-            $query->whereNull('sender_fee_paid_at')
-                ->where('sender_fee_paid', '>', 0)
-                ->where('cod_amount', 0)
-                ->whereDoesntHave('order', function($q) {
-                    $q->where('has_return', true);
-                });
-            break;
+        $query->where(function($q) {
+            // Đơn thường chưa trả phí
+            $q->where(function($subQ) {
+                $subQ->whereNull('sender_fee_paid_at')
+                    ->where('sender_fee_paid', '>', 0)
+                    ->where('cod_amount', 0);
+            })
+            // Đơn hoàn có nợ chưa trả/chờ xác nhận
+            ->orWhere(function($subQ) {
+                $subQ->whereHas('order', function($orderQ) {
+                        $orderQ->where('has_return', true);
+                    })
+                    ->where('sender_fee_paid', '>', 0)
+                    ->whereIn('sender_debt_payment_status', [null, 'pending', 'rejected']);
+            });
+        });
+        break;
 
         case 'fee_deducted':
             // ✅ CHỈ đơn CÓ COD thực sự (không bị hoàn)
@@ -95,23 +104,45 @@ public function index(Request $request)
             ->count(),
 
         // ✅ Phí chờ thanh toán: KHÔNG bao gồm đơn hoàn
-        'pending_fee' => CodTransaction::where('sender_id', $customerId)
-            ->whereNull('sender_fee_paid_at')
-            ->where('sender_fee_paid', '>', 0)
-            ->where('cod_amount', 0)
-            ->whereDoesntHave('order', function($q) {
-                $q->where('has_return', true);
+            'pending_fee' => CodTransaction::where('sender_id', $customerId)
+            ->where(function($q) {
+                $q->where(function($subQ) {
+                    // Đơn thường
+                    $subQ->whereNull('sender_fee_paid_at')
+                        ->where('sender_fee_paid', '>', 0)
+                        ->where('cod_amount', 0);
+                })
+                ->orWhere(function($subQ) {
+                    // Đơn hoàn
+                    $subQ->whereHas('order', function($orderQ) {
+                            $orderQ->where('has_return', true);
+                        })
+                        ->where('sender_fee_paid', '>', 0)
+                        ->whereIn('sender_debt_payment_status', [null, 'pending', 'rejected']);
+                });
             })
             ->sum('sender_fee_paid'),
 
-        'count_pending_fee' => CodTransaction::where('sender_id', $customerId)
-            ->whereNull('sender_fee_paid_at')
-            ->where('sender_fee_paid', '>', 0)
-            ->where('cod_amount', 0)
-            ->whereDoesntHave('order', function($q) {
-                $q->where('has_return', true);
+       'count_pending_fee' => CodTransaction::where('sender_id', $customerId)
+            ->where(function($q) {
+                $q->where(function($subQ) {
+                    $subQ->whereNull('sender_fee_paid_at')
+                        ->where('sender_fee_paid', '>', 0)
+                        ->where('cod_amount', 0)
+                        ->whereDoesntHave('order', function($orderQ) {
+                            $orderQ->where('has_return', true);
+                        });
+                })
+                ->orWhere(function($subQ) {
+                    $subQ->whereHas('order', function($orderQ) {
+                            $orderQ->where('has_return', true);
+                        })
+                        ->where('sender_fee_paid', '>', 0)
+                        ->whereIn('sender_debt_payment_status', [null, 'pending', 'rejected']);
+                });
             })
             ->count(),
+
 
         'waiting_cod' => CodTransaction::where('sender_id', $customerId)
             ->where('sender_payment_status', 'pending')
@@ -527,58 +558,243 @@ public function index(Request $request)
         ];
     }
     // ✅ THÊM METHOD MỚI
-private function getDebtStats($customerId)
-{
-    $hubIds = CodTransaction::where('sender_id', $customerId)
-        ->distinct()
-        ->pluck('hub_id');
+    private function getDebtStats($customerId)
+    {
+        $hubIds = CodTransaction::where('sender_id', $customerId)
+            ->distinct()
+            ->pluck('hub_id');
 
-    $debtByHub = [];
-    $totalDebt = 0;
+        $debtByHub = [];
+        $totalDebt = 0;
 
-    foreach ($hubIds as $hubId) {
-        $debt = SenderDebt::getTotalUnpaidDebt($customerId, $hubId);
-        if ($debt > 0) {
-            $hub = \App\Models\User::find($hubId);
-            $debtByHub[] = [
-                'hub_id' => $hubId,
-                'hub_name' => $hub ? $hub->full_name : 'Hub #' . $hubId,
-                'amount' => $debt,
-            ];
-            $totalDebt += $debt;
+        foreach ($hubIds as $hubId) {
+            $debt = SenderDebt::getTotalUnpaidDebt($customerId, $hubId);
+            
+            // ✅ THÊM: Kiểm tra có thanh toán đang chờ không
+            $pendingPayment = CodTransaction::where('sender_id', $customerId)
+                ->where('hub_id', $hubId)
+                ->where('sender_debt_payment_status', 'pending')
+                ->first();
+            
+            if ($debt > 0) {
+                $hub = \App\Models\User::find($hubId);
+                $debtByHub[] = [
+                    'hub_id' => $hubId,
+                    'hub_name' => $hub ? $hub->full_name : 'Hub #' . $hubId,
+                    'amount' => $debt,
+                    'pending_payment' => $pendingPayment ? true : false, // ✅ Cờ mới
+                    'pending_amount' => $pendingPayment ? $pendingPayment->sender_fee_paid : 0,
+                ];
+                $totalDebt += $debt;
+            }
         }
+
+        return [
+            'total' => $totalDebt,
+            'by_hub' => $debtByHub,
+            'has_debt' => $totalDebt > 0,
+        ];
     }
-
-    return [
-        'total' => $totalDebt,
-        'by_hub' => $debtByHub,
-        'has_debt' => $totalDebt > 0,
-    ];
-}
-// app/Http/Controllers/Customer/Dashboard/Cod/CustomerCodController.php
-
+/**
+ * ✅ THANH TOÁN NỢ - LUỒNG CHÍNH
+ */
 public function payDebt(Request $request, $id)
 {
-    $request->validate([
-        'payment_method' => 'required|in:bank_transfer,cash',
-        'proof' => 'nullable|image|max:5120',
-    ]);
+    $customerId = Auth::id();
+    $transaction = CodTransaction::with('order')->findOrFail($id);
 
-    $transaction = CodTransaction::where('sender_id', Auth::id())->findOrFail($id);
-    
-    if (!$transaction->is_returned_order) {
-        return back()->withErrors(['error' => 'Đây không phải đơn hoàn hàng']);
+    // ✅ VALIDATE CƠ BẢN
+    if (!$transaction->order || !$transaction->order->has_return) {
+        return back()->withErrors(['error' => 'Đây không phải đơn hoàn hàng.']);
     }
 
-    $currentDebt = SenderDebt::getTotalUnpaidDebt(Auth::id(), $transaction->hub_id);
-    
+    if (!$transaction->hub_id) {
+        return back()->withErrors(['error' => 'Không tìm thấy bưu cục']);
+    }
+
+    // ✅ LẤY TỔNG NỢ HIỆN TẠI (tất cả nợ chưa trả với Hub này)
+    $currentDebt = SenderDebt::getTotalUnpaidDebt($customerId, $transaction->hub_id);
+
     if ($currentDebt <= 0) {
-        return back()->withErrors(['error' => 'Bạn không có nợ với bưu cục này']);
+        return back()->withErrors(['error' => 'Bạn không còn nợ với bưu cục này.']);
     }
 
-    // TODO: Xử lý thanh toán nợ (tạo payment record, cập nhật SenderDebt)
+    // ✅ VALIDATE INPUT
+    $method = $request->input('payment_method');
+    $rules = ['payment_method' => 'required|in:bank_transfer,cash'];
     
-    return redirect()->route('customer.cod.index')
-        ->with('success', 'Đã ghi nhận thanh toán nợ. Hub sẽ xác nhận trong 24h.');
+    if ($method === 'bank_transfer') {
+        $rules['proof'] = 'required|image|mimes:jpeg,png,jpg,gif|max:5120';
+    }
+
+    $request->validate($rules);
+
+    DB::beginTransaction();
+    try {
+        // ✅ UPLOAD CHỨNG TỪ (nếu có)
+        $proofPath = null;
+        if ($request->hasFile('proof')) {
+            $proofPath = $request->file('proof')->store('debt_payments/customer', 'public');
+        }
+
+        // ✅ 1. LƯU THÔNG TIN THANH TOÁN VÀO COD_TRANSACTION
+        // Đây là nơi Hub sẽ vào xem để xác nhận
+        $transaction->update([
+            'sender_debt_payment_proof' => $proofPath,
+            'sender_debt_payment_method' => $method,
+            'sender_debt_paid_at' => now(),
+            'sender_debt_payment_status' => 'pending', // ✅ Trạng thái chờ Hub xác nhận
+        ]);
+
+        // ✅ 2. GHI CHÚ VÀO TẤT CẢ CÁC KHOẢN NỢ (để Hub biết customer đã thanh toán)
+        // NOTE: Status của SenderDebt VẪN LÀ 'unpaid', chỉ thêm note
+        $debts = SenderDebt::where('sender_id', $customerId)
+            ->where('hub_id', $transaction->hub_id)
+            ->where('type', 'debt')
+            ->where('status', 'unpaid')
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        $paymentNote = sprintf(
+            "Customer thanh toán %s₫ bằng %s vào %s - Chờ Hub xác nhận (Order #%d)",
+            number_format($currentDebt),
+            $method === 'bank_transfer' ? 'chuyển khoản' : 'tiền mặt',
+            now()->format('d/m/Y H:i'),
+            $transaction->order_id
+        );
+
+        foreach ($debts as $debt) {
+            $debt->update([
+                'note' => ($debt->note ?? '') . "\n" . $paymentNote
+            ]);
+        }
+
+        // ✅ 3. GHI LOG
+        Log::info('Customer submitted debt payment', [
+            'transaction_id' => $transaction->id,
+            'order_id' => $transaction->order_id,
+            'customer_id' => $customerId,
+            'hub_id' => $transaction->hub_id,
+            'total_debt' => $currentDebt,
+            'method' => $method,
+            'proof_path' => $proofPath,
+            'paid_at' => now(),
+            'status' => 'pending_hub_confirmation',
+        ]);
+
+        DB::commit();
+
+        // ✅ 4. THÔNG BÁO CHO CUSTOMER
+        $message = $method === 'cash'
+            ? '✅ Đã ghi nhận thanh toán tiền mặt ' . number_format($currentDebt) . '₫. Vui lòng đến bưu cục để hoàn tất.'
+            : '✅ Đã gửi chứng từ thanh toán ' . number_format($currentDebt) . '₫. Bưu cục sẽ xác nhận trong 24h.';
+
+        return redirect()->route('customer.cod.index', ['tab' => 'pending_fee'])
+            ->with('success', $message);
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        Log::error('Error paying debt: ' . $e->getMessage(), [
+            'transaction_id' => $id,
+            'customer_id' => $customerId,
+            'trace' => $e->getTraceAsString()
+        ]);
+        
+        return back()->withErrors(['error' => 'Lỗi: ' . $e->getMessage()])->withInput();
+    }
+}
+
+/**
+ * ✅ API: LẤY QR CODE THANH TOÁN NỢ
+ * Trả về QR code của Hub để thanh toán nợ
+ */
+public function getDebtQrCode(Request $request, $id)
+{
+    try {
+        $customerId = Auth::id();
+
+        $transaction = CodTransaction::with('hub')
+            ->where('sender_id', $customerId)
+            ->findOrFail($id);
+
+        // ✅ VALIDATE
+        if (!$transaction->is_returned_order) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Đây không phải đơn hoàn hàng'
+            ], 400);
+        }
+
+        if (!$transaction->hub_id) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Không tìm thấy thông tin bưu cục'
+            ], 404);
+        }
+
+        // ✅ TÍNH TỔNG NỢ HIỆN TẠI
+        $currentDebt = SenderDebt::getTotalUnpaidDebt($customerId, $transaction->hub_id);
+
+        if ($currentDebt <= 0) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Bạn không có nợ với bưu cục này'
+            ], 400);
+        }
+
+        // ✅ LẤY BANK ACCOUNT CỦA HUB
+        $hubBankAccount = BankAccount::where('user_id', $transaction->hub_id)
+            ->where('is_primary', true)
+            ->where('is_active', true)
+            ->verified()
+            ->first();
+
+        if (!$hubBankAccount) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Hub chưa cấu hình tài khoản ngân hàng'
+            ], 404);
+        }
+
+        // ✅ TẠO NỘI DUNG CHUYỂN KHOẢN
+        $transferContent = sprintf(
+            "THANH_NO_DH%d_KH%d_%s",
+            $transaction->order_id,
+            $customerId,
+            (int)$currentDebt
+        );
+
+        // ✅ TẠO MÃ QR
+        $qrUrl = $hubBankAccount->generateQrCode($currentDebt, $transferContent);
+
+        if (!$qrUrl) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Không thể tạo mã QR. Vui lòng thử lại'
+            ], 500);
+        }
+
+        // ✅ RESPONSE
+        return response()->json([
+            'success' => true,
+            'qr_url' => $qrUrl,
+            'bank_info' => [
+                'bank_name' => $hubBankAccount->bank_name,
+                'bank_short_name' => $hubBankAccount->bank_short_name ?? $hubBankAccount->bank_name,
+                'account_number' => $hubBankAccount->account_number,
+                'account_name' => $hubBankAccount->account_name,
+            ],
+            'amount' => $currentDebt,
+            'content' => $transferContent,
+            'hub_name' => $transaction->hub->full_name ?? 'Hub #' . $transaction->hub_id,
+        ]);
+
+    } catch (\Exception $e) {
+        Log::error('Error generating debt QR code: ' . $e->getMessage());
+        return response()->json([
+            'success' => false,
+            'error' => 'Lỗi hệ thống'
+        ], 500);
+    }
 }
 }
