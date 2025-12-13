@@ -48,6 +48,12 @@
       </a>
     </li>
      <li class="nav-item">
+      <a class="nav-link {{request()->routeIs('hub.debt.index') ? 'active bg-gradient-dark text-white' : 'text-dark'}}" href="{{ route('hub.debt.index') }}">
+        <i class="material-symbols-rounded opacity-5">request_quote</i>
+        <span class="nav-link-text ms-1">Nợ của khách</span>
+      </a>
+    </li>
+     <li class="nav-item">
       <a class="nav-link {{request()->routeIs('hub.issues.index') ? 'active bg-gradient-dark text-white' : 'text-dark'}}" href="{{ route('hub.issues.index') }}">
         <i class="material-symbols-rounded opacity-5">request_quote</i>
         <span class="nav-link-text ms-1">Hoàn hàng</span>
