@@ -22,6 +22,7 @@ use App\Http\Controllers\Drivers\OrderReturnController;
 use App\Http\Controllers\Drivers\PickupController;
 use App\Http\Controllers\Hub\BankAccountHubController;
 use App\Http\Controllers\Hub\Cod\HubCodController;
+use App\Http\Controllers\Hub\Cod\HubDebtController;
 use App\Http\Controllers\Hub\HubController;
 use App\Http\Controllers\Hub\HubIssueManagementController;
 use App\Http\Controllers\Hub\HubReturnController;
@@ -591,6 +592,25 @@ Route::prefix('hub')
                 // API: Lấy danh sách tài xế
                 Route::get('/{id}/available-drivers', 'getAvailableDriversApi')->name('available-drivers');
             });
+        Route::prefix('debt')->name('debt.')->controller(HubDebtController::class)->group(function () {
+            // Danh sách các khoản nợ cần xác nhận
+            Route::get('/', 'index')->name('index');
+            
+            // Chi tiết một khoản thanh toán nợ
+            Route::get('/{id}', 'show')->name('show');
+            
+            // Xác nhận đã nhận tiền trả nợ
+            Route::post('/{id}/confirm', 'confirm')->name('confirm');
+            
+            // Từ chối thanh toán nợ
+            Route::post('/{id}/reject', 'reject')->name('reject');
+            
+            // Xác nhận hàng loạt
+            Route::post('/batch-confirm', 'batchConfirm')->name('batch-confirm');
+            
+            // Thống kê nợ
+            Route::get('/statistics/overview', 'statistics')->name('statistics');
+        });
     });
 
 // PUBLIC TRACKING ROUTES - Không cần auth
