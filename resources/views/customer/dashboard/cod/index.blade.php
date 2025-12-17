@@ -407,20 +407,30 @@
                         </button>
                     @endif
 
-                    {{-- NÚT THANH TOÁN NỢ --}}
-                     @if($trans->sender_debt_payment_status === 'pending')
-                            <span class="badge bg-warning text-dark">
-                                <i class="bi bi-clock-history"></i> Chờ xác nhận
-                            </span>
-                        @elseif($trans->sender_debt_payment_status === 'completed')
-                            <span class="badge bg-success">
-                                <i class="bi bi-check-circle"></i> Đã xác nhận
-                            </span>
-                        @elseif($currentDebt > 0)
-                            <button type="button" class="btn btn-sm btn-danger" onclick="...">
-                                <i class="bi bi-wallet2"></i> Trả nợ
-                            </button>
-                        @endif
+                 {{-- NÚT THANH TOÁN NỢ --}}
+                            @if($trans->is_returned_order && 
+                                $trans->sender_fee_paid > 0)
+                                
+                                @if($trans->sender_debt_payment_status === 'pending')
+                                    <span class="badge bg-warning text-dark">
+                                        <i class="bi bi-clock-history"></i> Chờ xác nhận
+                                    </span>
+                                @elseif($trans->sender_debt_payment_status === 'completed')
+                                    <span class="badge bg-success">
+                                        <i class="bi bi-check-circle"></i> Đã xác nhận
+                                    </span>
+                                @elseif(isset($trans->currentDebt) && $trans->currentDebt > 0)
+                                    <button type="button" class="btn btn-sm btn-danger" 
+                                        onclick="openPayDebtModal(
+                                            {{ $trans->id }}, 
+                                            {{ $trans->order_id }}, 
+                                            {{ $trans->currentDebt }}, 
+                                            '{{ $trans->hub->full_name ?? 'Hub' }}'
+                                        )">
+                                        <i class="bi bi-wallet2"></i> Trả nợ
+                                    </button>
+                                @endif
+                            @endif
                                 </div>
                             </td>
                         </tr>

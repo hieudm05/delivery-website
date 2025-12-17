@@ -411,43 +411,69 @@
                         @endif
                     </div>
 
-                    @if($transaction->is_returned_order && $transaction->sender_fee_paid > 0)
-                        <div class="mb-3">
-                            <label class="text-muted small d-block mb-2">Trạng thái thanh toán nợ</label>
-                            @if($transaction->sender_debt_payment_status === 'pending')
-                                <span class="badge bg-warning text-dark fs-6">
-                                    <i class="bi bi-clock-history"></i> Chờ Hub xác nhận
-                                </span>
-                                <small class="text-muted d-block mt-1">
-                                    Đã nộp {{ number_format($transaction->sender_fee_paid) }}₫ 
-                                    vào {{ $transaction->sender_debt_paid_at->format('d/m/Y H:i') }}
-                                </small>
-                            @elseif($transaction->sender_debt_payment_status === 'completed')
-                                <span class="badge bg-success fs-6">
-                                    <i class="bi bi-check-circle"></i> Hub đã xác nhận
-                                </span>
-                                <small class="text-muted d-block mt-1">
-                                    Xác nhận vào {{ $transaction->sender_debt_confirmed_at->format('d/m/Y H:i') }}
-                                </small>
-                            @elseif($transaction->sender_debt_payment_status === 'rejected')
-                                <span class="badge bg-danger fs-6">
-                                    <i class="bi bi-x-circle"></i> Hub từ chối
-                                </span>
-                                <small class="text-danger d-block mt-1">
-                                    Lý do: {{ $transaction->sender_debt_rejection_reason }}
-                                </small>
-                            @else
-                                <span class="badge bg-danger fs-6">
-                                    <i class="bi bi-wallet2"></i> Chưa thanh toán
-                                </span>
-                                @if($currentDebt > 0)
-                                <small class="text-danger d-block mt-1">
-                                    Nợ: {{ number_format($currentDebt) }}₫
-                                </small>
-                                @endif
-                            @endif
-                        </div>
-                        @endif
+                   @if($transaction->is_returned_order && $transaction->sender_fee_paid > 0)
+    <div class="mb-3">
+        <label class="text-muted small d-block mb-2">Trạng thái thanh toán nợ</label>
+        
+        @if($transaction->sender_debt_payment_status === 'pending')
+            {{-- Chờ Hub xác nhận --}}
+            <span class="badge bg-warning text-dark fs-6">
+                <i class="bi bi-clock-history"></i> Chờ Hub xác nhận
+            </span>
+            <small class="text-muted d-block mt-1">
+                Đã nộp {{ number_format($transaction->sender_fee_paid) }}₫ 
+                vào {{ $transaction->sender_debt_paid_at->format('d/m/Y H:i') }}
+            </small>
+            
+        @elseif($transaction->sender_debt_payment_status === 'completed')
+            {{-- Hub đã xác nhận --}}
+            <span class="badge bg-success fs-6">
+                <i class="bi bi-check-circle"></i> Hub đã xác nhận
+            </span>
+            <small class="text-muted d-block mt-1">
+                Xác nhận vào {{ $transaction->sender_debt_confirmed_at->format('d/m/Y H:i') }}
+            </small>
+            
+        @elseif($transaction->sender_debt_payment_status === 'rejected')
+            {{-- Hub từ chối --}}
+            <span class="badge bg-danger fs-6 d-block mb-2">
+                <i class="bi bi-x-circle"></i> Hub từ chối
+            </span>
+            <small class="text-danger d-block mb-2">
+                Lý do: {{ $transaction->sender_debt_rejection_reason }}
+            </small>
+            
+            
+        @else
+            {{-- Chưa thanh toán --}}
+            <span class="badge bg-danger fs-6 d-block mb-2">
+                <i class="bi bi-wallet2"></i> Chưa thanh toán
+            </span>
+            
+            @if($currentDebt > 0)
+                <div class="alert alert-danger border-0 p-2 mb-2">
+                    <small class="d-block mb-2">
+                        <strong>Nợ hiện tại:</strong> {{ number_format($currentDebt) }}₫
+                    </small>
+                </div>
+                
+                {{-- ✅ NÚT THANH TOÁN --}}
+                <button type="button" 
+                    class="btn btn-sm btn-danger w-100"
+                    onclick="openPayDebtModal(
+                        {{ $transaction->id }}, 
+                        {{ $transaction->order_id }}, 
+                        {{ $currentDebt }}, 
+                        '{{ $transaction->hub->full_name ?? 'Hub' }}'
+                    )">
+                    <i class="bi bi-credit-card"></i> Thanh toán ngay
+                </button>
+            @else
+                <small class="text-muted">Không còn nợ</small>
+            @endif
+        @endif
+    </div>
+@endif
 
                     @if($transaction->sender_note)
                     <div class="alert alert-info border-0 mb-0 mt-3">
