@@ -188,9 +188,12 @@ class OrderController extends Controller
             'length' => $p->length ?? 0,
             'width' => $p->width ?? 0,
             'height' => $p->height ?? 0,
-            'specials' => $p->specials ?? []
-        ];
-    })->toArray();
+            'specials' => is_array($p->specials)
+            ? $p->specials
+            : (is_string($p->specials) ? json_decode($p->specials, true) : []),
+
+                ];
+            })->toArray();
     
     // ✅ Chuẩn bị recipient data để đổ vào form
     $recipientData = [
@@ -233,7 +236,7 @@ public function update(Request $request, $id)
     try {
         $order = Order::with(['orderGroup', 'products', 'images'])->findOrFail($id);
         
-        if ($order->sender_id !== Auth::id()) {
+        if ($order->sender_id != Auth::id()) {
             abort(403, 'Bạn không có quyền sửa đơn hàng này');
         }
         
@@ -267,12 +270,12 @@ public function update(Request $request, $id)
             'delete_images' => 'nullable|string',
             
             'sender_name' => 'required_if:can_edit_sender,true|string|max:255',
-            'sender_phone' => 'required_if:can_edit_sender,true|string|regex:/^(0|\+84)[0-9]{9,10}$/',
+            'sender_phone' => ['required_if:can_edit_sender,true', 'string', 'regex:/^(0|\+84)[0-9]{9,10}$/'],
             'sender_address' => 'required_if:can_edit_sender,true|string',
             'sender_latitude' => 'nullable|numeric',
             'sender_longitude' => 'nullable|numeric',
             'pickup_time_formatted' => 'required_if:can_edit_sender,true|date_format:Y-m-d H:i:s',
-            'post_office_id' => 'nullable|string',
+            'post_office_id' => 'required|string',
         ], [
             'recipient_name.required' => 'Vui lòng nhập tên người nhận',
             'recipient_phone.required' => 'Vui lòng nhập số điện thoại người nhận',
@@ -283,6 +286,7 @@ public function update(Request $request, $id)
             'address_detail.required' => 'Vui lòng nhập số nhà, tên đường',
             'delivery_time_formatted.required' => 'Vui lòng chọn thời gian giao hàng',
             'products_json.required' => 'Vui lòng thêm ít nhất 1 sản phẩm',
+            'post_office_id.required' => 'Vui lòng chọn bưu cục nhận hàng',
         ]);
         
         DB::beginTransaction();
@@ -292,7 +296,48 @@ public function update(Request $request, $id)
             throw new \Exception('Vui lòng thêm ít nhất 1 sản phẩm');
         }
         
-        $calculationResult = $this->calculateOrderFees($products, $validated);
+        // ✅ LẤY TỌA ĐỘ BƯU CỤC TỪ POST_OFFICE_ID
+        $postOfficeId = $validated['post_office_id'];
+        $postOfficeLat = $order->sender_latitude; // Default fallback
+        $postOfficeLng = $order->sender_longitude;
+
+        if ($postOfficeId) {
+            $postOffice = \App\Models\Driver\Orders\PostOffice::find($postOfficeId);
+            if ($postOffice) {
+                $postOfficeLat = $postOffice->latitude;
+                $postOfficeLng = $postOffice->longitude;
+                
+                \Log::info('✅ Tìm thấy bưu cục:', [
+                    'id' => $postOfficeId,
+                    'name' => $postOffice->name,
+                    'lat' => $postOfficeLat,
+                    'lng' => $postOfficeLng
+                ]);
+            } else {
+                \Log::warning('⚠️ Không tìm thấy bưu cục:', ['id' => $postOfficeId]);
+            }
+        }
+        
+        // ✅ TÍNH PHÍ SỬ DỤNG TỌA ĐỘ BƯU CỤC
+        $recipientData = [
+            'services' => !empty($validated['services']) 
+                ? (is_string($validated['services']) 
+                    ? json_decode($validated['services'], true) 
+                    : $validated['services'])
+                : [],
+            'cod_amount' => $validated['cod_amount'] ?? 0,
+            'payer' => $validated['payer'],
+            'item_type' => $validated['item_type'],
+            
+            // ✅ Dùng tọa độ BƯU CỤC để tính phí khoảng cách
+            'sender_latitude' => $postOfficeLat,
+            'sender_longitude' => $postOfficeLng,
+            
+            'recipient_latitude' => $validated['recipient_latitude'],
+            'recipient_longitude' => $validated['recipient_longitude'],
+        ];
+        
+        $calculationResult = $this->calculateOrderFees($products, $recipientData);
         
         $updateData = [
             'recipient_name' => $validated['recipient_name'],
@@ -329,10 +374,19 @@ public function update(Request $request, $id)
             $updateData['sender_name'] = $validated['sender_name'];
             $updateData['sender_phone'] = $validated['sender_phone'];
             $updateData['sender_address'] = $validated['sender_address'];
-            $updateData['sender_latitude'] = $validated['sender_latitude'] ?? null;
-            $updateData['sender_longitude'] = $validated['sender_longitude'] ?? null;
+            
+            // ✅ GIỮ NGUYÊN TỌA ĐỘ NGƯỜI GỬI (không thay đổi)
+            // Chỉ update nếu có giá trị mới từ form (trường hợp hiếm)
+            if (isset($validated['sender_latitude']) && isset($validated['sender_longitude'])) {
+                $updateData['sender_latitude'] = $validated['sender_latitude'];
+                $updateData['sender_longitude'] = $validated['sender_longitude'];
+            }
+            
             $updateData['pickup_time'] = $validated['pickup_time_formatted'];
-            $updateData['post_office_id'] = $validated['post_office_id'] ?? $order->post_office_id;
+            $updateData['post_office_id'] = $validated['post_office_id'];
+        } else {
+            // ✅ Nếu đã có tài xế, CHỈ CHO PHÉP ĐỔI BƯU CỤC
+            $updateData['post_office_id'] = $validated['post_office_id'];
         }
         
         $order->update($updateData);
@@ -751,14 +805,54 @@ public function calculate(Request $request)
         $codAmount = $request->input('cod_amount', 0);
         $payer = $request->input('payer', 'sender');
         
-        // ✅ QUAN TRỌNG: Thêm CẢ sender và recipient coordinates
+        // ✅ XỬ LÝ TỌA ĐỘ: Ưu tiên post_office_id, fallback về sender_latitude/longitude
+        $senderLat = null;
+        $senderLng = null;
+        
+        // TRƯỜNG HỢP 1: Có post_office_id (từ trang SỬA ĐƠN)
+        if ($request->has('post_office_id') && $request->input('post_office_id')) {
+            $postOfficeId = $request->input('post_office_id');
+            $postOffice = \App\Models\Driver\Orders\PostOffice::find($postOfficeId);
+            
+            if ($postOffice) {
+                $senderLat = $postOffice->latitude;
+                $senderLng = $postOffice->longitude;
+                
+                \Log::info('✅ Tính phí từ bưu cục:', [
+                    'id' => $postOfficeId,
+                    'name' => $postOffice->name,
+                    'lat' => $senderLat,
+                    'lng' => $senderLng
+                ]);
+            }
+        }
+        
+        // TRƯỜNG HỢP 2: Không có post_office_id, dùng sender_latitude/longitude (từ trang TẠO ĐƠN)
+        if (!$senderLat || !$senderLng) {
+            $senderLat = $request->input('sender_latitude');
+            $senderLng = $request->input('sender_longitude');
+            
+            \Log::info('✅ Tính phí từ tọa độ người gửi:', [
+                'lat' => $senderLat,
+                'lng' => $senderLng
+            ]);
+        }
+        
+        // ✅ Kiểm tra cuối cùng: Nếu vẫn không có tọa độ
+        if (!$senderLat || !$senderLng) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Không tìm thấy thông tin tọa độ. Vui lòng chọn bưu cục hoặc địa chỉ người gửi.'
+            ], 422);
+        }
+        
         $recipientData = [
             'services' => $services,
             'cod_amount' => $codAmount,
             'payer' => $payer,
             'item_type' => $request->input('item_type', 'package'),
-            'sender_latitude' => $request->input('sender_latitude'),
-            'sender_longitude' => $request->input('sender_longitude'),
+            'sender_latitude' => $senderLat,
+            'sender_longitude' => $senderLng,
             'recipient_latitude' => $request->input('recipient_latitude'),
             'recipient_longitude' => $request->input('recipient_longitude'),
         ];

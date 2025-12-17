@@ -34,10 +34,17 @@
     border-radius: 8px;
     padding: 12px;
     margin-bottom: 10px;
+    position: relative;
   }
-  .product-item .remove-btn {
-    cursor: pointer;
-    color: #dc3545;
+  .product-item .edit-product-btn {
+    position: absolute;
+    top: 10px;
+    right: 45px;
+  }
+  .product-item .remove-product-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
   }
   .image-preview-item {
     position: relative;
@@ -74,8 +81,9 @@
     margin-bottom: 20px;
   }
   input[id*="value"],
+  input[class*="value"],
   input[id*="cod-amount"],
-  input[class*="value"] {
+  input[class*="cod-amount"] {
     text-align: right;
     font-weight: 500;
   }
@@ -91,13 +99,12 @@
     box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     display: none;
   }
-  .address-suggestions .list-group-item {
-    cursor: pointer;
-    border-left: none;
-    border-right: none;
-  }
-  .address-suggestions .list-group-item:hover {
-    background: #f8f9fa;
+  .editing-product-form {
+    background: #fff3cd;
+    border: 2px solid #ffc107;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
   }
 </style>
 
@@ -125,69 +132,64 @@
 
   <form id="orderEditForm" method="POST" action="{{ route('customer.orders.update', $order->id) }}" enctype="multipart/form-data">
     @csrf
-    @method('POST')
+    @method('PUT')
     
     <input type="hidden" name="can_edit_sender" value="{{ !$order->pickup_driver_id && !$order->driver_id ? 'true' : 'false' }}">
+    <input type="hidden" id="delivery_time_formatted" name="delivery_time_formatted">
+    <input type="hidden" id="pickup_time_formatted" name="pickup_time_formatted">
     
     <div class="row">
+      <!-- CỘT TRÁI -->
       <div class="col-lg-5">
+        <!-- NGƯỜI GỬI -->
         <div class="card mb-4">
           <div class="card-header pb-0">
             <h6 class="mb-0"><i class="bi bi-box-seam"></i> Thông tin người gửi</h6>
           </div>
           <div class="card-body">
-            @if($order->pickup_driver_id || $order->driver_id)
-              <div class="readonly-info">
+            <!-- ✅ HIỂN THỊ THÔNG TIN READONLY -->
+            <div class="readonly-info">
+              @if($order->pickup_driver_id || $order->driver_id)
                 <div class="alert alert-warning mb-3">
-                  <i class="bi bi-lock"></i> Thông tin người gửi không thể sửa vì đã có tài xế nhận đơn
+                  <i class="bi bi-lock"></i> Thông tin người gửi không thể sửa (đã có tài xế nhận)
                 </div>
-                <div><strong>Họ tên:</strong> {{ $order->sender_name }}</div>
-                <div><strong>SĐT:</strong> {{ $order->sender_phone }}</div>
-                <div><strong>Địa chỉ:</strong> {{ $order->sender_address }}</div>
-                <div><strong>Thời gian lấy:</strong> {{ $order->pickup_time->format('H:i d/m/Y') }}</div>
-              </div>
-            @else
-              <div class="mb-3">
-                <label class="form-label">Tên người gửi <span class="text-danger">*</span></label>
-                <input type="text" class="form-control" name="sender_name" value="{{ old('sender_name', $order->sender_name) }}" required>
-              </div>
+              @endif
               
-              <div class="mb-3">
-                <label class="form-label">Số điện thoại <span class="text-danger">*</span></label>
-                <input type="text" class="form-control" name="sender_phone" value="{{ old('sender_phone', $order->sender_phone) }}" required>
-              </div>
+              <div class="mb-2"><strong>Họ tên:</strong> {{ $order->sender_name }}</div>
+              <div class="mb-2"><strong>SĐT:</strong> {{ $order->sender_phone }}</div>
+              <div class="mb-2"><strong>Địa chỉ:</strong> {{ $order->sender_address }}</div>
+              <div class="mb-2"><strong>Thời gian lấy:</strong> {{ $order->pickup_time->format('H:i d/m/Y') }}</div>
               
-              <div class="mb-3">
-                <label class="form-label">Địa chỉ lấy hàng <span class="text-danger">*</span></label>
-                <textarea class="form-control" name="sender_address" rows="2" required>{{ old('sender_address', $order->sender_address) }}</textarea>
-                <input type="hidden" name="sender_latitude" value="{{ $order->sender_latitude }}">
-                <input type="hidden" name="sender_longitude" value="{{ $order->sender_longitude }}">
-              </div>
-              
-              <div class="mb-3">
-                <label class="form-label">Thời gian lấy hàng <span class="text-danger">*</span></label>
-                <input type="datetime-local" class="form-control" id="pickup-time" value="{{ old('pickup_time', $order->pickup_time->format('Y-m-d\TH:i')) }}" required>
-                <input type="hidden" id="pickup_time_formatted" name="pickup_time_formatted" value="{{ old('pickup_time_formatted', $order->pickup_time->format('Y-m-d H:i:s')) }}">
-              </div>
-              
-              <div class="mb-3">
-                <label class="form-label">Bưu cục lấy hàng</label>
-                <select class="form-select" name="post_office_id" id="post-office-select">
-                  <option value="">-- Chọn bưu cục --</option>
+              <!-- Hidden inputs -->
+              <input type="hidden" name="sender_name" value="{{ $order->sender_name }}">
+              <input type="hidden" name="sender_phone" value="{{ $order->sender_phone }}">
+              <input type="hidden" name="sender_address" value="{{ $order->sender_address }}">
+              <input type="hidden" name="sender_latitude" class="sender-latitude" value="{{ $order->sender_latitude }}">
+              <input type="hidden" name="sender_longitude" class="sender-longitude" value="{{ $order->sender_longitude }}">
+              <input type="hidden" class="pickup-time" value="{{ $order->pickup_time->format('Y-m-d\TH:i') }}">
+            </div>
+
+            <!-- ✅ CHO PHÉP ĐỔI BƯU CỤC -->
+           <div class="mt-3">
+              <label class="form-label fw-bold">Bưu cục nhận hàng</label>
+              <div class="input-group">
+                <select class="form-select" id="postOfficeSelect" name="post_office_id">
+                  <option value="">-- Đang tải bưu cục... --</option>
                 </select>
-                <small class="text-muted">Để trống nếu muốn tài xế đến tận nơi lấy hàng</small>
+                <button class="btn btn-outline-secondary" type="button" id="refreshPostOfficeBtn" 
+                        title="Tải lại danh sách bưu cục">
+                  <i class="bi bi-arrow-clockwise"></i> Làm mới
+                </button>
               </div>
-            @endif
-            
-            <div class="mt-3">
-              <label class="form-label">Ghi chú</label>
-              <textarea class="form-control" name="note" rows="2" placeholder="Ghi chú cho đơn hàng...">{{ old('note', $order->note) }}</textarea>
+              <small class="text-muted">Thay đổi bưu cục sẽ ảnh hưởng đến phí vận chuyển</small>
             </div>
           </div>
         </div>
       </div>
 
+      <!-- CỘT PHẢI -->
       <div class="col-lg-7">
+        <!-- NGƯỜI NHẬN -->
         <div class="card mb-4">
           <div class="card-header pb-0">
             <h6 class="mb-0"><i class="bi bi-person"></i> Thông tin người nhận</h6>
@@ -197,94 +199,206 @@
               <div class="col-md-6">
                 <div class="mb-3">
                   <label class="form-label">Tên người nhận <span class="text-danger">*</span></label>
-                  <input type="text" class="form-control" name="recipient_name" value="{{ old('recipient_name', $order->recipient_name) }}" required>
+                  <input type="text" class="form-control recipient-name" name="recipient_name" 
+                         value="{{ old('recipient_name', $order->recipient_name) }}" required>
                 </div>
               </div>
               <div class="col-md-6">
                 <div class="mb-3">
                   <label class="form-label">Số điện thoại <span class="text-danger">*</span></label>
-                  <input type="text" class="form-control" name="recipient_phone" value="{{ old('recipient_phone', $order->recipient_phone) }}" required>
+                  <input type="text" class="form-control recipient-phone" name="recipient_phone" 
+                         value="{{ old('recipient_phone', $order->recipient_phone) }}" required>
                 </div>
               </div>
             </div>
             
+            <!-- ✅ ĐỊA CHỈ: HÀ NỘI MẶC ĐỊNH, BẮT ĐẦU TỪ QUẬN/HUYỆN -->
             <div class="mb-3">
               <label class="form-label">Địa chỉ <span class="text-danger">*</span></label>
               <div class="row g-2">
+                <!-- TỈNH/THÀNH PHỐ - READONLY HÀ NỘI -->
                 <div class="col-12">
-                  <select class="form-select province-select" name="province_code" required>
-                    <option value="">Tỉnh/Thành phố</option>
+                  <label class="form-label">
+                    Tỉnh/Thành phố 
+                    <span class="badge bg-success text-white ms-2" style="font-size: 11px;">
+                      <i class="bi bi-geo-alt-fill"></i> Hà Nội
+                    </span>
+                  </label>
+                  <select class="form-select province-select" required disabled
+                          style="background-color: #f5f5f5; cursor: not-allowed; color: #6c757d;">
+                    <option value="">Đang tải Hà Nội...</option>
                   </select>
+                  <input type="hidden" name="province_code" class="province-hidden">
                 </div>
+                
+                <!-- QUẬN/HUYỆN -->
                 <div class="col-12">
                   <select class="form-select district-select" name="district_code" required>
                     <option value="">Quận/Huyện</option>
                   </select>
                 </div>
+                
+                <!-- PHƯỜNG/XÃ -->
                 <div class="col-12">
                   <select class="form-select ward-select" name="ward_code" required>
                     <option value="">Phường/Xã</option>
                   </select>
                 </div>
+                
+                <!-- CHI TIẾT -->
                 <div class="col-12 position-relative">
-                  <input type="text" class="form-control address-detail" name="address_detail" placeholder="Số nhà, tên đường..." value="{{ old('address_detail', $order->address_detail) }}" required autocomplete="off">
-                  <div class="address-suggestions"></div>
+                  <input type="text" class="form-control address-detail" name="address_detail" 
+                         value="{{ old('address_detail', $order->address_detail) }}" 
+                         placeholder="Số nhà, tên đường..." required autocomplete="off">
+                  <div class="address-suggestions list-group"></div>
                 </div>
               </div>
             </div>
             
+            <!-- ĐỊA CHỈ ĐẦY ĐỦ -->
             <div class="mb-3">
               <label class="form-label">Địa chỉ đầy đủ</label>
               <div class="p-2 bg-light rounded">
-                <small class="full-address text-muted">{{ $order->recipient_full_address }}</small>
+                <small class="full-address text-muted">{{ $order->recipient_full_address ?? 'Chưa có địa chỉ đầy đủ' }}</small>
               </div>
               <input type="hidden" name="recipient_latitude" class="recipient-lat" value="{{ $order->recipient_latitude }}">
               <input type="hidden" name="recipient_longitude" class="recipient-lng" value="{{ $order->recipient_longitude }}">
               <input type="hidden" name="recipient_full_address" class="recipient-full-address" value="{{ $order->recipient_full_address }}">
-              <div class="geocode-status mt-1"></div>
+              <div class="geocode-status mt-1"><small class="text-success">Đã có tọa độ</small></div>
             </div>
             
+            <!-- THỜI GIAN GIAO -->
             <div class="mb-3">
               <label class="form-label">Thời gian giao <span class="text-danger">*</span></label>
-              <input type="datetime-local" class="form-control delivery-time-input" value="{{ old('delivery_time', $order->delivery_time->format('Y-m-d\TH:i')) }}" required>
-              <input type="hidden" class="delivery-time-formatted" name="delivery_time_formatted" value="{{ old('delivery_time_formatted', $order->delivery_time->format('Y-m-d H:i:s')) }}">
+              <input type="datetime-local" class="form-control delivery-time-input" 
+                     value="{{ old('delivery_time', $order->delivery_time->format('Y-m-d\TH:i')) }}" required>
             </div>
           </div>
         </div>
 
+        <!-- HÀNG HÓA -->
         <div class="card mb-4">
           <div class="card-header pb-0">
             <h6 class="mb-0"><i class="bi bi-box"></i> Hàng hóa</h6>
           </div>
           <div class="card-body">
+            <!-- LOẠI HÀNG -->
             <div class="mb-3">
               <div class="form-check form-check-inline">
-                <input class="form-check-input item-type" type="radio" name="item_type" value="package" {{ $order->item_type === 'package' ? 'checked' : '' }}>
+                <input class="form-check-input item-type" type="radio" name="item_type" value="package" 
+                       {{ $order->item_type === 'package' ? 'checked' : '' }}>
                 <label class="form-check-label text-danger fw-bold">Bưu kiện</label>
               </div>
               <div class="form-check form-check-inline">
-                <input class="form-check-input item-type" type="radio" name="item_type" value="document" {{ $order->item_type === 'document' ? 'checked' : '' }}>
+                <input class="form-check-input item-type" type="radio" name="item_type" value="document" 
+                       {{ $order->item_type === 'document' ? 'checked' : '' }}>
                 <label class="form-check-label text-danger fw-bold">Tài liệu</label>
               </div>
             </div>
+
+            <!-- ✅ FORM ĐANG SỬA (Hiện khi click Edit) -->
+            <div class="editing-product-form" id="editingProductForm" style="display:none;">
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="mb-0 text-warning"><i class="bi bi-pencil-square"></i> Đang sửa sản phẩm</h6>
+                <button type="button" class="btn btn-sm btn-secondary" onclick="cancelEditProduct()">
+                  <i class="bi bi-x"></i> Hủy
+                </button>
+              </div>
+              
+              <input type="hidden" id="editingProductIndex">
+              
+              <div class="row g-2">
+                <div class="col-12">
+                  <label class="form-label">Tên hàng <span class="text-danger">*</span></label>
+                  <input type="text" class="form-control" id="edit-product-name">
+                </div>
+                <div class="col-4">
+                  <label class="form-label">Số lượng</label>
+                  <input type="number" class="form-control" id="edit-product-quantity" min="1">
+                </div>
+                <div class="col-4">
+                  <label class="form-label">Khối lượng (g)</label>
+                  <input type="number" class="form-control" id="edit-product-weight" min="1">
+                </div>
+                <div class="col-4">
+                  <label class="form-label">Giá trị (VNĐ)</label>
+                  <input type="text" class="form-control" id="edit-product-value">
+                </div>
+              </div>
+              
+              <div class="row mt-2">
+                <div class="col-4">
+                  <input type="number" class="form-control" id="edit-product-length" placeholder="Dài (cm)" min="0">
+                </div>
+                <div class="col-4">
+                  <input type="number" class="form-control" id="edit-product-width" placeholder="Rộng (cm)" min="0">
+                </div>
+                <div class="col-4">
+                  <input type="number" class="form-control" id="edit-product-height" placeholder="Cao (cm)" min="0">
+                </div>
+              </div>
+              
+              <div class="mt-3">
+                <h6 class="fw-bold mb-2">Tính chất hàng hóa</h6>
+                <div class="row">
+                  <div class="col-6">
+
+                    <div class="form-check">
+                      <input class="form-check-input edit-special-checkbox" type="checkbox" id="edit-chk-high-value" value="high_value"  data-product-index="0">
+                      <label class="form-check-label" for="edit-chk-high-value">Giá trị cao</label>
+                    </div>
+
+                    <div class="form-check">
+                    <input class="form-check-input edit-special-checkbox" type="checkbox" id="edit-chk-oversized" value="oversized">
+                    <label class="form-check-label" for="edit-chk-oversized">Quá khổ</label>
+                    </div>
+
+                    <div class="form-check">
+                     <input class="form-check-input edit-special-checkbox" type="checkbox" id="edit-chk-fragile" value="fragile">
+<label class="form-check-label" for="edit-chk-fragile">Dễ vỡ</label>
+                    </div>
+                  </div>
+
+                  <div class="col-6">
+                     <div class="form-check">
+                    <input class="form-check-input edit-special-checkbox" type="checkbox" id="edit-chk-liquid" value="liquid">
+<label class="form-check-label" for="edit-chk-liquid">Chất lỏng</label>
+                    </div>
+                    <div class="form-check">
+                   <input class="form-check-input edit-special-checkbox" type="checkbox" id="edit-chk-bulk" value="bulk">
+<label class="form-check-label" for="edit-chk-bulk">Nguyên khối</label>
+                    </div>
+                    <div class="form-check">
+                    <input class="form-check-input edit-special-checkbox" type="checkbox" id="edit-chk-battery" value="battery">
+<label class="form-check-label" for="edit-chk-battery">Từ tính, Pin</label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <button type="button" class="btn btn-success w-100 mt-3" onclick="saveEditProduct()">
+                <i class="bi bi-check-circle"></i> Lưu thay đổi
+              </button>
+            </div>
             
+            <!-- FORM BƯU KIỆN (Thêm mới) -->
             <div class="product-input-section form-package" style="{{ $order->item_type === 'package' ? '' : 'display:none;' }}">
-              <h6 class="fw-bold mb-3">Thêm bưu kiện</h6>
+              <h6 class="fw-bold mb-3">Thêm bưu kiện mới</h6>
               <div class="row g-2">
                 <div class="col-12">
                   <label class="form-label">Tên hàng <span class="text-danger">*</span></label>
                   <input type="text" class="form-control product-name" placeholder="VD: Áo thun, Sách...">
                 </div>
-                <div class="col-6">
-                  <label class="form-label">Số lượng <span class="text-danger">*</span></label>
+                <div class="col-4">
+                  <label class="form-label">Số lượng</label>
                   <input type="number" class="form-control product-quantity" value="1" min="1">
                 </div>
-                <div class="col-6">
-                  <label class="form-label">Khối lượng (g) <span class="text-danger">*</span></label>
+                <div class="col-4">
+                  <label class="form-label">Khối lượng (g)</label>
                   <input type="number" class="form-control product-weight" value="1" min="1">
                 </div>
-                <div class="col-12">
-                  <label class="form-label">Giá trị (VNĐ) <span class="text-danger">*</span></label>
+                <div class="col-4">
+                  <label class="form-label">Giá trị (VNĐ)</label>
                   <input type="text" class="form-control product-value" value="0">
                 </div>
               </div>
@@ -307,7 +421,7 @@
               <div class="mt-3 special-box">
                 <h6 class="fw-bold mb-2">Tính chất hàng hóa</h6>
                 <div class="row">
-                  <div class="col-md-4">
+                  <div class="col-6">
                     <div class="form-check">
                       <input class="form-check-input special-checkbox" type="checkbox" id="high-value" value="high_value">
                       <label class="form-check-label" for="high-value">Giá trị cao</label>
@@ -316,18 +430,16 @@
                       <input class="form-check-input special-checkbox" type="checkbox" id="oversized" value="oversized">
                       <label class="form-check-label" for="oversized">Quá khổ</label>
                     </div>
-                  </div>
-                  <div class="col-md-4">
                     <div class="form-check">
                       <input class="form-check-input special-checkbox" type="checkbox" id="fragile" value="fragile">
                       <label class="form-check-label" for="fragile">Dễ vỡ</label>
                     </div>
+                  </div>
+                  <div class="col-6">
                     <div class="form-check">
                       <input class="form-check-input special-checkbox" type="checkbox" id="liquid" value="liquid">
                       <label class="form-check-label" for="liquid">Chất lỏng</label>
                     </div>
-                  </div>
-                  <div class="col-md-4">
                     <div class="form-check">
                       <input class="form-check-input special-checkbox" type="checkbox" id="bulk" value="bulk">
                       <label class="form-check-label" for="bulk">Nguyên khối</label>
@@ -345,31 +457,29 @@
               </button>
             </div>
             
+            <!-- FORM TÀI LIỆU (Thêm mới) -->
             <div class="product-input-section form-document" style="{{ $order->item_type === 'document' ? '' : 'display:none;' }}">
-              <h6 class="fw-bold mb-3">Thêm tài liệu</h6>
+              <h6 class="fw-bold mb-3">Thêm tài liệu mới</h6>
               <div class="row g-2">
                 <div class="col-12">
-                  <label class="form-label">Tên tài liệu <span class="text-danger">*</span></label>
+                  <label class="form-label">Tên tài liệu</label>
                   <input type="text" class="form-control document-name" placeholder="VD: Hóa đơn...">
                 </div>
                 <div class="col-4">
-                  <label class="form-label">Số lượng <span class="text-danger">*</span></label>
+                  <label class="form-label">Số lượng</label>
                   <input type="number" class="form-control document-quantity" value="1" min="1">
                 </div>
                 <div class="col-4">
-                  <label class="form-label">Khối lượng (g) <span class="text-danger">*</span></label>
+                  <label class="form-label">Khối lượng (g)</label>
                   <input type="number" class="form-control document-weight" value="1" min="1">
                 </div>
                 <div class="col-4">
-                  <label class="form-label">Giá trị (VNĐ) <span class="text-danger">*</span></label>
+                  <label class="form-label">Giá trị (VNĐ)</label>
                   <input type="text" class="form-control document-value" value="0">
                 </div>
               </div>
               
               <div class="row mt-2">
-                <div class="col-12 mb-2">
-                  <label class="form-label">Kích thước</label>
-                </div>
                 <div class="col-4">
                   <input type="number" class="form-control document-length" placeholder="Dài (cm)" min="0">
                 </div>
@@ -383,19 +493,13 @@
               
               <div class="mt-3 special-box">
                 <h6 class="fw-bold mb-2">Tính chất tài liệu</h6>
-                <div class="row">
-                  <div class="col-md-6">
-                    <div class="form-check">
-                      <input class="form-check-input doc-special-checkbox" type="checkbox" id="doc-high-value" value="high_value">
-                      <label class="form-check-label" for="doc-high-value">Giá trị cao</label>
-                    </div>
-                  </div>
-                  <div class="col-md-6">
-                    <div class="form-check">
-                      <input class="form-check-input doc-special-checkbox" type="checkbox" id="doc-certificate" value="certificate">
-                      <label class="form-check-label" for="doc-certificate">Hóa đơn, Giấy chứng nhận</label>
-                    </div>
-                  </div>
+                <div class="form-check">
+                  <input class="form-check-input doc-special-checkbox" type="checkbox" id="doc-high-value" value="high_value">
+                  <label class="form-check-label" for="doc-high-value">Giá trị cao</label>
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input doc-special-checkbox" type="checkbox" id="doc-certificate" value="certificate">
+                  <label class="form-check-label" for="doc-certificate">Hóa đơn, Giấy chứng nhận</label>
                 </div>
               </div>
               
@@ -404,43 +508,53 @@
               </button>
             </div>
             
+            <!-- DANH SÁCH SẢN PHẨM -->
             <div class="products-list mb-3 mt-3"></div>
             <input type="hidden" name="products_json" class="products-json">
             
+            <!-- DỊCH VỤ -->
             <div class="mb-3">
               <label class="form-label fw-bold">Dịch vụ bổ sung</label>
               <div class="form-check">
-                <input class="form-check-input service-checkbox" type="checkbox" id="priority" value="priority" name="services[]" {{ in_array('priority', $order->services ?? []) ? 'checked' : '' }}>
+                <input class="form-check-input service-checkbox" type="checkbox" id="priority" value="priority" 
+                       {{ in_array('priority', $order->services ?? []) ? 'checked' : '' }}>
                 <label class="form-check-label" for="priority">Giao ưu tiên</label>
               </div>
               <div class="form-check">
-                <input class="form-check-input service-checkbox" type="checkbox" id="insurance" value="insurance" name="services[]" {{ in_array('insurance', $order->services ?? []) ? 'checked' : '' }}>
+                <input class="form-check-input service-checkbox" type="checkbox" id="insurance" value="insurance" 
+                       {{ in_array('insurance', $order->services ?? []) ? 'checked' : '' }}>
                 <label class="form-check-label" for="insurance">Bảo hiểm</label>
               </div>
               <div class="form-check">
-                <input class="form-check-input cod-checkbox" type="checkbox" id="cod" {{ in_array('cod', $order->services ?? []) || $order->cod_amount > 0 ? 'checked' : '' }}>
+                <input class="form-check-input cod-checkbox" type="checkbox" id="cod" 
+                       {{ in_array('cod', $order->services ?? []) || $order->cod_amount > 0 ? 'checked' : '' }}>
                 <label class="form-check-label" for="cod">Thu hộ COD</label>
               </div>
               
               <div class="cod-amount-container mt-2 {{ in_array('cod', $order->services ?? []) || $order->cod_amount > 0 ? '' : 'd-none' }}">
                 <label class="form-label">Số tiền thu hộ (VNĐ)</label>
-                <input type="text" class="form-control cod-amount-display" placeholder="Nhập số tiền" value="{{ $order->cod_amount > 0 ? number_format($order->cod_amount, 0, ',', '.') : '' }}">
+                <input type="text" class="form-control cod-amount-display" placeholder="Nhập số tiền" 
+                       value="{{ $order->cod_amount > 0 ? number_format($order->cod_amount, 0, ',', '.') : '' }}">
                 <input type="hidden" class="cod-amount-raw" name="cod_amount" value="{{ $order->cod_amount }}">
               </div>
             </div>
             
+            <!-- NGƯỜI THANH TOÁN -->
             <div class="mb-3">
               <label class="form-label fw-bold">Người thanh toán cước phí</label>
               <div class="form-check">
-                <input class="form-check-input payer-radio" type="radio" name="payer" id="payer-sender" value="sender" {{ $order->payer === 'sender' ? 'checked' : '' }}>
+                <input class="form-check-input payer-radio" type="radio" name="payer" id="payer-sender" value="sender" 
+                       {{ $order->payer === 'sender' ? 'checked' : '' }}>
                 <label class="form-check-label" for="payer-sender">Người gửi</label>
               </div>
               <div class="form-check">
-                <input class="form-check-input payer-radio" type="radio" name="payer" id="payer-recipient" value="recipient" {{ $order->payer === 'recipient' ? 'checked' : '' }}>
+                <input class="form-check-input payer-radio" type="radio" name="payer" id="payer-recipient" value="recipient" 
+                       {{ $order->payer === 'recipient' ? 'checked' : '' }}>
                 <label class="form-check-label" for="payer-recipient">Người nhận</label>
               </div>
             </div>
             
+            <!-- CHI PHÍ -->
             <div class="cost-breakdown">
               <h6 class="fw-bold mb-2"><i class="bi bi-calculator"></i> Chi phí dự kiến</h6>
               <div class="cost-item">
@@ -450,6 +564,10 @@
               <div class="cost-item">
                 <span>Phụ phí:</span>
                 <strong class="extra-cost">0 đ</strong>
+              </div>
+              <div class="cost-item distance-fee-row" style="{{ $order->distance_fee > 0 ? '' : 'display:none;' }}">
+                <span>Phí khoảng cách:</span>
+                <strong class="distance-fee text-info">{{ number_format($order->distance_fee ?? 0, 0, ',', '.') }} đ</strong>
               </div>
               <div class="cost-item cod-fee-row" style="{{ $order->cod_fee > 0 ? '' : 'display:none;' }}">
                 <span>Phí COD:</span>
@@ -471,6 +589,7 @@
           </div>
         </div>
 
+        <!-- HÌNH ẢNH -->
         <div class="card mb-4">
           <div class="card-header pb-0">
             <h6 class="mb-0"><i class="bi bi-images"></i> Hình ảnh đơn hàng</h6>
@@ -506,6 +625,7 @@
           </div>
         </div>
 
+        <!-- NÚT SUBMIT -->
         <div class="text-end">
           <a href="{{ route('customer.orderManagent.show', $order->id) }}" class="btn btn-secondary me-2">Hủy</a>
           <button type="submit" class="btn btn-danger btn-lg" id="submitUpdate">
@@ -518,259 +638,92 @@
 </div>
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="{{ asset('assets2/js/customer/dashboard/orders/fetchNearbyPostOffices.js') }}"></script>
 <script>
 const GOONG_API_KEY = '{{ config("services.goong.api_key") }}';
 let vietnamData = [];
-let productsList = @json($productsData);
+let productsList = @json($productsData ?? []);
 let selectedImages = [];
 let imagesToDelete = [];
 let geocodeTimeout = null;
 let autocompleteTimeout = null;
+let editingProductIndex = null; // Track đang sửa product nào
+
+productsList = productsList.map(p => {
+    return {
+        ...p,
+        specials: Array.isArray(p.specials)
+            ? p.specials
+            : (typeof p.specials === 'string' ? JSON.parse(p.specials) : [])
+    };
+});
+
 
 $(document).ready(function() {
   console.log('🚀 Khởi tạo form sửa đơn...');
   console.log('📦 Products hiện tại:', productsList);
   
+    $.ajaxSetup({
+    headers: {
+      'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+    }
+  });
+
   loadProvinces().then(() => {
     console.log('✅ Đã load provinces');
     setupEventHandlers();
+    setupEditFormEventHandlers();
     setupCurrencyFormatting();
     setupToggleForms();
     renderProductsList();
-    calculateCost();
     preselectAddress();
-    loadPostOffices();
+    loadPostOffices(); // ✅ Load bưu cục
+    calculateCost();
     formatExistingCurrencyValues();
   });
 });
 
+// ============ LOAD PROVINCES (CHỈ HÀ NỘI) ============
 function loadProvinces() {
   return $.ajax({
     url: '/data/provinces.json',
     dataType: 'json',
     success: function(data) {
-      vietnamData = data;
+      vietnamData = filterHanoiOnly(data);
       populateProvinceSelect();
     },
     error: function() {
-      console.error('❌ Không thể load provinces');
-      alert('⚠️ Không thể tải dữ liệu địa chỉ. Vui lòng tải lại trang.');
+      $.ajax({
+        url: "https://provinces.open-api.vn/api/?depth=3",
+        dataType: 'json',
+        success: function(data) {
+          vietnamData = filterHanoiOnly(data);
+          populateProvinceSelect();
+        }
+      });
     }
   });
+}
+
+function filterHanoiOnly(data) {
+  const hanoi = data.find(p => 
+    p.name.includes('Hà Nội') || 
+    p.name.includes('Ha Noi') ||
+    p.code === '01' ||
+    p.code === 1
+  );
+  return hanoi ? [hanoi] : [];
 }
 
 function populateProvinceSelect() {
-  let html = '<option value="">Tỉnh/Thành phố</option>';
-  vietnamData.forEach(province => {
-    html += `<option value="${province.code}">${province.name}</option>`;
-  });
-  $('.province-select').html(html);
-}
-
-// ============================================
-// HÀM TÌM BƯU CỤC BẰNG OVERPASS API & NOMINATIM
-// ============================================
-
-function haversineDistance(lat1, lon1, lat2, lon2) {
-  const R = 6371;
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = 
-    Math.sin(dLat/2) * Math.sin(dLat/2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-    Math.sin(dLon/2) * Math.sin(dLon/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  return R * c;
-}
-
-async function loadPostOffices() {
-  const senderLat = parseFloat('{{ $order->sender_latitude }}');
-  const senderLng = parseFloat('{{ $order->sender_longitude }}');
-  const currentOfficeId = '{{ $order->post_office_id }}';
+  if (vietnamData.length === 0) return;
   
-  if (!senderLat || !senderLng || isNaN(senderLat) || isNaN(senderLng)) {
-    console.warn('⚠️ Không có tọa độ người gửi');
-    return;
-  }
+  const hanoi = vietnamData[0];
+  const hanoiCode = String(hanoi.code);
   
-  console.log('🔍 Tìm bưu cục tại:', { senderLat, senderLng });
-  
-  $('#post-office-select').html('<option value="">Đang tải bưu cục...</option>');
-  
-  const radius = 10000; // 10km
-  
-  const overpassQuery = `
-    [out:json][timeout:25];
-    (
-      node["amenity"="post_office"](around:${radius},${senderLat},${senderLng});
-      node["office"="post_office"](around:${radius},${senderLat},${senderLng});
-      way["amenity"="post_office"](around:${radius},${senderLat},${senderLng});
-    );
-    out body;
-    >;
-    out skel qt;
-  `;
-  
-  const overpassUrl = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(overpassQuery)}`;
-  
-  try {
-    console.log('📡 Gọi Overpass API...');
-    const response = await fetch(overpassUrl);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const data = await response.json();
-    
-    console.log('📦 Kết quả Overpass:', data);
-    
-    if (!data.elements || data.elements.length === 0) {
-      console.warn('⚠️ Không tìm thấy bưu cục, thử Nominatim...');
-      await loadPostOfficesNominatim(senderLat, senderLng, currentOfficeId);
-      return;
-    }
-    
-    const nodes = data.elements.filter(item => 
-      item.type === 'node' && item.lat && item.lon
-    );
-    
-    let postOffices = nodes.map(item => ({
-      name: item.tags?.name || item.tags?.['name:vi'] || 
-            (item.tags?.['addr:street'] ? `Bưu cục ${item.tags['addr:street']}` : 'Bưu cục'),
-      address: item.tags?.['addr:full'] || 
-              item.tags?.['addr:street'] || 
-              item.tags?.['addr:city'] || 
-              'Không có địa chỉ chi tiết',
-      lat: parseFloat(item.lat),
-      lng: parseFloat(item.lon),
-      operator: item.tags?.operator || 'Vietnam Post',
-      id: item.id,
-      type: 'node'
-    })).filter(office => {
-      return (
-        office.name && 
-        office.name !== 'Bưu cục' && 
-        office.address && 
-        office.address !== 'Không có địa chỉ chi tiết'
-      );
-    });
-    
-    console.log('📍 Danh sách bưu cục:', postOffices);
-    
-    if (postOffices.length === 0) {
-      $('#post-office-select').html('<option value="">Không tìm thấy bưu cục gần đây</option>');
-      return;
-    }
-    
-    displayPostOffices(senderLat, senderLng, postOffices, currentOfficeId);
-    
-  } catch (err) {
-    console.error('❌ Lỗi Overpass API:', err);
-    await loadPostOfficesNominatim(senderLat, senderLng, currentOfficeId);
-  }
-}
-
-async function loadPostOfficesNominatim(lat, lon, currentOfficeId) {
-  console.log('📡 Gọi Nominatim API...');
-  
-  const keywords = ['bưu cục', 'post office', 'vnpost', 'vietnam post'];
-  let allResults = [];
-  
-  for (const keyword of keywords) {
-    try {
-      const bboxSize = 0.05;
-      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(keyword + ' Hà Nội')}&format=json&limit=10&lat=${lat}&lon=${lon}&bounded=1&viewbox=${lon-bboxSize},${lat-bboxSize},${lon+bboxSize},${lat+bboxSize}`;
-      
-      const response = await fetch(url, {
-        headers: {
-          'User-Agent': 'PostOfficeApp/1.0',
-          'Accept': 'application/json'
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        allResults = allResults.concat(data.filter(item => 
-          item.type === 'amenity' && 
-          (item.class === 'post_office' || item.class === 'office')
-        ));
-      }
-      
-      await new Promise(resolve => setTimeout(resolve, 1000));
-    } catch (err) {
-      console.warn(`⚠️ Lỗi khi tìm "${keyword}":`, err);
-    }
-  }
-  
-  console.log('📦 Kết quả Nominatim:', allResults);
-  
-  if (allResults.length === 0) {
-    $('#post-office-select').html('<option value="">Không tìm thấy bưu cục gần đây</option>');
-    return;
-  }
-  
-  const uniqueOffices = [];
-  const seen = new Set();
-  
-  allResults.forEach(item => {
-    const key = `${item.lat.toFixed(4)},${item.lon.toFixed(4)}`;
-    if (!seen.has(key) && item.display_name) {
-      seen.add(key);
-      const addressParts = item.display_name.split(',');
-      uniqueOffices.push({
-        name: addressParts[0].trim() || 'Bưu cục',
-        address: item.display_name || 'Không có địa chỉ chi tiết',
-        lat: parseFloat(item.lat),
-        lng: parseFloat(item.lon),
-        operator: 'Vietnam Post',
-        id: item.place_id,
-        type: 'nominatim'
-      });
-    }
-  });
-  
-  console.log('📍 Danh sách bưu cục sau khi lọc:', uniqueOffices);
-  
-  if (uniqueOffices.length > 0) {
-    displayPostOffices(lat, lon, uniqueOffices, currentOfficeId);
-  }
-}
-
-function displayPostOffices(userLat, userLon, postOffices, currentOfficeId) {
-  if (postOffices.length === 0) {
-    $('#post-office-select').html('<option value="">Không tìm thấy bưu cục</option>');
-    return;
-  }
-  
-  // Tính khoảng cách bằng Haversine
-  const officesWithDistance = postOffices.map(office => {
-    const distance = haversineDistance(userLat, userLon, office.lat, office.lng);
-    return {
-      ...office,
-      distance: distance
-    };
-  });
-  
-  // Sắp xếp theo khoảng cách
-  officesWithDistance.sort((a, b) => a.distance - b.distance);
-  
-  console.log('✅ Danh sách bưu cục đã sắp xếp:', officesWithDistance.slice(0, 5));
-  
-  // Hiển thị dropdown
-  let html = '<option value="">-- Chọn bưu cục --</option>';
-  
-  officesWithDistance.slice(0, 15).forEach((office, index) => {
-    const distanceKm = office.distance.toFixed(1);
-    const selected = office.id == currentOfficeId ? 'selected' : '';
-    
-    html += `<option value="${office.id}" 
-              data-lat="${office.lat}" 
-              data-lng="${office.lng}" 
-              data-distance="${office.distance}" 
-              ${selected}>
-      ${index + 1}. ${office.name} - ${office.address} (~${distanceKm}km)
-    </option>`;
-  });
-  
-  $('#post-office-select').html(html);
-  console.log('✅ Đã hiển thị', Math.min(15, officesWithDistance.length), 'bưu cục');
+  $('.province-select').html(`<option value="${hanoiCode}">${hanoi.name}</option>`);
+  $('.province-select').val(hanoiCode);
+  $('.province-hidden').val(hanoiCode);
 }
 
 function preselectAddress() {
@@ -778,33 +731,133 @@ function preselectAddress() {
   const districtCode = '{{ $order->district_code }}';
   const wardCode = '{{ $order->ward_code }}';
   
-  console.log('📍 Preselecting:', { provinceCode, districtCode, wardCode });
-  
-  if (provinceCode) {
-    $('.province-select').val(provinceCode).trigger('change');
+  if (provinceCode && vietnamData.length > 0) {
+    const hanoi = vietnamData[0];
     
-    setTimeout(() => {
+    // Populate districts
+    if (hanoi.districts && Array.isArray(hanoi.districts)) {
+      let html = '<option value="">Quận/Huyện</option>';
+      hanoi.districts.forEach(district => {
+        html += `<option value="${district.code}">${district.name}</option>`;
+      });
+      $('.district-select').html(html).prop('disabled', false);
+      
       if (districtCode) {
-        $('.district-select').val(districtCode).trigger('change');
+        $('.district-select').val(districtCode);
         
-        setTimeout(() => {
+        // Populate wards
+        const district = hanoi.districts.find(d => String(d.code) === String(districtCode));
+        if (district && district.wards) {
+          let wardHtml = '<option value="">Phường/Xã</option>';
+          district.wards.forEach(ward => {
+            wardHtml += `<option value="${ward.code}">${ward.name}</option>`;
+          });
+          $('.ward-select').html(wardHtml).prop('disabled', false);
+          
           if (wardCode) {
-            $('.ward-select').val(wardCode).trigger('change');
+            $('.ward-select').val(wardCode);
           }
-        }, 300);
+        }
       }
-    }, 300);
+    }
   }
+  
+  updateFullAddress();
 }
 
+// ============ LOAD BƯU CỤC ============
+function loadPostOffices() {
+  const senderLat = parseFloat($('.sender-latitude').val());
+  const senderLng = parseFloat($('.sender-longitude').val());
+  const savedPostOfficeId = '{{ $order->post_office_id }}';
+  
+  console.log('📍 Loading post offices:', {senderLat, senderLng, savedPostOfficeId});
+  
+  if (!senderLat || !senderLng || isNaN(senderLat) || isNaN(senderLng)) {
+    $('#postOfficeSelect').html('<option value="">Không có tọa độ hợp lệ</option>');
+    return;
+  }
+  
+  // ✅ THÊM: Preselect ngay nếu có bưu cục cũ
+  if (savedPostOfficeId) {
+    @php
+      $postOfficeName = $order->postOffice->name ?? 'Bưu cục đã chọn';
+      $postOfficeLat = $order->postOffice->latitude ?? $order->sender_latitude;
+      $postOfficeLng = $order->postOffice->longitude ?? $order->sender_longitude;
+    @endphp
+    
+    $('#postOfficeSelect').html(
+      `<option value="${savedPostOfficeId}" 
+               data-lat="{{ $postOfficeLat }}" 
+               data-lng="{{ $postOfficeLng }}" 
+               selected>
+        {{ $postOfficeName }}
+      </option>`
+    );
+  }
+  
+  // Sau đó mới fetch danh sách mới
+  fetchNearbyPostOffices(senderLat, senderLng);
+  
+  // ✅ Đợi tối đa 5 giây
+  let attempts = 0;
+  const checkInterval = setInterval(() => {
+    attempts++;
+    const optionsCount = $('#postOfficeSelect option').length;
+    
+    if (optionsCount > 1 || attempts > 10) {
+      clearInterval(checkInterval);
+      
+      // Đảm bảo bưu cục cũ vẫn được selected
+      if (savedPostOfficeId && $('#postOfficeSelect').val() !== savedPostOfficeId) {
+        const optionExists = $(`#postOfficeSelect option[value="${savedPostOfficeId}"]`).length > 0;
+        if (optionExists) {
+          $('#postOfficeSelect').val(savedPostOfficeId);
+        }
+      }
+    }
+  }, 500);
+}
+
+// ============ XỬ LÝ KHI ĐỔI BƯU CỤC ============
+$('#postOfficeSelect').on('change', function() {
+  const selectedOption = $(this).find('option:selected');
+  const officeId = $(this).val();
+  const officeName = selectedOption.text();
+  
+  console.log('📍 Đổi bưu cục:', {
+    id: officeId,
+    name: officeName
+  });
+  
+  if (officeId) {
+    // ✅ CHỈ CẬP NHẬT POST_OFFICE_ID, KHÔNG ĐỘNG VÀO SENDER COORDINATES
+    
+    // Hiển thị thông báo
+    const Toast = Swal.mixin({
+      toast: true,
+      position: 'top-end',
+      showConfirmButton: false,
+      timer: 2000
+    });
+    
+    Toast.fire({
+      icon: 'info',
+      title: `Đã chọn ${officeName.split('-')[0].trim()}`
+    });
+    
+    // ✅ Tính lại phí (backend sẽ tự động lấy tọa độ bưu cục từ post_office_id)
+    calculateCost();
+  }
+});
+
+// ============ SETUP EVENT HANDLERS ============
 function setupEventHandlers() {
-  $('.province-select').on('change', handleProvinceChange);
   $('.district-select').on('change', handleDistrictChange);
   $('.ward-select, .address-detail').on('change keyup', updateFullAddress);
   
   $('.address-detail').on('input', function() {
     const query = $(this).val().trim();
-    
     if (autocompleteTimeout) clearTimeout(autocompleteTimeout);
     
     if (query.length < 3) {
@@ -831,6 +884,13 @@ function setupEventHandlers() {
     }
   });
   
+  // ✅ THÊM: Event cho checkboxes trong form THÊM MỚI
+  $('.special-checkbox, .doc-special-checkbox').on('change', function() {
+    console.log('🔄 Checkbox thay đổi trong form thêm mới');
+    // Không cần tính lại phí ở đây vì chưa thêm vào productsList
+    // Chỉ cần đánh dấu đã thay đổi
+  });
+  
   $('.service-checkbox, .cod-checkbox').on('change', function() {
     if ($(this).hasClass('cod-checkbox')) {
       const isChecked = $(this).is(':checked');
@@ -854,14 +914,9 @@ function setupEventHandlers() {
   $('.payer-radio').on('change', calculateCost);
   $('.order-images').on('change', handleNewImageUpload);
   
-  $('#pickup-time').on('change', function() {
-    const value = $(this).val();
-    $('#pickup_time_formatted').val(formatDatetimeForDatabase(value));
-  });
-  
   $('.delivery-time-input').on('change', function() {
     const value = $(this).val();
-    $('.delivery-time-formatted').val(formatDatetimeForDatabase(value));
+    $('#delivery_time_formatted').val(formatDatetimeForDatabase(value));
   });
   
   $(document).on('click', function(e) {
@@ -871,44 +926,20 @@ function setupEventHandlers() {
   });
 }
 
-function handleProvinceChange() {
-  const provinceCode = String($('.province-select').val() || '');
-  
-  $('.district-select').html('<option value="">Quận/Huyện</option>').prop('disabled', true);
-  $('.ward-select').html('<option value="">Phường/Xã</option>').prop('disabled', true);
-  
-  if (!provinceCode) {
-    updateFullAddress();
-    return;
-  }
-  
-  const province = vietnamData.find(p => String(p.code) === provinceCode);
-  if (province?.districts && Array.isArray(province.districts)) {
-    let html = '<option value="">Quận/Huyện</option>';
-    province.districts.forEach(district => {
-      html += `<option value="${district.code}">${district.name}</option>`;
-    });
-    $('.district-select').html(html).prop('disabled', false);
-  }
-  
-  updateFullAddress();
-}
-
 function handleDistrictChange() {
   const districtCode = String($('.district-select').val() || '');
-  const provinceCode = String($('.province-select').val() || '');
   
   $('.ward-select').html('<option value="">Phường/Xã</option>').prop('disabled', true);
   
-  if (!districtCode) {
+  if (!districtCode || vietnamData.length === 0) {
     updateFullAddress();
     return;
   }
   
-  const province = vietnamData.find(p => String(p.code) === provinceCode);
-  const district = province?.districts?.find(d => String(d.code) === districtCode);
+  const hanoi = vietnamData[0];
+  const district = hanoi.districts.find(d => String(d.code) === districtCode);
   
-  if (district?.wards && Array.isArray(district.wards)) {
+  if (district && district.wards && Array.isArray(district.wards)) {
     let html = '<option value="">Phường/Xã</option>';
     district.wards.forEach(ward => {
       html += `<option value="${ward.code}">${ward.name}</option>`;
@@ -926,11 +957,10 @@ function updateFullAddress() {
   const provinceText = $('.province-select option:selected').text();
   
   let addressParts = [];
-  
   if (detail) addressParts.push(detail);
   if ($('.ward-select').val() && wardText !== 'Phường/Xã') addressParts.push(wardText);
   if ($('.district-select').val() && districtText !== 'Quận/Huyện') addressParts.push(districtText);
-  if ($('.province-select').val() && provinceText !== 'Tỉnh/Thành phố') addressParts.push(provinceText);
+  if (provinceText) addressParts.push(provinceText);
   
   const fullAddress = addressParts.join(', ');
   $('.full-address').text(fullAddress || 'Chưa có địa chỉ đầy đủ');
@@ -938,23 +968,18 @@ function updateFullAddress() {
   
   if (geocodeTimeout) clearTimeout(geocodeTimeout);
   
-  if ($('.province-select').val() && $('.district-select').val() && fullAddress) {
+  if (fullAddress) {
     $('.geocode-status').html('<small class="text-warning"><i class="bi bi-hourglass-split"></i> Đang tìm tọa độ...</small>');
-    
     geocodeTimeout = setTimeout(() => {
       fetchCoordinates(fullAddress);
     }, 1000);
-  } else {
-    $('.recipient-lat').val('');
-    $('.recipient-lng').val('');
-    $('.geocode-status').html('<small class="text-muted">Chưa tìm tọa độ</small>');
   }
 }
 
 function goongAutocomplete(query) {
   const provinceText = $('.province-select option:selected').text();
   let input = query;
-  if (provinceText && provinceText !== 'Tỉnh/Thành phố') {
+  if (provinceText) {
     input += ', ' + provinceText;
   }
   
@@ -971,9 +996,6 @@ function goongAutocomplete(query) {
       } else {
         $('.address-suggestions').hide().html('');
       }
-    },
-    error: function() {
-      console.warn('⚠️ Goong Autocomplete API lỗi');
     }
   });
 }
@@ -997,7 +1019,6 @@ function displayAutocompleteSuggestions(predictions) {
     e.preventDefault();
     const placeId = $(this).data('place-id');
     const description = $(this).data('description');
-    
     goongPlaceDetail(placeId, description);
     $('.address-suggestions').hide();
   });
@@ -1020,56 +1041,12 @@ function goongPlaceDetail(placeId, description) {
         $('.recipient-lng').val(lng);
         $('.geocode-status').html('<small class="text-success"><i class="bi bi-check-circle"></i> Đã tìm thấy tọa độ</small>');
         
-        parseGoongAddress(result, description);
+        $('.address-detail').val(description.split(',')[0].trim());
+        updateFullAddress();
+        calculateCost();
       }
-    },
-    error: function() {
-      console.error('❌ Không thể lấy chi tiết địa điểm');
     }
   });
-}
-
-function parseGoongAddress(result, description) {
-  $('.address-detail').val(description.split(',')[0].trim());
-  
-  const addressComponents = result.address_components || [];
-  
-  addressComponents.forEach(component => {
-    const types = component.types || [];
-    
-    if (types.includes('administrative_area_level_1')) {
-      const provinceName = component.long_name;
-      $('.province-select option').each(function() {
-        if ($(this).text().includes(provinceName)) {
-          $('.province-select').val($(this).val()).trigger('change');
-        }
-      });
-    }
-    
-    if (types.includes('administrative_area_level_2')) {
-      setTimeout(() => {
-        const districtName = component.long_name;
-        $('.district-select option').each(function() {
-          if ($(this).text().includes(districtName)) {
-            $('.district-select').val($(this).val()).trigger('change');
-          }
-        });
-      }, 500);
-    }
-    
-    if (types.includes('sublocality_level_1') || types.includes('administrative_area_level_3')) {
-      setTimeout(() => {
-        const wardName = component.long_name;
-        $('.ward-select option').each(function() {
-          if ($(this).text().includes(wardName)) {
-            $('.ward-select').val($(this).val()).trigger('change');
-          }
-        });
-      }, 1000);
-    }
-  });
-  
-  setTimeout(updateFullAddress, 1500);
 }
 
 function fetchCoordinates(address) {
@@ -1089,16 +1066,18 @@ function fetchCoordinates(address) {
         $('.recipient-lat').val(lat);
         $('.recipient-lng').val(lng);
         $('.geocode-status').html('<small class="text-success"><i class="bi bi-check-circle"></i> Đã tìm thấy tọa độ</small>');
+        calculateCost();
       } else {
-        $('.geocode-status').html('<small class="text-warning"><i class="bi bi-exclamation-triangle"></i> Không tìm thấy tọa độ chính xác</small>');
+        $('.geocode-status').html('<small class="text-warning"><i class="bi bi-exclamation-triangle"></i> Không tìm thấy tọa độ</small>');
       }
     },
     error: function() {
-      $('.geocode-status').html('<small class="text-danger"><i class="bi bi-x-circle"></i> Lỗi kết nối Goong API</small>');
+      $('.geocode-status').html('<small class="text-danger"><i class="bi bi-x-circle"></i> Lỗi Goong API</small>');
     }
   });
 }
 
+// ============ PRODUCTS: THÊM MỚI ============
 function addProduct() {
   const name = $('.product-name').val().trim();
   const quantity = parseInt($('.product-quantity').val()) || 1;
@@ -1108,13 +1087,8 @@ function addProduct() {
   const width = parseFloat($('.product-width').val()) || 0;
   const height = parseFloat($('.product-height').val()) || 0;
   
-  if (!name) {
-    alert('⚠️ Vui lòng nhập tên hàng');
-    return;
-  }
-  
-  if (weight <= 0) {
-    alert('⚠️ Khối lượng phải lớn hơn 0');
+  if (!name || weight <= 0) {
+    alert('⚠️ Vui lòng nhập đủ thông tin hàng');
     return;
   }
   
@@ -1136,8 +1110,6 @@ function addProduct() {
   };
   
   productsList.push(product);
-  console.log('✅ Đã thêm hàng:', name);
-  
   renderProductsList();
   resetProductForm();
   calculateCost();
@@ -1152,13 +1124,8 @@ function addDocument() {
   const width = parseFloat($('.document-width').val()) || 0;
   const height = parseFloat($('.document-height').val()) || 0;
   
-  if (!name) {
-    alert('⚠️ Vui lòng nhập tên tài liệu');
-    return;
-  }
-  
-  if (weight <= 0) {
-    alert('⚠️ Khối lượng phải lớn hơn 0');
+  if (!name || weight <= 0) {
+    alert('⚠️ Vui lòng nhập đủ thông tin tài liệu');
     return;
   }
   
@@ -1180,18 +1147,17 @@ function addDocument() {
   };
   
   productsList.push(product);
-  console.log('✅ Đã thêm tài liệu:', name);
-  
   renderProductsList();
   resetDocumentForm();
   calculateCost();
 }
 
+// ============ PRODUCTS: HIỂN THỊ DANH SÁCH (CÓ NÚT SỬA) ============
 function renderProductsList() {
   const container = $('.products-list');
   
   if (!productsList || productsList.length === 0) {
-    container.html('<div class="alert alert-warning">Chưa có hàng hóa nào. Vui lòng thêm ít nhất 1 mặt hàng.</div>');
+    container.html('<div class="alert alert-warning">Chưa có hàng hóa</div>');
     $('.products-json').val('[]');
     return;
   }
@@ -1199,24 +1165,40 @@ function renderProductsList() {
   let html = '<h6 class="fw-bold mb-2">Danh sách hàng hóa:</h6>';
   productsList.forEach((item, idx) => {
     const icon = item.type === 'package' ? '📦' : '📄';
-    const specialsText = item.specials && item.specials.length > 0 
-      ? `<div class="text-muted small">Đặc tính: ${item.specials.join(', ')}</div>` 
-      : '';
+    
+    // ✅ THÊM: Format specials labels
+    let specialsHtml = '';
+    if (item.specials && item.specials.length > 0) {
+      const specialsLabels = item.specials.map(s => {
+        const labelMap = {
+          'high_value': 'Giá trị cao',
+          'oversized': 'Quá khổ',
+          'fragile': 'Dễ vỡ',
+          'liquid': 'Chất lỏng',
+          'bulk': 'Nguyên khối',
+          'battery': 'Từ tính, Pin',
+          'certificate': 'Hóa đơn, Giấy chứng nhận'
+        };
+        return labelMap[s] || s;
+      }).join(', ');
+      specialsHtml = `<br><small class="text-warning"><i class="bi bi-star-fill"></i> ${specialsLabels}</small>`;
+    }
     
     html += `
       <div class="product-item">
-        <div class="d-flex justify-content-between align-items-start">
-          <div class="flex-grow-1">
-            <strong>${icon} ${item.name}</strong>
-            <div class="text-muted small">
-              SL: ${item.quantity} | KL: ${item.weight}g | GT: ${item.value.toLocaleString('vi-VN')}đ
-              ${item.length && item.width && item.height ? ` | KT: ${item.length}x${item.width}x${item.height}cm` : ''}
-            </div>
-            ${specialsText}
+        <button type="button" class="btn btn-sm btn-warning edit-product-btn" onclick="editProduct(${idx})">
+          <i class="bi bi-pencil"></i>
+        </button>
+        <button type="button" class="btn btn-sm btn-danger remove-product-btn" onclick="removeProduct(${idx})">
+          <i class="bi bi-trash"></i>
+        </button>
+        <div class="pe-5">
+          <strong>${icon} ${item.name}</strong>
+          <div class="text-muted small">
+            SL: ${item.quantity} | KL: ${item.weight}g | GT: ${item.value.toLocaleString('vi-VN')}đ
+            ${item.length || item.width || item.height ? `<br>Kích thước: ${item.length}×${item.width}×${item.height} cm` : ''}
+            ${specialsHtml}
           </div>
-          <button type="button" class="btn btn-sm btn-outline-danger remove-btn" onclick="removeProduct(${idx})">
-            <i class="bi bi-trash"></i>
-          </button>
         </div>
       </div>
     `;
@@ -1224,6 +1206,141 @@ function renderProductsList() {
   
   container.html(html);
   $('.products-json').val(JSON.stringify(productsList));
+}
+
+// ============ PRODUCTS: SỬA (ĐỔ THÔNG TIN VÀO FORM) ============
+function editProduct(idx) {
+    const product = productsList[idx];
+    
+    console.log('📝 Đang sửa product:', product);
+    
+    // Hiện form sửa
+    $('#editingProductForm').slideDown();
+    editingProductIndex = idx;
+    $('#editingProductIndex').val(idx);
+    
+    // Đổ thông tin cơ bản vào form
+    $('#edit-product-name').val(product.name);
+    $('#edit-product-quantity').val(product.quantity);
+    $('#edit-product-weight').val(product.weight);
+    setCurrencyValue($('#edit-product-value'), product.value);
+    $('#edit-product-length').val(product.length || '');
+    $('#edit-product-width').val(product.width || '');
+    $('#edit-product-height').val(product.height || '');
+    
+    // ✅ BƯỚC 1: Clear tất cả checkboxes trước
+    $('.edit-special-checkbox').prop('checked', false);
+    
+    // ✅ BƯỚC 2: Đánh dấu lại specials từ product
+    if (product.specials && Array.isArray(product.specials) && product.specials.length > 0) {
+        console.log('🏷️ Specials cần check:', product.specials);
+        
+        product.specials.forEach(specialValue => {
+            // ✅ FIX: Tìm checkbox theo VALUE attribute
+            // specialValue có thể là tiếng Anh (high_value) hoặc Việt (Giá trị cao)
+            // Backend gửi về tiếng Việt, nhưng checkbox value là tiếng Anh
+            
+            // Lấy key tiếng Anh từ tên Việt
+            const specialsTranslation = {
+                'Giá trị cao': 'high_value',
+                'Quá khổ': 'oversized',
+                'Dễ vỡ': 'fragile',
+                'Chất lỏng': 'liquid',
+                'Nguyên khối': 'bulk',
+                'Từ tính, Pin': 'battery',
+                'Hóa đơn, Giấy chứng nhận': 'certificate'
+            };
+            
+            // Nếu specialValue là tiếng Việt, convert sang tiếng Anh
+            let specialKey = specialsTranslation[specialValue] || specialValue;
+            
+            // Tìm checkbox có value = specialKey
+            const $checkbox = $(`.edit-special-checkbox[value="${specialKey}"]`);
+            
+            if ($checkbox.length > 0) {
+                $checkbox.prop('checked', true);
+                console.log(`✅ Đã check: ${specialKey} (${specialValue})`);
+            } else {
+                console.warn(`⚠️ Không tìm thấy checkbox cho: ${specialKey}`);
+            }
+        });
+    } else {
+        console.log('ℹ️ Product không có specials');
+    }
+    
+    // Scroll đến form
+    $('#editingProductForm')[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+// ============ PRODUCTS: LƯU SAU KHI SỬA ============
+function saveEditProduct() {
+    if (editingProductIndex === null) {
+        console.error('❌ editingProductIndex is null!');
+        return;
+    }
+    
+    const name = $('#edit-product-name').val().trim();
+    const quantity = parseInt($('#edit-product-quantity').val()) || 1;
+    const weight = parseFloat($('#edit-product-weight').val()) || 0;
+    const value = getCurrencyValue($('#edit-product-value'));
+    const length = parseFloat($('#edit-product-length').val()) || 0;
+    const width = parseFloat($('#edit-product-width').val()) || 0;
+    const height = parseFloat($('#edit-product-height').val()) || 0;
+    
+    if (!name || weight <= 0) {
+        alert('⚠️ Vui lòng nhập đủ thông tin');
+        return;
+    }
+    
+    // ✅ LẤY SPECIALS TỪ CHECKBOXES
+    // ⚠️ QUAN TRỌNG: Checkboxes có value="high_value", "oversized", etc.
+    // Nhưng backend cần tiếng Anh để tính phí
+    const specials = [];
+    $('.edit-special-checkbox:checked').each(function() {
+        const specialValue = $(this).val(); // Lấy value (tiếng Anh)
+        specials.push(specialValue);
+        console.log(`✅ Lưu special: ${specialValue}`);
+    });
+    
+    console.log('💾 Specials sau khi lưu:', specials);
+    
+    // ✅ CẬP NHẬT PRODUCT
+    productsList[editingProductIndex] = {
+        type: productsList[editingProductIndex].type,
+        name: name,
+        quantity: quantity,
+        weight: weight,
+        value: value,
+        length: length,
+        width: width,
+        height: height,
+        specials: specials // ✅ LƯU DẠNG TIẾNG ANH VỀ BACKEND
+    };
+    
+    console.log('✅ Product sau khi update:', productsList[editingProductIndex]);
+    
+    // Reset form
+    cancelEditProduct();
+    renderProductsList();
+    
+    // ✅ TÍNH LẠI PHÍ NGAY
+    calculateCost();
+}
+
+// ============ PRODUCTS: HỦY SỬA ============
+function cancelEditProduct() {
+  $('#editingProductForm').slideUp();
+  editingProductIndex = null;
+  
+  // Clear form
+  $('#edit-product-name').val('');
+  $('#edit-product-quantity').val('1');
+  $('#edit-product-weight').val('1');
+  $('#edit-product-value').val('0');
+  $('#edit-product-length').val('');
+  $('#edit-product-width').val('');
+  $('#edit-product-height').val('');
+  $('.edit-special-checkbox').prop('checked', false);
 }
 
 function removeProduct(idx) {
@@ -1237,7 +1354,7 @@ function removeProduct(idx) {
 function resetProductForm() {
   $('.product-name').val('');
   $('.product-quantity').val('1');
-  $('.product-weight').val('');
+  $('.product-weight').val('1');
   $('.product-value').val('0');
   $('.product-length').val('');
   $('.product-width').val('');
@@ -1248,7 +1365,7 @@ function resetProductForm() {
 function resetDocumentForm() {
   $('.document-name').val('');
   $('.document-quantity').val('1');
-  $('.document-weight').val('');
+  $('.document-weight').val('1');
   $('.document-value').val('0');
   $('.document-length').val('');
   $('.document-width').val('');
@@ -1256,6 +1373,7 @@ function resetDocumentForm() {
   $('.doc-special-checkbox').prop('checked', false);
 }
 
+// ============ IMAGES ============
 function markImageForDeletion(imageId) {
   if (confirm('Xóa ảnh này?')) {
     imagesToDelete.push(imageId);
@@ -1265,8 +1383,6 @@ function markImageForDeletion(imageId) {
     let idsArray = currentValue ? currentValue.split(',').filter(Boolean) : [];
     idsArray.push(imageId);
     $('.delete-images-input').val(idsArray.join(','));
-    
-    console.log('🗑️ Đánh dấu xóa ảnh:', imageId);
   }
 }
 
@@ -1279,7 +1395,7 @@ function handleNewImageUpload(e) {
   const newCount = selectedImages.length;
   
   if (existingCount + newCount + files.length > MAX_IMAGES) {
-    alert(`⚠️ Chỉ được tải tối đa ${MAX_IMAGES} ảnh`);
+    alert(`⚠️ Tối đa ${MAX_IMAGES} ảnh`);
     $(e.target).val('');
     return;
   }
@@ -1289,12 +1405,10 @@ function handleNewImageUpload(e) {
       alert('⚠️ Chỉ chấp nhận file ảnh');
       continue;
     }
-    
     if (file.size > MAX_FILE_SIZE) {
-      alert(`⚠️ File "${file.name}" vượt quá 5MB`);
+      alert(`⚠️ File vượt quá 5MB`);
       continue;
     }
-    
     selectedImages.push(file);
   }
   
@@ -1305,11 +1419,8 @@ function renderNewImagePreviews() {
   const container = $('.image-preview-container');
   container.html('');
   
-  if (!selectedImages || selectedImages.length === 0) return;
-  
   selectedImages.forEach((file, index) => {
     const reader = new FileReader();
-    
     reader.onload = function(e) {
       const html = `
         <div class="col-md-6 col-6">
@@ -1317,17 +1428,13 @@ function renderNewImagePreviews() {
             <button type="button" class="remove-image" onclick="removeNewImage(${index})">×</button>
             <img src="${e.target.result}" alt="Preview">
             <div class="p-2">
-              <input type="text" 
-                     class="form-control form-control-sm" 
-                     name="image_notes[]" 
-                     placeholder="Ghi chú ảnh">
+              <input type="text" class="form-control form-control-sm" name="image_notes[]" placeholder="Ghi chú ảnh">
             </div>
           </div>
         </div>
       `;
       container.append(html);
     };
-    
     reader.readAsDataURL(file);
   });
 }
@@ -1337,11 +1444,19 @@ function removeNewImage(index) {
   renderNewImagePreviews();
 }
 
+// ============ CALCULATE COST ============
+// ============ FIX: CALCULATE COST FUNCTION ============
+// ❌ LỖI: Không gửi post_office_id → Backend không lấy được tọa độ bưu cục
+// ✅ GIẢI PHÁP: Thêm post_office_id vào data gửi lên
+
 function calculateCost() {
   if (!productsList || productsList.length === 0) {
     resetCostDisplay();
     return;
   }
+  
+  $('.cost-breakdown').css('opacity', '0.5');
+  $('.total-cost').html('<span class="spinner-border spinner-border-sm"></span> Đang tính...');
   
   let codAmount = 0;
   const codRawInput = $('.cod-amount-raw').val();
@@ -1363,16 +1478,34 @@ function calculateCost() {
   const payer = $('.payer-radio:checked').val() || 'sender';
   const itemType = $('.item-type:checked').val() || 'package';
   
+  const senderLat = $('.sender-latitude').val();
+  const senderLng = $('.sender-longitude').val();
+  const recipientLat = $('.recipient-lat').val();
+  const recipientLng = $('.recipient-lng').val();
+  const postOfficeId = $('#postOfficeSelect').val();
+  
+  console.log('📊 Gửi tính phí với:', {
+    post_office_id: postOfficeId,
+    sender: [senderLat, senderLng],
+    recipient: [recipientLat, recipientLng],
+    products: productsList,
+    services: services,
+    codAmount: codAmount
+  });
+  
   const data = {
     products_json: JSON.stringify(productsList),
     services: services,
     cod_amount: codAmount,
     payer: payer,
     item_type: itemType,
-    _token: $('meta[name="csrf-token"]').attr('content')
+    sender_latitude: senderLat,
+    sender_longitude: senderLng,
+    recipient_latitude: recipientLat,
+    recipient_longitude: recipientLng,
+    post_office_id: postOfficeId,
+    // ✅ Không cần _token vì đã setup trong $.ajaxSetup
   };
-  
-  console.log('📤 Calculating cost:', data);
   
   $.ajax({
     url: '{{ route("customer.orders.calculate") }}',
@@ -1380,11 +1513,20 @@ function calculateCost() {
     data: data,
     dataType: 'json',
     success: function(res) {
-      console.log('📥 Cost response:', res);
+      console.log('✅ Kết quả tính phí:', res);
       
+      $('.cost-breakdown').css('opacity', '1');
       if (res && res.success === true) {
         $('.base-cost').text((res.base_cost || 0).toLocaleString('vi-VN') + ' đ');
         $('.extra-cost').text((res.extra_cost || 0).toLocaleString('vi-VN') + ' đ');
+        
+        if (res.distance_fee && res.distance_fee > 0) {
+          $('.distance-fee').text(res.distance_fee.toLocaleString('vi-VN') + ' đ');
+          $('.distance-fee-row').show();
+        } else {
+          $('.distance-fee').text('0 đ');
+          $('.distance-fee-row').hide();
+        }
         
         if (res.cod_fee && res.cod_fee > 0) {
           $('.cod-fee').text(res.cod_fee.toLocaleString('vi-VN') + ' đ');
@@ -1397,10 +1539,30 @@ function calculateCost() {
         $('.total-cost').text((res.total || 0).toLocaleString('vi-VN') + ' đ');
         $('.sender-pays').text((res.sender_pays || 0).toLocaleString('vi-VN') + ' đ');
         $('.recipient-pays').text((res.recipient_pays || 0).toLocaleString('vi-VN') + ' đ');
+      } else {
+        $('.total-cost').html('<span class="text-danger">Lỗi: ' + (res.message || 'Tính phí thất bại') + '</span>');
       }
     },
     error: function(xhr) {
-      console.error('❌ Calculate error:', xhr.responseText);
+      console.error('❌ Calculate error:', xhr);
+      $('.cost-breakdown').css('opacity', '1');
+      
+      let errorMsg = 'Lỗi tính phí';
+      
+      if (xhr.status === 419) {
+        errorMsg = 'Phiên làm việc hết hạn. Vui lòng tải lại trang.';
+        // ✅ Tự động reload sau 2 giây
+        setTimeout(() => location.reload(), 2000);
+      } else {
+        try {
+          const error = JSON.parse(xhr.responseText);
+          errorMsg = 'Lỗi: ' + (error.message || errorMsg);
+        } catch (e) {
+          // Giữ errorMsg mặc định
+        }
+      }
+      
+      $('.total-cost').html('<span class="text-danger">' + errorMsg + '</span>');
     }
   });
 }
@@ -1408,12 +1570,63 @@ function calculateCost() {
 function resetCostDisplay() {
   $('.base-cost').text('0 đ');
   $('.extra-cost').text('0 đ');
+  $('.distance-fee').text('0 đ');
+  $('.distance-fee-row').hide();
   $('.total-cost').text('0 đ');
   $('.sender-pays').text('0 đ');
   $('.recipient-pays').text('0 đ');
   $('.cod-fee-row').hide();
 }
 
+function setupEditFormEventHandlers() {
+    // ✅ Event khi checkbox thay đổi trong form SỬA
+    $(document).on('change', '.edit-special-checkbox', function() {
+        console.log('🔄 Edit form checkbox thay đổi:', {
+            value: $(this).val(),
+            checked: $(this).is(':checked')
+        });
+        
+        // ✅ QUAN TRỌNG: Lưu thay đổi vào productsList NGAY LẬP TỨC
+        if (editingProductIndex !== null) {
+            const specials = [];
+            $('.edit-special-checkbox:checked').each(function() {
+                specials.push($(this).val());
+            });
+            
+            // Update tạm thời vào productsList (chưa save)
+            if (productsList[editingProductIndex]) {
+                productsList[editingProductIndex].specials = specials;
+                console.log('📦 Updated specials:', specials);
+            }
+        }
+        
+        // Tính lại phí
+        calculateCost();
+    });
+    
+    // Event khi thay đổi thông tin sản phẩm
+    $(document).on('input change', '#edit-product-quantity, #edit-product-weight, #edit-product-value, #edit-product-length, #edit-product-width, #edit-product-height', function() {
+        console.log('🔄 Product info thay đổi');
+        
+        // ✅ Update tạm thời vào productsList
+        if (editingProductIndex !== null && productsList[editingProductIndex]) {
+            const qty = parseInt($('#edit-product-quantity').val()) || 1;
+            const weight = parseFloat($('#edit-product-weight').val()) || 0;
+            const value = getCurrencyValue($('#edit-product-value'));
+            
+            productsList[editingProductIndex].quantity = qty;
+            productsList[editingProductIndex].weight = weight;
+            productsList[editingProductIndex].value = value;
+            productsList[editingProductIndex].length = parseFloat($('#edit-product-length').val()) || 0;
+            productsList[editingProductIndex].width = parseFloat($('#edit-product-width').val()) || 0;
+            productsList[editingProductIndex].height = parseFloat($('#edit-product-height').val()) || 0;
+        }
+        
+        calculateCost();
+    });
+}
+
+// ============ CURRENCY FORMATTING ============
 function formatCurrencyDisplay(value) {
   if (!value || value === '') return '';
   const numStr = String(value).replace(/\D/g, '');
@@ -1435,75 +1648,29 @@ function getCurrencyValue(element) {
   return getActualValue($el.val());
 }
 
+function setCurrencyValue(element, value) {
+  const $el = typeof element === 'string' ? $(element) : element;
+  const formatted = formatCurrencyDisplay(value);
+  const actual = getActualValue(formatted);
+  $el.val(formatted);
+  $el.data('actual-value', actual);
+}
+
 function setupCurrencyFormatting() {
-  const currencySelectors = [
-    'input[id*="value"]',
-    'input[id*="cod-amount"]',
-    'input[class*="value"]'
-  ];
+  const selector = 'input[id*="value"], input[id*="cod-amount"], input[class*="value"], input[class*="cod-amount"]';
   
-  const selector = currencySelectors.join(', ');
-  
-  $(document).on('input', selector, function(e) {
+  $(document).on('input', selector, function() {
     const $input = $(this);
-    const input = this;
-    
-    const cursorPosition = input.selectionStart;
-    const oldValue = $input.val();
-    const dotsBeforeCursor = (oldValue.substring(0, cursorPosition).match(/\./g) || []).length;
-    
-    const rawValue = oldValue.replace(/\D/g, '');
+    const rawValue = $input.val().replace(/\D/g, '');
     const formatted = formatCurrencyDisplay(rawValue);
     const actual = getActualValue(formatted);
     
     $input.val(formatted);
     $input.data('actual-value', actual);
-    
-    if (formatted !== oldValue) {
-      const newDotsBeforeCursor = (formatted.substring(0, cursorPosition).match(/\./g) || []).length;
-      const dotDifference = newDotsBeforeCursor - dotsBeforeCursor;
-      let newPosition = cursorPosition + dotDifference;
-      
-      newPosition = Math.min(newPosition, formatted.length);
-      newPosition = Math.max(0, newPosition);
-      
-      if (input.setSelectionRange) {
-        setTimeout(() => {
-          input.setSelectionRange(newPosition, newPosition);
-        }, 0);
-      }
-    }
-  });
-  
-  $(document).on('focus', selector, function() {
-    const $input = $(this);
-    const value = $input.val();
-    if (value && value !== '') {
-      const formatted = formatCurrencyDisplay(value);
-      const actual = getActualValue(formatted);
-      $input.val(formatted);
-      $input.data('actual-value', actual);
-    }
-  });
-  
-  $(document).on('paste', selector, function(e) {
-    e.preventDefault();
-    const pastedText = (e.originalEvent || e).clipboardData.getData('text/plain');
-    const formatted = formatCurrencyDisplay(pastedText);
-    const actual = getActualValue(formatted);
-    $(this).val(formatted);
-    $(this).data('actual-value', actual);
   });
 }
 
 function formatExistingCurrencyValues() {
-  const codDisplay = $('.cod-amount-display');
-  if (codDisplay.length && codDisplay.val()) {
-    const formatted = formatCurrencyDisplay(codDisplay.val());
-    codDisplay.val(formatted);
-    codDisplay.data('actual-value', getActualValue(formatted));
-  }
-  
   $('input[id*="value"], input[class*="value"]').each(function() {
     const $input = $(this);
     if ($input.val()) {
@@ -1531,10 +1698,9 @@ function formatDatetimeForDatabase(datetimeLocalValue) {
   return `${date} ${time}:00`;
 }
 
+// ============ FORM SUBMIT ============
 $('#orderEditForm').on('submit', function(e) {
   e.preventDefault();
-  
-  console.log('📤 Submitting edit form...');
   
   if (!validateForm()) {
     return false;
@@ -1542,14 +1708,15 @@ $('#orderEditForm').on('submit', function(e) {
   
   $('.products-json').val(JSON.stringify(productsList));
   
-  const canEditSender = $('input[name="can_edit_sender"]').val();
-  if (canEditSender === 'true') {
-    const pickupValue = $('#pickup-time').val();
+  const pickupValue = $('.pickup-time').val();
+  if (pickupValue) {
     $('#pickup_time_formatted').val(formatDatetimeForDatabase(pickupValue));
   }
   
   const deliveryValue = $('.delivery-time-input').val();
-  $('.delivery-time-formatted').val(formatDatetimeForDatabase(deliveryValue));
+  if (deliveryValue) {
+    $('#delivery_time_formatted').val(formatDatetimeForDatabase(deliveryValue));
+  }
   
   $('#submitUpdate').prop('disabled', true)
     .html('<span class="spinner-border spinner-border-sm me-2"></span>Đang cập nhật...');
@@ -1558,23 +1725,17 @@ $('#orderEditForm').on('submit', function(e) {
 });
 
 function validateForm() {
-  if (!$('input[name="recipient_name"]').val().trim()) {
+  if (!$('.recipient-name').val().trim()) {
     alert('⚠️ Vui lòng nhập tên người nhận');
     return false;
   }
   
-  if (!$('input[name="recipient_phone"]').val().trim()) {
+  if (!$('.recipient-phone').val().trim()) {
     alert('⚠️ Vui lòng nhập số điện thoại người nhận');
     return false;
   }
   
-  const phonePattern = /^(0|\+84)[0-9]{9,10}$/;
-  if (!phonePattern.test($('input[name="recipient_phone"]').val().trim())) {
-    alert('⚠️ Số điện thoại không hợp lệ');
-    return false;
-  }
-  
-  if (!$('.province-select').val() || !$('.district-select').val() || !$('.ward-select').val()) {
+  if (!$('.district-select').val() || !$('.ward-select').val()) {
     alert('⚠️ Vui lòng chọn địa chỉ đầy đủ');
     return false;
   }
@@ -1593,42 +1754,85 @@ function validateForm() {
     alert('⚠️ Vui lòng chọn thời gian giao hàng');
     return false;
   }
-  
-  const canEditSender = $('input[name="can_edit_sender"]').val();
-  if (canEditSender === 'true') {
-    if (!$('input[name="sender_name"]').val().trim()) {
-      alert('⚠️ Vui lòng nhập tên người gửi');
-      return false;
-    }
-    
-    if (!$('input[name="sender_phone"]').val().trim()) {
-      alert('⚠️ Vui lòng nhập số điện thoại người gửi');
-      return false;
-    }
-    
-    if (!phonePattern.test($('input[name="sender_phone"]').val().trim())) {
-      alert('⚠️ Số điện thoại người gửi không hợp lệ');
-      return false;
-    }
-    
-    if (!$('input[name="sender_address"]').val().trim()) {
-      alert('⚠️ Vui lòng nhập địa chỉ người gửi');
-      return false;
-    }
-    
-    if (!$('#pickup-time').val()) {
-      alert('⚠️ Vui lòng chọn thời gian lấy hàng');
-      return false;
-    }
+
+    if (!$('#postOfficeSelect').val()) {
+    alert('⚠️ Vui lòng chọn bưu cục nhận hàng');
+    $('#postOfficeSelect').focus();
+    return false;
   }
   
   return true;
 }
 
-window.removeProduct = removeProduct;
+// ============ GLOBAL FUNCTIONS ============
 window.markImageForDeletion = markImageForDeletion;
 window.removeNewImage = removeNewImage;
-
-console.log('✅ Edit order script loaded successfully');
+window.removeProduct = removeProduct;
+window.editProduct = editProduct;
+window.saveEditProduct = saveEditProduct;
+window.cancelEditProduct = cancelEditProduct;
 </script>
+<script>
+$(document).ready(function() {
+  $('#refreshPostOfficeBtn').on('click', function(e) {
+    e.preventDefault();
+    
+    const $btn = $(this);
+    const $icon = $btn.find('i');
+    
+    // Disable button & show loading
+    $btn.prop('disabled', true);
+    $icon.addClass('spin');
+    
+    // Reset dropdown
+    $('#postOfficeSelect').html('<option value="">-- Đang tải bưu cục... --</option>');
+    
+    // Lấy tọa độ sender
+    const senderLat = parseFloat($('.sender-latitude').val());
+    const senderLng = parseFloat($('.sender-longitude').val());
+    
+    if (!senderLat || !senderLng) {
+      alert('⚠️ Không có tọa độ hợp lệ');
+      $btn.prop('disabled', false);
+      $icon.removeClass('spin');
+      return;
+    }
+    
+    // Gọi lại hàm fetch
+    fetchNearbyPostOffices(senderLat, senderLng);
+    
+    // Đợi cho đến khi có dữ liệu (tối đa 10 giây)
+    let attempts = 0;
+    const checkInterval = setInterval(() => {
+      attempts++;
+      const optionsCount = $('#postOfficeSelect option').length;
+      
+      if (optionsCount > 1 || attempts > 20) {
+        clearInterval(checkInterval);
+        
+        // Enable button
+        $btn.prop('disabled', false);
+        $icon.removeClass('spin');
+        
+        // Restore bưu cục cũ nếu có
+        const savedPostOfficeId = '{{ $order->post_office_id }}';
+        if (savedPostOfficeId && $('#postOfficeSelect').val() !== savedPostOfficeId) {
+          const optionExists = $(`#postOfficeSelect option[value="${savedPostOfficeId}"]`).length > 0;
+          if (optionExists) {
+            $('#postOfficeSelect').val(savedPostOfficeId);
+          }
+        }
+        
+        // Log result
+        if (optionsCount > 1) {
+          console.log('✅ Tải lại bưu cục thành công');
+        } else {
+          console.warn('⚠️ Không tải được danh sách bưu cục');
+        }
+      }
+    }, 500);
+  });
+});
+</script>
+
 @endsection

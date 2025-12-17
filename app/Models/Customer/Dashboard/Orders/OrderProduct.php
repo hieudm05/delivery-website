@@ -50,38 +50,37 @@ class OrderProduct extends Model
      * ✅ Accessor: Dịch specials từ Anh -> Việt khi lấy (bao gồm dữ liệu cũ)
      */
     protected function getSpecialsAttribute($value)
-    {
-        if ($value) {
-            $data = json_decode($value, true) ?? [];
-            
-            // Dịch từ Anh -> Việt nếu chưa dịch
-            $translated = array_map(function ($item) {
-                // Nếu item là key (tiếng Anh), dịch sang Việt
-                if (isset(self::$specialsTranslation[$item])) {
-                    return self::$specialsTranslation[$item];
-                }
-                // Nếu đã là giá trị (tiếng Việt), giữ nguyên
-                return $item;
-            }, $data);
-            
-            return $translated;
+        {
+            if ($value) {
+                // Lấy specials từ database (dạng tiếng Anh)
+                $data = json_decode($value, true) ?? [];
+                
+                // ✅ CHỈ dịch khi HIỂN THỊ trên view
+                // Database vẫn giữ dạng tiếng Anh để backend tính phí
+                return $data;
+            }
+            return [];
         }
-        return [];
-    }
 
     /**
      * ✅ Helper: Lấy specials dưới dạng string (hiển thị)
      */
-    public function getSpecialsDisplayAttribute()
+       public function getSpecialsDisplayAttribute()
     {
-        return implode(', ', $this->specials ?? []);
+        $specials = $this->specials ?? [];
+        
+        $translated = array_map(function ($item) {
+            return self::$specialsTranslation[$item] ?? $item;
+        }, $specials);
+        
+        return implode(', ', $translated);
     }
 
     /**
      * ✅ Helper: Kiểm tra xem có một đặc tính nào không (dùng tên Việt)
      */
-    public function hasSpecial($specialName)
+    public function hasSpecial($specialKey)
     {
-        return in_array($specialName, $this->specials ?? []);
+         return in_array($specialKey, $this->specials ?? []);
     }
 }

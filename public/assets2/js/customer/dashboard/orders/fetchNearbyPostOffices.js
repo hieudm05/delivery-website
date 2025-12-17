@@ -32,87 +32,87 @@ async function testGoongConnection() {
 }
 
 // Hàm tìm bưu cục gần tọa độ - SỬ DỤNG OVERPASS API
-async function fetchNearbyPostOffices(lat, lon) {
-    if (!lat || !lon || isNaN(lat) || isNaN(lon)) {
-        console.warn('⚠️ Tọa độ không hợp lệ:', { lat, lon });
-        $('#postOfficeSelect').html('<option value="">Không có toạ độ hợp lệ</option>');
-        return;
-    }
+// async function fetchNearbyPostOffices(lat, lon) {
+//     if (!lat || !lon || isNaN(lat) || isNaN(lon)) {
+//         console.warn('⚠️ Tọa độ không hợp lệ:', { lat, lon });
+//         $('#postOfficeSelect').html('<option value="">Không có toạ độ hợp lệ</option>');
+//         return;
+//     }
 
-    console.log('🔍 Bắt đầu tìm bưu cục tại:', { lat, lon });
+//     console.log('🔍 Bắt đầu tìm bưu cục tại:', { lat, lon });
     
-    $('#postOfficeSelect').html('<option value="">Đang tải bưu cục...</option>');
+//     $('#postOfficeSelect').html('<option value="">Đang tải bưu cục...</option>');
 
-    const radius = 10000; // 10km
+//     const radius = 10000; // 10km
     
-    const overpassQuery = `
-        [out:json][timeout:25];
-        (
-          node["amenity"="post_office"](around:${radius},${lat},${lon});
-          node["office"="post_office"](around:${radius},${lat},${lon});
-          way["amenity"="post_office"](around:${radius},${lat},${lon});
-        );
-        out body;
-        >;
-        out skel qt;
-    `;
+//     const overpassQuery = `
+//         [out:json][timeout:25];
+//         (
+//           node["amenity"="post_office"](around:${radius},${lat},${lon});
+//           node["office"="post_office"](around:${radius},${lat},${lon});
+//           way["amenity"="post_office"](around:${radius},${lat},${lon});
+//         );
+//         out body;
+//         >;
+//         out skel qt;
+//     `;
     
-    const overpassUrl = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(overpassQuery)}`;
+//     const overpassUrl = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(overpassQuery)}`;
 
-    try {
-        console.log('📡 Gọi Overpass API...');
-        const response = await fetch(overpassUrl);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const data = await response.json();
+//     try {
+//         console.log('📡 Gọi Overpass API...');
+//         const response = await fetch(overpassUrl);
+//         if (!response.ok) throw new Error(`HTTP ${response.status}`);
+//         const data = await response.json();
 
-        console.log('📦 Kết quả Overpass:', data);
+//         console.log('📦 Kết quả Overpass:', data);
 
-        if (!data.elements || data.elements.length === 0) {
-            console.warn('⚠️ Không tìm thấy bưu cục trong bán kính 5km');
-            await fetchNearbyPostOfficesNominatim(lat, lon);
-            return;
-        }
+//         if (!data.elements || data.elements.length === 0) {
+//             console.warn('⚠️ Không tìm thấy bưu cục trong bán kính 5km');
+//             await fetchNearbyPostOfficesNominatim(lat, lon);
+//             return;
+//         }
 
-        const nodes = data.elements.filter(item => 
-            item.type === 'node' && item.lat && item.lon
-        );
+//         const nodes = data.elements.filter(item => 
+//             item.type === 'node' && item.lat && item.lon
+//         );
 
-        let postOffices = nodes.map(item => ({
-            name: item.tags?.name || item.tags?.['name:vi'] || 
-                  (item.tags?.['addr:street'] ? `Bưu cục ${item.tags['addr:street']}` : 'Bưu cục'),
-            address: item.tags?.['addr:full'] || 
-                    item.tags?.['addr:street'] || 
-                    item.tags?.['addr:city'] || 
-                    'Không có địa chỉ chi tiết',
-            lat: parseFloat(item.lat),
-            lng: parseFloat(item.lon),
-            operator: item.tags?.operator || 'Vietnam Post',
-            id: item.id,
-            type: 'node'
-        })).filter(office => {
-           return (
-                office.name && 
-                office.name !== 'Bưu cục' && 
-                office.address && 
-                office.address !== 'Không có địa chỉ chi tiết'
-            );
-        });
+//         let postOffices = nodes.map(item => ({
+//             name: item.tags?.name || item.tags?.['name:vi'] || 
+//                   (item.tags?.['addr:street'] ? `Bưu cục ${item.tags['addr:street']}` : 'Bưu cục'),
+//             address: item.tags?.['addr:full'] || 
+//                     item.tags?.['addr:street'] || 
+//                     item.tags?.['addr:city'] || 
+//                     'Không có địa chỉ chi tiết',
+//             lat: parseFloat(item.lat),
+//             lng: parseFloat(item.lon),
+//             operator: item.tags?.operator || 'Vietnam Post',
+//             id: item.id,
+//             type: 'node'
+//         })).filter(office => {
+//            return (
+//                 office.name && 
+//                 office.name !== 'Bưu cục' && 
+//                 office.address && 
+//                 office.address !== 'Không có địa chỉ chi tiết'
+//             );
+//         });
 
-        console.log('📍 Danh sách bưu cục tìm được:', postOffices);
+//         console.log('📍 Danh sách bưu cục tìm được:', postOffices);
 
-        if (postOffices.length === 0) {
-            $('#postOfficeSelect').html('<option value="">Không tìm thấy bưu cục trong bán kính 5km</option>');
-            return;
-        }
+//         if (postOffices.length === 0) {
+//             $('#postOfficeSelect').html('<option value="">Không tìm thấy bưu cục trong bán kính 5km</option>');
+//             return;
+//         }
 
-        await calculateDistanceAndDisplay(lat, lon, postOffices);
+//         await calculateDistanceAndDisplay(lat, lon, postOffices);
 
-    } catch (err) {
-        console.error('❌ Lỗi Overpass API:', err);
-        console.log('🔄 Thử dùng Nominatim thay thế...');
-        await fetchNearbyPostOfficesNominatim(lat, lon);
-    }
-}
+//     } catch (err) {
+//         console.error('❌ Lỗi Overpass API:', err);
+//         console.log('🔄 Thử dùng Nominatim thay thế...');
+//         await fetchNearbyPostOfficesNominatim(lat, lon);
+//     }
+// }
 
 // Backup: Tìm bưu cục bằng Nominatim
 async function fetchNearbyPostOfficesNominatim(lat, lon) {
@@ -281,13 +281,13 @@ async function calculateDistanceAndDisplay(lat, lon, postOffices) {
             
             const durationText = office.duration ? ` (${office.duration})` : '';
             
-           html += `<option value="${office.id}" 
+                html += `<option value="${office.id}" 
                 data-lat="${office.lat}" 
                 data-lng="${office.lng}" 
                 data-distance="${office.distance}" 
                 data-index="${index}">
-            ${index + 1}. ${office.name} - ${office.address} ${distanceText}${durationText}
-        </option>`;
+                ${index + 1}. ${office.name} - ${office.address} ${distanceText}${durationText}
+            </option>`;
 
         });
         
