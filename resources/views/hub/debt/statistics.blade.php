@@ -243,7 +243,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Daily Chart
+    // ==== Biểu đồ thanh toán theo ngày (giữ nguyên) ====
     const dailyData = @json($dailyStats);
     const dailyCtx = document.getElementById('dailyChart').getContext('2d');
     
@@ -324,36 +324,73 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Confirmation Chart
-   const overview = @json($overview);
+    // ==== Biểu đồ tỷ lệ xác nhận (Doughnut) - ĐÃ SỬA ====
+    const overview = @json($overview);
+    const confirmationCtx = document.getElementById('confirmationChart').getContext('2d');
 
-new Chart(document.getElementById('confirmationChart'), {
-    type: 'doughnut',
-    data: {
-        labels: ['Đã xác nhận', 'Chờ xác nhận', 'Đã từ chối'],
-        datasets: [{
-            data: [
-                overview.confirmed_debt || 0,
-                overview.pending_debt || 0,
-                overview.rejected_debt || 0
-            ],
-            backgroundColor: [
-                '#28a745',
-                '#ffc107',
-                '#dc3545'
-            ],
-            borderWidth: 2
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: { position: 'bottom' }
+    const confirmed = overview.confirmed_debt || 0;
+    const pending   = overview.pending_debt   || 0;
+    const rejected  = overview.rejected_debt  || 0;
+
+    // Plugin để xử lý empty state (vòng xám + text khi không có data)
+    const emptyDoughnutPlugin = {
+        id: 'emptyDoughnut',
+        afterDraw(chart) {
+            if (chart.data.datasets[0].data.every(value => value === 0)) {
+                let ctx = chart.ctx;
+                let width = chart.width;
+                let height = chart.height;
+
+                // Vẽ vòng doughnut xám nhạt
+                ctx.save();
+                ctx.beginPath();
+                ctx.lineWidth = 10;
+                ctx.strokeStyle = '#ddd';
+                ctx.arc(width / 2, height / 2, Math.min(width, height) / 2 - 30, 0, 2 * Math.PI);
+                ctx.stroke();
+                ctx.restore();
+
+                // Viết text ở giữa
+                ctx.save();
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.font = '20px Arial';
+                ctx.fillStyle = '#999';
+                ctx.fillText('Chưa có dữ liệu xác nhận', width / 2, height / 2);
+                ctx.restore();
+            }
         }
-    }
-});
+    };
 
+    new Chart(confirmationCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Đã xác nhận', 'Chờ xác nhận', 'Đã từ chối'],
+            datasets: [{
+                data: [confirmed, pending, rejected],
+                backgroundColor: ['#28a745', '#ffc107', '#dc3545'],
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom' },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const value = context.parsed;
+                            const total = confirmed + pending + rejected;
+                            const percent = total > 0 ? (value / total * 100).toFixed(1) : 0;
+                            return context.label + ': ' + new Intl.NumberFormat('vi-VN').format(value) + '₫ (' + percent + '%)';
+                        }
+                    }
+                }
+            }
+        },
+        plugins: [emptyDoughnutPlugin]  // Thêm plugin này
+    });
 });
 </script>
 @endpush

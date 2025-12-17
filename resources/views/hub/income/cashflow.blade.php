@@ -345,26 +345,6 @@
                            class="btn btn-primary">
                             <i class="fas fa-money-check-alt"></i> Quản lý COD
                         </a>
-                        
-                        <a href="{{ route('hub.income.transactions', ['type' => 'received']) }}" 
-                           class="btn btn-outline-success">
-                            <i class="fas fa-arrow-down"></i> Tiền đã nhận
-                        </a>
-                        
-                        <a href="{{ route('hub.income.transactions', ['type' => 'paid_sender']) }}" 
-                           class="btn btn-outline-warning">
-                            <i class="fas fa-user"></i> Đã trả Sender
-                        </a>
-                        
-                        <a href="{{ route('hub.income.transactions', ['type' => 'paid_driver']) }}" 
-                           class="btn btn-outline-info">
-                            <i class="fas fa-truck"></i> Đã trả Driver
-                        </a>
-                        
-                        <a href="{{ route('hub.income.transactions', ['type' => 'paid_system']) }}" 
-                           class="btn btn-outline-secondary">
-                            <i class="fas fa-database"></i> Đã nộp Admin
-                        </a>
                     </div>
                 </div>
             </div>

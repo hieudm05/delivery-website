@@ -13,13 +13,7 @@ use Illuminate\Support\Facades\Log;
 
 class CustomerCodController extends Controller
 {
-    /**
-     * ✅ DANH SÁCH GIAO DỊCH COD (Customer View)
-     */
 
-    /**
- * ✅ DANH SÁCH GIAO DỊCH COD (Customer View) - HOÀN CHỈNH
- */
 public function index(Request $request)
 {
     $tab = $request->get('tab', 'all');
@@ -487,100 +481,164 @@ public function statistics()
         }
     }
 
-    /**
-     * ✅ THANH TOÁN PHÍ - LUỒNG CHÍNH
-     */
-    public function paySenderFee(Request $request, $id)
-    {
-        $method = $request->input('payment_method');
-        $transaction = CodTransaction::where('sender_id', Auth::id())->findOrFail($id);
+ /**
+ * ✅ THANH TOÁN PHÍ - LUỒNG CHÍNH (WITH DEBUG)
+ */
+public function paySenderFee(Request $request, $id)
+{
+    // ✅ 1. LOG ĐẦU VÀO
+    Log::info('🔵 paySenderFee CALLED', [
+        'transaction_id' => $id,
+        'customer_id' => Auth::id(),
+        'method' => $request->input('payment_method'),
+        'has_file' => $request->hasFile('proof'),
+        'file_name' => $request->hasFile('proof') ? $request->file('proof')->getClientOriginalName() : null,
+        'file_size' => $request->hasFile('proof') ? $request->file('proof')->getSize() : null,
+        'all_input' => $request->except(['_token']),
+    ]);
 
-        // ✅ FIX: Validate logic
-        if ($transaction->sender_debt_deducted > 0) {
-            return back()->withErrors([
-                'error' => 'Phí đã được trừ tự động từ nợ cũ (' . number_format($transaction->sender_debt_deducted) . '₫)'
-            ]);
-        }
+    $method = $request->input('payment_method');
+    $transaction = CodTransaction::where('sender_id', Auth::id())->findOrFail($id);
 
-        if ($transaction->sender_fee_paid <= 0) {
-            return back()->withErrors([
-                'error' => 'Giao dịch này không cần thanh toán phí'
-            ]);
-        }
-
-        if ($transaction->sender_fee_paid_at) {
-            return back()->withErrors([
-                'error' => 'Phí đã được thanh toán rồi vào lúc: ' . $transaction->sender_fee_paid_at->format('d/m/Y H:i')
-            ]);
-        }
-
-        // Validate input
-        $rules = [
-            'payment_method' => 'required|in:bank_transfer,wallet,cash',
-        ];
-
-        $messages = [
-            'payment_method.required' => 'Vui lòng chọn phương thức thanh toán',
-        ];
-
-        if (in_array($method, ['bank_transfer', 'wallet'])) {
-            $rules['proof'] = 'required|image|mimes:jpeg,png,jpg,gif|max:5120';
-            $messages['proof.required'] = 'Vui lòng tải lên ảnh chứng từ';
-            $messages['proof.image'] = 'File phải là ảnh';
-            $messages['proof.mimes'] = 'Chỉ chấp nhận ảnh PNG, JPG, JPEG hoặc GIF';
-            $messages['proof.max'] = 'Ảnh không được lớn hơn 5MB';
-        }
-
-        $request->validate($rules, $messages);
-
-        DB::beginTransaction();
-        try {
-            $proofPath = null;
-            if ($request->hasFile('proof')) {
-                $file = $request->file('proof');
-                if (!$file->isValid()) {
-                    throw new \Exception('File không hợp lệ: ' . $file->getErrorMessage());
-                }
-                $proofPath = $file->store('fee_payments/customer', 'public');
-                if (!$proofPath) {
-                    throw new \Exception('Không thể lưu chứng từ');
-                }
-            }
-
-            $updateData = [
-                'sender_fee_payment_method' => $method,
-                'sender_fee_payment_proof' => $proofPath,
-                'sender_fee_paid_at' => now(),
-                'sender_fee_status' => $method === 'cash' ? 'completed' : 'pending_confirmation',
-            ];
-
-            $transaction->update($updateData);
-
-            Log::info('Customer paid fee', [
-                'transaction_id' => $transaction->id,
-                'order_id' => $transaction->order_id,
-                'customer_id' => Auth::id(),
-                'amount' => $transaction->sender_fee_paid,
-                'method' => $method,
-                'proof_path' => $proofPath,
-                'paid_at' => now(),
-            ]);
-
-            DB::commit();
-
-            $message = $method === 'cash'
-                ? '✅ Đã ghi nhận thanh toán tiền mặt. Vui lòng đến bưu cục để hoàn tất.'
-                : '✅ Đã ghi nhận thanh toán ' . number_format($transaction->sender_fee_paid) . '₫. Bưu cục sẽ xác nhận trong 24h.';
-
-            return redirect()->route('customer.cod.index', ['tab' => 'all'])
-                ->with('success', $message);
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('Error paying fee: ' . $e->getMessage());
-            return back()->withErrors(['error' => $e->getMessage()])->withInput();
-        }
+    // ✅ 2. VALIDATE LOGIC
+    if ($transaction->sender_debt_deducted > 0) {
+        Log::warning('❌ Transaction already deducted from debt', [
+            'transaction_id' => $id,
+            'debt_deducted' => $transaction->sender_debt_deducted
+        ]);
+        return back()->withErrors([
+            'error' => 'Phí đã được trừ tự động từ nợ cũ (' . number_format($transaction->sender_debt_deducted) . '₫)'
+        ]);
     }
+
+    if ($transaction->sender_fee_paid <= 0) {
+        Log::warning('❌ No fee to pay', ['transaction_id' => $id]);
+        return back()->withErrors([
+            'error' => 'Giao dịch này không cần thanh toán phí'
+        ]);
+    }
+
+    if ($transaction->sender_fee_paid_at) {
+        Log::warning('❌ Fee already paid', [
+            'transaction_id' => $id,
+            'paid_at' => $transaction->sender_fee_paid_at
+        ]);
+        return back()->withErrors([
+            'error' => 'Phí đã được thanh toán rồi vào lúc: ' . $transaction->sender_fee_paid_at->format('d/m/Y H:i')
+        ]);
+    }
+
+    // ✅ 3. VALIDATE INPUT
+    $rules = [
+        'payment_method' => 'required|in:bank_transfer,wallet,cash',
+    ];
+
+    $messages = [
+        'payment_method.required' => 'Vui lòng chọn phương thức thanh toán',
+    ];
+
+    if (in_array($method, ['bank_transfer', 'wallet'])) {
+        $rules['proof'] = 'required|image|mimes:jpeg,png,jpg,gif|max:5120';
+        $messages['proof.required'] = 'Vui lòng tải lên ảnh chứng từ';
+        $messages['proof.image'] = 'File phải là ảnh';
+        $messages['proof.mimes'] = 'Chỉ chấp nhận ảnh PNG, JPG, JPEG hoặc GIF';
+        $messages['proof.max'] = 'Ảnh không được lớn hơn 5MB';
+    }
+
+    try {
+        $request->validate($rules, $messages);
+        Log::info('✅ Validation passed', ['transaction_id' => $id]);
+    } catch (\Illuminate\Validation\ValidationException $e) {
+        Log::error('❌ Validation failed', [
+            'transaction_id' => $id,
+            'errors' => $e->errors()
+        ]);
+        throw $e;
+    }
+
+    // ✅ 4. XỬ LÝ THANH TOÁN
+    DB::beginTransaction();
+    try {
+        $proofPath = null;
+        
+        if ($request->hasFile('proof')) {
+            $file = $request->file('proof');
+            
+            Log::info('📁 Processing file upload', [
+                'transaction_id' => $id,
+                'original_name' => $file->getClientOriginalName(),
+                'mime_type' => $file->getMimeType(),
+                'size' => $file->getSize(),
+                'is_valid' => $file->isValid(),
+            ]);
+            
+            if (!$file->isValid()) {
+                throw new \Exception('File không hợp lệ: ' . $file->getErrorMessage());
+            }
+            
+            $proofPath = $file->store('fee_payments/customer', 'public');
+            
+            if (!$proofPath) {
+                throw new \Exception('Không thể lưu chứng từ');
+            }
+            
+            Log::info('✅ File uploaded successfully', [
+                'transaction_id' => $id,
+                'path' => $proofPath
+            ]);
+        }
+
+        $updateData = [
+            'sender_fee_payment_method' => $method,
+            'sender_fee_payment_proof' => $proofPath,
+            'sender_fee_paid_at' => now(),
+            'sender_fee_status' => $method === 'cash' ? 'completed' : 'transferred',
+        ];
+
+        Log::info('💾 Updating transaction', [
+            'transaction_id' => $id,
+            'update_data' => $updateData
+        ]);
+
+        $transaction->update($updateData);
+
+        Log::info('✅ Customer paid fee successfully', [
+            'transaction_id' => $transaction->id,
+            'order_id' => $transaction->order_id,
+            'customer_id' => Auth::id(),
+            'amount' => $transaction->sender_fee_paid,
+            'method' => $method,
+            'proof_path' => $proofPath,
+            'paid_at' => now(),
+        ]);
+
+        DB::commit();
+
+        $message = $method === 'cash'
+            ? '✅ Đã ghi nhận thanh toán tiền mặt. Vui lòng đến bưu cục để hoàn tất.'
+            : '✅ Đã ghi nhận thanh toán ' . number_format($transaction->sender_fee_paid) . '₫. Bưu cục sẽ xác nhận trong 24h.';
+
+        Log::info('✅ Payment completed, redirecting', [
+            'transaction_id' => $id,
+            'message' => $message
+        ]);
+
+        return redirect()->route('customer.cod.index', ['tab' => 'all'])
+            ->with('success', $message);
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        
+        Log::error('❌ Error paying fee', [
+            'transaction_id' => $id,
+            'customer_id' => Auth::id(),
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
+        
+        return back()->withErrors(['error' => $e->getMessage()])->withInput();
+    }
+}
 
     /**
      * ✅ YÊU CẦU XỬ LÝ ƯU TIÊN
@@ -673,10 +731,10 @@ public function statistics()
             // ✅ THÊM: Kiểm tra có thanh toán đang chờ không
             $pendingPayment = CodTransaction::where('sender_id', $customerId)
                 ->where('hub_id', $hubId)
-                ->where('sender_debt_payment_status', 'pending')
+                ->where('sender_fee_status','!==', 'confirmed')
                 ->first();
             
-            if ($debt > 0) {
+            if ($debt > 0 || $pendingPayment) {
                 $hub = \App\Models\User::find($hubId);
                 $debtByHub[] = [
                     'hub_id' => $hubId,

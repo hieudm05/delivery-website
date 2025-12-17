@@ -2,7 +2,7 @@
 <div class="modal fade" id="confirmFromDriverModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
-            <div class="modal-header bg-success text-white">
+            <div class="modal-header  text-white">
                 <h5 class="modal-title">
                     <i class="bi bi-check-circle"></i> Xác nhận nhận tiền từ Driver
                 </h5>
@@ -12,7 +12,7 @@
                 @csrf
                 <div class="modal-body">
                     <!-- Amount Info -->
-                    <div class="alert alert-success border-success mb-4">
+                    <div class=" border-success mb-4">
                         <div class="text-center">
                             <small class="text-muted d-block mb-2">Số tiền nhận được</small>
                             <h2 class="text-success mb-0 fw-bold">
