@@ -163,9 +163,6 @@
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">💰 Chi tiết thu nhập</h5>
-                    <a href="{{ route('customer.income.cod') }}" class="btn btn-sm btn-outline-primary">
-                        Xem tất cả
-                    </a>
                 </div>
                 <div class="card-body">
                     <div class="list-group list-group-flush">
@@ -303,27 +300,6 @@
                            class="btn btn-primary btn-lg">
                             <i class="fas fa-plus"></i> Tạo đơn hàng mới
                         </a>
-                        
-                        <a href="{{ route('customer.income.cod') }}" 
-                           class="btn btn-outline-success">
-                            <i class="fas fa-list"></i> Xem chi tiết COD
-                            @if($report['income']['pending_cod'] > 0)
-                            <span class="badge bg-warning ms-2">
-                                {{ number_format($report['income']['pending_cod']) }}đ
-                            </span>
-                            @endif
-                        </a>
-                        
-                        <a href="{{ route('customer.income.debt') }}" 
-                           class="btn btn-outline-warning">
-                            <i class="fas fa-history"></i> Lịch sử công nợ
-                            @if($report['debt']['current_debt'] > 0)
-                            <span class="badge bg-danger ms-2">
-                                {{ number_format($report['debt']['current_debt']) }}đ
-                            </span>
-                            @endif
-                        </a>
-                        
                         <a href="{{ route('customer.orderManagent.index') }}" 
                            class="btn btn-outline-info">
                             <i class="fas fa-boxes"></i> Quản lý đơn hàng
