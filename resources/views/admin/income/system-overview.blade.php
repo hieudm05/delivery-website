@@ -284,20 +284,10 @@
 
                     <!-- Action Buttons -->
                     <div class="d-flex gap-2">
-                        <a href="{{ route('admin.income.platform-fee', ['status' => 'pending']) }}" 
-                           class="btn btn-warning flex-fill">
-                            <i class="fas fa-exclamation-circle"></i> 
-                            Xem chờ nộp
-                        </a>
-                        <a href="{{ route('admin.income.platform-fee', ['status' => 'transferred']) }}" 
-                           class="btn btn-info flex-fill">
-                            <i class="fas fa-check"></i> 
-                            Xác nhận
-                        </a>
                         <a href="{{ route('admin.cod.index') }}" 
                            class="btn btn-primary flex-fill">
                             <i class="fas fa-list"></i> 
-                            Tất cả
+                            Xem chi tiết
                         </a>
                     </div>
                 </div>
@@ -628,7 +618,7 @@
                             <div class="row g-4">
                                 <!-- Total Stats -->
                                 <div class="col-md-6">
-                                    <div class="card border-0 bg-primary bg-opacity-10">
+                                    <div class="card border-0  bg-opacity-10">
                                         <div class="card-body">
                                             <h6 class="text-muted mb-3">📊 Thống kê tổng quan</h6>
                                             <div class="list-group list-group-flush bg-transparent">
@@ -655,7 +645,7 @@
 
                                 <!-- Performance Distribution -->
                                 <div class="col-md-6">
-                                    <div class="card border-0 bg-success bg-opacity-10">
+                                    <div class="card border-0 bg-opacity-10">
                                         <div class="card-body">
                                             <h6 class="text-muted mb-3">📈 Phân bổ hiệu suất</h6>
                                             @php
