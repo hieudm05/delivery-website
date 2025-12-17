@@ -40,14 +40,10 @@
                        value="{{ $startDate->format('Y-m-d') }}">
                 <input type="date" name="end_date" class="form-control" 
                        value="{{ $endDate->format('Y-m-d') }}">
-                <button type="submit" class="btn btn-primary">
+                <button type="submit" class="btn btn-primary" style="width: 100px">
                     <i class="fas fa-filter"></i> Lọc
                 </button>
             </form>
-            
-            <a href="{{ route('hub.income.index') }}" class="btn btn-outline-primary" target="_blank">
-                <i class="fas fa-external-link-alt"></i> Xem Hub Dashboard
-            </a>
         </div>
     </div>
 
@@ -327,9 +323,6 @@
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
             <h5 class="mb-0">📋 Giao dịch gần đây</h5>
-            <a href="{{ route('hub.cod.index') }}" class="btn btn-sm btn-outline-primary" target="_blank">
-                Xem tất cả
-            </a>
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
@@ -343,14 +336,13 @@
                             <th class="text-end">COD Amount</th>
                             <th class="text-end">Platform Fee</th>
                             <th class="text-center">Trạng thái</th>
-                            <th class="text-center pe-4">Chi tiết</th>
                         </tr>
                     </thead>
                     <tbody>
                         @forelse($recentTransactions as $transaction)
                         <tr>
                             <td class="ps-4">
-                                <span class="badge bg-dark">{{ $transaction->order->tracking_number }}</span>
+                                <span class="badge bg-dark">{{ $transaction->order->id }}</span>
                             </td>
                             <td>
                                 <small>{{ $transaction->created_at->format('d/m/Y H:i') }}</small>
@@ -381,12 +373,6 @@
                                 @else
                                     <span class="badge bg-warning">Chờ xử lý</span>
                                 @endif
-                            </td>
-                            <td class="text-center pe-4">
-                                <a href="{{ route('hub.cod.show', $transaction->id) }}" 
-                                   class="btn btn-sm btn-outline-primary" target="_blank">
-                                    <i class="fas fa-eye"></i>
-                                </a>
                             </td>
                         </tr>
                         @empty
