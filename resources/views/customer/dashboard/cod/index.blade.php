@@ -397,16 +397,6 @@
                         <i class="bi bi-credit-card"></i>
                     </button>
                 @endif
-                    @if(!$trans->is_returned_order && 
-                        $trans->sender_fee_paid > 0 && 
-                        !$trans->sender_fee_paid_at && 
-                        $trans->cod_amount == 0)
-                        <button type="button" class="btn btn-sm btn-outline-danger"
-                            onclick="openPayFeeModal(...)">
-                            <i class="bi bi-credit-card"></i>
-                        </button>
-                    @endif
-
                  {{-- NÚT THANH TOÁN NỢ --}}
                             @if($trans->is_returned_order && 
                                 $trans->sender_fee_paid > 0)
@@ -458,210 +448,205 @@
     </div>
 
     <!-- ==================== MODAL: THANH TOÁN PHÍ ==================== -->
-    <div class="modal fade" id="payFeeModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
-        <div class="modal-dialog modal-dialog-centered modal-lg">
-            <div class="modal-content border-0 shadow-lg">
-                <form id="payFeeForm" method="POST" enctype="multipart/form-data">
-                    @csrf
+   <div class="modal fade" id="payFeeModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg">
+            <form id="payFeeForm" method="POST" enctype="multipart/form-data">
+                @csrf
 
-                    <!-- Header -->
-                    <div class="modal-header bg-gradient text-white border-0"
-                        style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-                        <h5 class="modal-title fw-bold">
-                            <i class="bi bi-credit-card"></i> Thanh toán phí hệ thống
-                        </h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                    </div>
+                <!-- Header -->
+                <div class="modal-header bg-gradient text-white border-0"
+                    style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                    <h5 class="modal-title fw-bold">
+                        <i class="bi bi-credit-card"></i> Thanh toán phí hệ thống
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
 
-                    <!-- Body -->
-                    <div class="modal-body p-4">
-                        <div class="row g-4">
+                <!-- Body -->
+                <div class="modal-body p-4">
+                    <div class="row g-4">
 
-                            <!-- CỘT TRÁI -->
-                            <div class="col-lg-6">
-
-                                <!-- THÔNG TIN GIAO DỊCH -->
-                                <div class="alert alert-info border-0 mb-4"
-                                    style="background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);">
-                                    <div class="row">
-                                        <div class="col-6">
-                                            <small class="text-muted d-block mb-1">Đơn hàng</small>
-                                            <h6 class="mb-0 fw-bold text-primary">#<span id="orderIdDisplay">---</span>
-                                            </h6>
-                                        </div>
-                                        <div class="col-6 text-end">
-                                            <small class="text-muted d-block mb-1">Phí cần trả</small>
-                                            <h6 class="mb-0 fw-bold text-danger" id="feeAmountDisplay">0₫</h6>
-                                        </div>
+                        <!-- CỘT TRÁI -->
+                        <div class="col-lg-6">
+                            <!-- THÔNG TIN GIAO DỊCH -->
+                            <div class="alert alert-info border-0 mb-4"
+                                style="background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);">
+                                <div class="row">
+                                    <div class="col-6">
+                                        <small class="text-muted d-block mb-1">Đơn hàng</small>
+                                        <h6 class="mb-0 fw-bold text-primary">#<span id="orderIdDisplay">---</span></h6>
+                                    </div>
+                                    <div class="col-6 text-end">
+                                        <small class="text-muted d-block mb-1">Phí cần trả</small>
+                                        <h6 class="mb-0 fw-bold text-danger" id="feeAmountDisplay">0₫</h6>
                                     </div>
                                 </div>
+                            </div>
 
-                                <!-- CHI TIẾT PHÍ -->
-                                <div class="card border-light mb-4">
-                                    <div class="card-header bg-light">
+                            <!-- CHI TIẾT PHÍ -->
+                            <div class="card border-light mb-4">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0">
+                                        <i class="bi bi-list-check"></i> Chi tiết phí
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <div id="feeBreakdown" class="space-y-2">
+                                        <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                            <span class="visually-hidden">Đang tải...</span>
+                                        </div>
+                                    </div>
+                                    <hr class="my-3">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <strong>Tổng cộng:</strong>
+                                        <h5 class="mb-0 text-danger fw-bold" id="totalFeeDisplay">0₫</h5>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- CỘT PHẢI -->
+                        <div class="col-lg-6">
+                            <!-- PHƯƠNG THỨC THANH TOÁN -->
+                            <div class="mb-4">
+                                <label class="form-label fw-bold">
+                                    <i class="bi bi-credit-card"></i> Phương thức thanh toán
+                                    <span class="text-danger">*</span>
+                                </label>
+                                <select name="payment_method" id="paymentMethodSelect"
+                                    class="form-select form-select-lg" required>
+                                    <option value="">-- Chọn phương thức --</option>
+                                    <option value="bank_transfer">🏦 Chuyển khoản ngân hàng</option>
+                                    <option value="wallet">📱 Ví điện tử (Momo, ZaloPay...)</option>
+                                    <option value="cash">💵 Tiền mặt (tại bưu cục)</option>
+                                </select>
+                            </div>
+
+                            <!-- ✅ FIX: CHỈ CÓ 1 INPUT FILE DUY NHẤT -->
+                            <input type="file" name="proof" id="proofInput" class="form-control d-none" accept="image/*">
+
+                            <!-- CHUYỂN KHOẢN -->
+                            <div id="bankTransferSection" style="display: none;">
+                                <div class="card border-info mb-3">
+                                    <div class="card-header bg-info bg-opacity-10 border-info">
                                         <h6 class="mb-0">
-                                            <i class="bi bi-list-check"></i> Chi tiết phí
+                                            <i class="bi bi-building"></i> Thông tin tài khoản Hub
                                         </h6>
                                     </div>
                                     <div class="card-body">
-                                        <div id="feeBreakdown" class="space-y-2">
-                                            <div class="spinner-border spinner-border-sm text-primary" role="status">
-                                                <span class="visually-hidden">Đang tải...</span>
+                                        <div class="row mb-2">
+                                            <div class="col-5">
+                                                <small class="text-muted">Ngân hàng</small>
+                                                <p class="mb-0 fw-bold" id="hubBankName">Đang tải...</p>
+                                            </div>
+                                            <div class="col-7">
+                                                <small class="text-muted">Số tài khoản</small>
+                                                <p class="mb-0 fw-bold" id="hubAccountNumber">Đang tải...</p>
                                             </div>
                                         </div>
-
-                                        <hr class="my-3">
-
-                                        <div class="d-flex justify-content-between align-items-center">
-                                            <strong>Tổng cộng:</strong>
-                                            <h5 class="mb-0 text-danger fw-bold" id="totalFeeDisplay">0₫</h5>
+                                        <div class="row">
+                                            <div class="col-12">
+                                                <small class="text-muted">Chủ tài khoản</small>
+                                                <p class="mb-0 fw-bold" id="hubAccountName">Đang tải...</p>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
 
-                            </div>
+                                <div id="qrLoadingSpinner" class="text-center mb-3">
+                                    <div class="spinner-border text-primary"></div>
+                                    <p class="text-muted mt-2 mb-0">Đang tạo mã QR...</p>
+                                </div>
 
-                            <!-- CỘT PHẢI -->
-                            <div class="col-lg-6">
+                                <div id="qrCodeDisplay" class="text-center mb-4" style="display: none;">
+                                    <div class="card border-primary shadow-sm">
+                                        <div class="card-body p-3">
+                                            <h6 class="card-title mb-3">
+                                                <i class="bi bi-qr-code"></i> Quét mã QR để chuyển khoản
+                                            </h6>
+                                            <img id="qrCodeImage" src="" alt="QR Code" class="img-fluid"
+                                                style="max-width: 280px; border: 3px solid #0d6efd; border-radius: 12px; padding: 8px; background: white;">
+                                            <p class="text-muted small mt-3 mb-0">
+                                                ✓ Mở app ngân hàng → Quét QR → Xác nhận thanh toán
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
 
-                                <!-- PHƯƠNG THỨC THANH TOÁN -->
-                                <div class="mb-4">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Nội dung chuyển khoản</label>
+                                    <div class="input-group">
+                                        <input type="text" id="transferContent" class="form-control" readonly>
+                                        <button class="btn btn-outline-secondary" type="button"
+                                            onclick="copyTransferContent()">
+                                            <i class="bi bi-clipboard"></i> Sao chép
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
                                     <label class="form-label fw-bold">
-                                        <i class="bi bi-credit-card"></i> Phương thức thanh toán
+                                        <i class="bi bi-image"></i> Ảnh chứng từ chuyển khoản
                                         <span class="text-danger">*</span>
                                     </label>
-                                    <select name="payment_method" id="paymentMethodSelect"
-                                        class="form-select form-select-lg" required>
-                                        <option value="">-- Chọn phương thức --</option>
-                                        <option value="bank_transfer">🏦 Chuyển khoản ngân hàng</option>
-                                        <option value="wallet">📱 Ví điện tử (Momo, ZaloPay...)</option>
-                                        <option value="cash">💵 Tiền mặt (tại bưu cục)</option>
-                                    </select>
+                                    <!-- ✅ Hiển thị input file ở đây -->
+                                    <div id="fileInputContainer"></div>
+                                    <small class="text-muted">PNG, JPG, GIF - Tối đa 5MB</small>
                                 </div>
 
-                                <!-- CHUYỂN KHOẢN -->
-                                <div id="bankTransferSection" style="display: none;">
-                                    <div class="card border-info mb-3">
-                                        <div class="card-header bg-info bg-opacity-10 border-info">
-                                            <h6 class="mb-0">
-                                                <i class="bi bi-building"></i> Thông tin tài khoản Hub
-                                            </h6>
-                                        </div>
-                                        <div class="card-body">
-                                            <div class="row mb-2">
-                                                <div class="col-5">
-                                                    <small class="text-muted">Ngân hàng</small>
-                                                    <p class="mb-0 fw-bold" id="hubBankName">Đang tải...</p>
-                                                </div>
-                                                <div class="col-7">
-                                                    <small class="text-muted">Số tài khoản</small>
-                                                    <p class="mb-0 fw-bold" id="hubAccountNumber">Đang tải...</p>
-                                                </div>
-                                            </div>
-                                            <div class="row">
-                                                <div class="col-12">
-                                                    <small class="text-muted">Chủ tài khoản</small>
-                                                    <p class="mb-0 fw-bold" id="hubAccountName">Đang tải...</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div id="qrLoadingSpinner" class="text-center mb-3">
-                                        <div class="spinner-border text-primary"></div>
-                                        <p class="text-muted mt-2 mb-0">Đang tạo mã QR...</p>
-                                    </div>
-
-                                    <div id="qrCodeDisplay" class="text-center mb-4" style="display: none;">
-                                        <div class="card border-primary shadow-sm">
-                                            <div class="card-body p-3">
-                                                <h6 class="card-title mb-3">
-                                                    <i class="bi bi-qr-code"></i> Quét mã QR để chuyển khoản
-                                                </h6>
-                                                <img id="qrCodeImage" src="" alt="QR Code" class="img-fluid"
-                                                    style="max-width: 280px; border: 3px solid #0d6efd; border-radius: 12px; padding: 8px; background: white;">
-                                                <p class="text-muted small mt-3 mb-0">
-                                                    ✓ Mở app ngân hàng → Quét QR → Xác nhận thanh toán
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div class="mb-3">
-                                        <label class="form-label fw-bold">Nội dung chuyển khoản</label>
-                                        <div class="input-group">
-                                            <input type="text" id="transferContent" class="form-control" readonly>
-                                            <button class="btn btn-outline-secondary" type="button"
-                                                onclick="copyToClipboard()">
-                                                <i class="bi bi-clipboard"></i> Sao chép
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    <div class="mb-3">
-                                        <label class="form-label fw-bold">
-                                            <i class="bi bi-image"></i> Ảnh chứng từ chuyển khoản
-                                            <span class="text-danger">*</span>
-                                        </label>
-                                        <input type="file" id="proofInputBankTransfer" class="form-control"
-                                            accept="image/*">
-                                        <small class="text-muted">PNG, JPG, GIF - Tối đa 5MB</small>
-                                    </div>
-
-                                    <div class="alert alert-warning border-0 mb-0">
-                                        <i class="bi bi-exclamation-triangle"></i>
-                                        <strong>Lưu ý:</strong> Kiểm tra thông tin trước khi chuyển khoản
-                                    </div>
+                                <div class="alert alert-warning border-0 mb-0">
+                                    <i class="bi bi-exclamation-triangle"></i>
+                                    <strong>Lưu ý:</strong> Kiểm tra thông tin trước khi chuyển khoản
                                 </div>
+                            </div>
 
-                                <!-- VÍ ĐIỆN TỬ -->
-                                <div id="walletSection" style="display: none;">
-                                    <div class="alert alert-info border-0 mb-3">
-                                        <i class="bi bi-info-circle"></i>
-                                        <strong>Hướng dẫn:</strong> Chuyển khoản qua ví rồi upload ảnh
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label fw-bold">
-                                            <i class="bi bi-image"></i> Ảnh chứng từ
-                                            <span class="text-danger">*</span>
-                                        </label>
-                                        <input type="file" id="proofInputWallet" class="form-control"
-                                            accept="image/*">
-                                    </div>
+                            <!-- VÍ ĐIỆN TỬ -->
+                            <div id="walletSection" style="display: none;">
+                                <div class="alert alert-info border-0 mb-3">
+                                    <i class="bi bi-info-circle"></i>
+                                    <strong>Hướng dẫn:</strong> Chuyển khoản qua ví rồi upload ảnh
                                 </div>
-
-                                <!-- TIỀN MẶT -->
-                                <div id="cashSection" style="display: none;">
-                                    <div class="alert alert-warning border-0 mb-0">
-                                        <i class="bi bi-exclamation-triangle"></i>
-                                        <strong>Lưu ý:</strong> Đến bưu cục để thanh toán
-                                    </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">
+                                        <i class="bi bi-image"></i> Ảnh chứng từ
+                                        <span class="text-danger">*</span>
+                                    </label>
+                                    <!-- ✅ Hiển thị input file ở đây -->
+                                    <div id="fileInputContainerWallet"></div>
                                 </div>
+                            </div>
 
-                                <!-- Cảnh báo chung -->
-                                <div class="alert alert-danger border-0 mt-3 mb-0">
-                                    <i class="bi bi-clock"></i>
-                                    <strong>⏰ Hạn cuối:</strong> Thanh toán trong 24h
+                            <!-- TIỀN MẶT -->
+                            <div id="cashSection" style="display: none;">
+                                <div class="alert alert-warning border-0 mb-0">
+                                    <i class="bi bi-exclamation-triangle"></i>
+                                    <strong>Lưu ý:</strong> Đến bưu cục để thanh toán
                                 </div>
+                            </div>
 
+                            <!-- Cảnh báo chung -->
+                            <div class="alert alert-danger border-0 mt-3 mb-0">
+                                <i class="bi bi-clock"></i>
+                                <strong>⏰ Hạn cuối:</strong> Thanh toán trong 24h
                             </div>
                         </div>
                     </div>
+                </div>
 
-
-                    <!-- Footer -->
-                    <div class="modal-footer border-top-0 pt-0">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                            <i class="bi bi-x-circle"></i> Hủy
-                        </button>
-                        <button type="submit" class="btn btn-primary btn-lg">
-                            <i class="bi bi-check-circle"></i> Xác nhận đã thanh toán
-                        </button>
-                    </div>
-                </form>
-            </div>
+                <!-- Footer -->
+                <div class="modal-footer border-top-0 pt-0">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle"></i> Hủy
+                    </button>
+                    <button type="submit" class="btn btn-primary btn-lg" id="submitPaymentBtn">
+                        <i class="bi bi-check-circle"></i> Xác nhận đã thanh toán
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
+</div>
 
     <!-- ==================== MODAL: YÊU CẦU ƯU TIÊN ==================== -->
     <div class="modal fade" id="priorityModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
@@ -823,18 +808,17 @@
     </style>
 
     <!-- ==================== JAVASCRIPT ==================== -->
-   <script>
-    let currentTransactionId = null;
+   
+<script>
+let currentTransactionId = null;
 let currentPayerShipping = null;
-let isReturnOrder = false;
 
 /**
- * ✅ MỞ MODAL THANH TOÁN - HỖ TRỢ CẢ ĐƠN THƯỜNG VÀ ĐƠN HOÀN VỀ
+ * ✅ MỞ MODAL THANH TOÁN
  */
 function openPayFeeModal(transId, orderId, feeAmount, payerType) {
     currentTransactionId = transId;
     currentPayerShipping = payerType;
-    isReturnOrder = (payerType === 'returned'); // ✅ PHÁT HIỆN ĐƠN HOÀN VỀ
 
     document.getElementById('payFeeForm').action = `/customer/cod/${transId}/pay-fee`;
     document.getElementById('orderIdDisplay').textContent = orderId;
@@ -843,15 +827,13 @@ function openPayFeeModal(transId, orderId, feeAmount, payerType) {
 
     document.getElementById('paymentMethodSelect').value = '';
     hideAllPaymentSections();
-
-    // ✅ TẢI CHI TIẾT PHÍ
     loadFeeDetails(transId);
 
     new bootstrap.Modal(document.getElementById('payFeeModal')).show();
 }
 
 /**
- * ✅ LOAD CHI TIẾT PHÍ - HỖ TRỢ CẢ 2 LOẠI ĐƠN
+ * ✅ LOAD CHI TIẾT PHÍ
  */
 function loadFeeDetails(transId) {
     const container = document.getElementById('feeBreakdown');
@@ -871,8 +853,12 @@ function loadFeeDetails(transId) {
             'X-Requested-With': 'XMLHttpRequest'
         }
     })
-    .then(res => res.json())
+    .then(res => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+    })
     .then(data => {
+        console.log('✅ Fee data:', data);
         if (data.success) {
             window.feeData = data;
             displayFeeBreakdown(data.fee_breakdown, data.is_return_order);
@@ -881,13 +867,13 @@ function loadFeeDetails(transId) {
         }
     })
     .catch(err => {
-        console.error('Error:', err);
-        container.innerHTML = '<div class="alert alert-danger">Lỗi khi tải dữ liệu</div>';
+        console.error('❌ Error:', err);
+        container.innerHTML = `<div class="alert alert-danger">❌ Lỗi: ${err.message}</div>`;
     });
 }
 
 /**
- * ✅ HIỂN THỊ CHI TIẾT PHÍ - PHÂN BIỆT ĐƠN THƯỜNG VÀ ĐƠN HOÀN VỀ
+ * ✅ HIỂN THỊ CHI TIẾT PHÍ
  */
 function displayFeeBreakdown(breakdown, isReturn) {
     const container = document.getElementById('feeBreakdown');
@@ -895,7 +881,6 @@ function displayFeeBreakdown(breakdown, isReturn) {
     let total = 0;
 
     if (isReturn) {
-        // ✅ ĐƠN HOÀN VỀ - CHỈ HIỆN PHÍ HOÀN HÀNG
         if (breakdown.return_fee) {
             container.innerHTML = `
                 <div class="alert alert-warning border-0 mb-3">
@@ -910,7 +895,6 @@ function displayFeeBreakdown(breakdown, isReturn) {
             total = breakdown.return_fee;
         }
     } else {
-        // ✅ ĐƠN THƯỜNG - HIỆN PHÍ COD + PHÍ SHIP (nếu có)
         if (breakdown.cod_fee) {
             container.innerHTML += `
                 <div class="d-flex justify-content-between mb-2">
@@ -920,7 +904,6 @@ function displayFeeBreakdown(breakdown, isReturn) {
             `;
             total += breakdown.cod_fee;
         }
-
         if (breakdown.shipping_fee) {
             container.innerHTML += `
                 <div class="d-flex justify-content-between mb-2">
@@ -936,30 +919,36 @@ function displayFeeBreakdown(breakdown, isReturn) {
 }
 
 /**
- * ✅ CHỌN PHƯƠNG THỨC THANH TOÁN
+ * ✅ CHỌN PHƯƠNG THỨC THANH TOÁN (FIXED)
  */
 document.getElementById('paymentMethodSelect').addEventListener('change', function() {
     const method = this.value;
+    const proofInput = document.getElementById('proofInput');
+    
     hideAllPaymentSections();
 
     if (method === 'bank_transfer') {
         document.getElementById('bankTransferSection').style.display = 'block';
-        document.getElementById('proofInputBankTransfer').setAttribute('name', 'proof');
-        document.getElementById('proofInputBankTransfer').required = true;
+        
+        // ✅ Di chuyển input file vào container
+        proofInput.classList.remove('d-none');
+        proofInput.required = true;
+        document.getElementById('fileInputContainer').appendChild(proofInput);
+        
         loadQrCode();
     } else if (method === 'wallet') {
         document.getElementById('walletSection').style.display = 'block';
-        document.getElementById('proofInputWallet').setAttribute('name', 'proof');
-        document.getElementById('proofInputWallet').required = true;
+        
+        // ✅ Di chuyển input file vào container
+        proofInput.classList.remove('d-none');
+        proofInput.required = true;
+        document.getElementById('fileInputContainerWallet').appendChild(proofInput);
     } else if (method === 'cash') {
         document.getElementById('cashSection').style.display = 'block';
         
-        // ✅ HIỂN THỊ ORDER ID CHO TIỀN MẶT
-        const orderId = document.getElementById('orderIdDisplay').textContent;
-        const cashOrderIdSpan = document.getElementById('cashOrderId');
-        if (cashOrderIdSpan) {
-            cashOrderIdSpan.textContent = orderId;
-        }
+        // ✅ Tiền mặt không cần file
+        proofInput.classList.add('d-none');
+        proofInput.required = false;
     }
 });
 
@@ -984,7 +973,7 @@ function loadQrCode() {
 }
 
 /**
- * ✅ ẨN TẤT CẢ SECTION THANH TOÁN
+ * ✅ ẨN TẤT CẢ SECTION
  */
 function hideAllPaymentSections() {
     ['bankTransferSection', 'walletSection', 'cashSection', 'qrCodeDisplay'].forEach(id => {
@@ -992,16 +981,13 @@ function hideAllPaymentSections() {
         if (el) el.style.display = 'none';
     });
 
-    ['proofInputBankTransfer', 'proofInputWallet'].forEach(id => {
-        const input = document.getElementById(id);
-        if (input) {
-            input.removeAttribute('name');
-            input.value = '';
-            input.required = false;
-        }
-    });
-
     document.getElementById('qrLoadingSpinner').style.display = 'block';
+    
+    // ✅ Reset input file
+    const proofInput = document.getElementById('proofInput');
+    proofInput.value = '';
+    proofInput.classList.add('d-none');
+    proofInput.required = false;
 }
 
 /**
@@ -1014,16 +1000,6 @@ function copyTransferContent() {
     }).catch(() => {
         alert('❌ Không thể sao chép');
     });
-}
-
-/**
- * ✅ MỞ MODAL YÊU CẦU ƯU TIÊN
- */
-function openPriorityModal(transId, orderId) {
-    document.getElementById('priorityForm').action = `/customer/cod/${transId}/request-priority`;
-    document.getElementById('priorityOrderIdDisplay').textContent = orderId;
-    document.getElementById('priorityReason').value = '';
-    new bootstrap.Modal(document.getElementById('priorityModal')).show();
 }
 
 /**
@@ -1041,14 +1017,35 @@ document.getElementById('payFeeModal').addEventListener('hidden.bs.modal', funct
     hideAllPaymentSections();
     currentTransactionId = null;
     currentPayerShipping = null;
-    isReturnOrder = false;
     window.feeData = null;
 });
 
-document.getElementById('priorityModal').addEventListener('hidden.bs.modal', function() {
-    document.getElementById('priorityForm').reset();
+/**
+ * ✅ VALIDATE FORM TRƯỚC KHI SUBMIT
+ */
+document.getElementById('payFeeForm').addEventListener('submit', function(e) {
+    const method = document.getElementById('paymentMethodSelect').value;
+    const proofInput = document.getElementById('proofInput');
+    
+    console.log('📤 Form submitting...', {
+        method: method,
+        hasFile: proofInput.files.length > 0,
+        fileName: proofInput.files[0]?.name
+    });
+    
+    // ✅ Validate file cho bank_transfer và wallet
+    if ((method === 'bank_transfer' || method === 'wallet') && proofInput.files.length === 0) {
+        e.preventDefault();
+        alert('❌ Vui lòng tải lên ảnh chứng từ thanh toán!');
+        return false;
+    }
+    
+    // ✅ Disable nút submit để tránh double-click
+    const submitBtn = document.getElementById('submitPaymentBtn');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Đang xử lý...';
 });
-   </script>
+</script>
 
 <!-- ==================== MODAL: THANH TOÁN NỢ ==================== -->
 <div class="modal fade" id="payDebtModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">

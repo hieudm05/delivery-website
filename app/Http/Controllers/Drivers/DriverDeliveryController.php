@@ -204,7 +204,7 @@ class DriverDeliveryController extends Controller
                 'received_by_phone' => $request->received_by_phone,
                 'received_by_relation' => $request->received_by_relation,
                 'delivery_note' => $request->delivery_note,
-                'cod_collected_amount' => $codCollected,
+                'cod_collected_amount' => $codCollected ?? 0,
                 'cod_collected_at' => $codCollected > 0 ? now() : null,
             ]);
 
@@ -240,7 +240,7 @@ class DriverDeliveryController extends Controller
 
             // Tạo thông báo thành công
             $successMessage = 'Đã giao hàng thành công đơn #' . $order->id;
-            if ($codCollected > 0) {
+            if ($codCollected > 0  ) {
                 $successMessage .= '<br><strong>Đã thu COD: ' . number_format($codCollected) . ' đ</strong>';
             }
 
@@ -251,7 +251,7 @@ class DriverDeliveryController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-
+            dd($e);
             return back()
                 ->withInput()
                 ->with('error', 'Có lỗi xảy ra khi lưu thông tin giao hàng. Vui lòng thử lại!')

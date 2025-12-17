@@ -14,56 +14,62 @@ use Illuminate\Support\Facades\DB;
 class HubCodController extends Controller
 {
     public function index(Request $request)
-    {
-        $hubId = Auth::id();
-        $tab = $request->get('tab', 'waiting_confirm');
+{
+    $hubId = Auth::id();
+    $tab = $request->get('tab', 'waiting_confirm');
 
-        $query = CodTransaction::with(['order', 'driver', 'sender'])
-            ->byHub($hubId);
+    $query = CodTransaction::with(['order', 'driver', 'sender'])
+        ->byHub($hubId);
 
-        switch ($tab) {
-            case 'waiting_confirm':
-                $query->where('shipper_payment_status', 'transferred');
-                break;
-            case 'pending_sender':
-                $query->where('sender_payment_status', 'pending');
-                break;
-            case 'pending_driver_commission':
-                $query->where('driver_commission_status', 'pending')
-                      ->where('shipper_payment_status', 'confirmed');
-                break;
-            case 'completed':
-                $query->where('sender_payment_status', 'completed');
-                break;
-            case 'pending_system':
-                $query->where('hub_system_status', 'pending');
-                break;
-        }
-
-        $transactions = $query->latest()->paginate(20);
-
-        $stats = [
-            'waiting_confirm' => CodTransaction::byHub($hubId)
-                ->where('shipper_payment_status', 'transferred')
-                ->sum('total_collected'),
-            'pending_sender' => CodTransaction::byHub($hubId)
-                ->where('sender_payment_status', 'pending')
-                ->sum('sender_receive_amount'),
-            'pending_driver_commission' => CodTransaction::byHub($hubId)
-                ->where('driver_commission_status', 'pending')
-                ->where('shipper_payment_status', 'confirmed')
-                ->sum('driver_commission'),
-            'completed_sender' => CodTransaction::byHub($hubId)
-                ->where('sender_payment_status', 'completed')
-                ->sum('sender_receive_amount'),
-            'pending_system' => CodTransaction::byHub($hubId)
-                ->where('hub_system_status', 'pending')
-                ->sum('hub_system_amount'),
-            'total_transactions' => CodTransaction::byHub($hubId)->count(),
-        ];
-
-        return view('hub.cod.index', compact('transactions', 'tab', 'stats'));
+    switch ($tab) {
+        case 'waiting_confirm':
+            $query->where('shipper_payment_status', 'transferred');
+            break;
+        case 'pending_sender':
+            $query->where('sender_payment_status', 'pending');
+            break;
+        case 'pending_driver_commission':
+            $query->where('driver_commission_status', 'pending')
+                  ->where('shipper_payment_status', 'confirmed');
+            break;
+        case 'pending_fee_confirm': // ✅ TAB MỚI
+            $query->where('sender_fee_status', 'transferred');
+            break;
+        case 'completed':
+            $query->where('sender_payment_status', 'completed');
+            break;
+        case 'pending_system':
+            $query->where('hub_system_status', 'pending');
+            break;
     }
+
+    $transactions = $query->latest()->paginate(20);
+
+    $stats = [
+        'waiting_confirm' => CodTransaction::byHub($hubId)
+            ->where('shipper_payment_status', 'transferred')
+            ->sum('total_collected'),
+        'pending_sender' => CodTransaction::byHub($hubId)
+            ->where('sender_payment_status', 'pending')
+            ->sum('sender_receive_amount'),
+        'pending_driver_commission' => CodTransaction::byHub($hubId)
+            ->where('driver_commission_status', 'pending')
+            ->where('shipper_payment_status', 'confirmed')
+            ->sum('driver_commission'),
+        'pending_fee_confirm' => CodTransaction::byHub($hubId) // ✅ STAT MỚI
+            ->where('sender_fee_status', 'transferred')
+            ->sum('sender_fee_paid'),
+        'completed_sender' => CodTransaction::byHub($hubId)
+            ->where('sender_payment_status', 'completed')
+            ->sum('sender_receive_amount'),
+        'pending_system' => CodTransaction::byHub($hubId)
+            ->where('hub_system_status', 'pending')
+            ->sum('hub_system_amount'),
+        'total_transactions' => CodTransaction::byHub($hubId)->count(),
+    ];
+
+    return view('hub.cod.index', compact('transactions', 'tab', 'stats'));
+}
 
     public function show($id)
     {
@@ -135,6 +141,173 @@ class HubCodController extends Controller
             'systemHasBankAccount'
         ));
     }
+
+    /**
+ * ✅ Xác nhận đã nhận tiền phí từ Customer
+ */
+public function confirmCustomerFee(Request $request, $id)
+{
+    $request->validate([
+        'note' => 'nullable|string|max:500',
+    ]);
+
+    DB::beginTransaction();
+    try {
+        $hubId = Auth::id();
+        
+        $transaction = CodTransaction::byHub($hubId)->findOrFail($id);
+
+        // Validate trạng thái
+        if ($transaction->sender_fee_status !== 'transferred') {
+            return back()->withErrors([
+                'error' => 'Chỉ có thể xác nhận khi customer đã chuyển tiền (transferred)'
+            ]);
+        }
+
+        if ($transaction->sender_fee_status === 'confirmed') {
+            return back()->withErrors([
+                'error' => 'Giao dịch này đã được xác nhận rồi'
+            ]);
+        }
+
+        // Cập nhật trạng thái
+        $transaction->update([
+            'sender_fee_status' => 'confirmed',
+            'sender_fee_confirmed_by' => $hubId,
+            'sender_fee_confirmed_at' => now(),
+        ]);
+
+        // ✅ Tính lợi nhuận cho Hub
+        // Hub nhận tiền phí = sender_fee_paid (đã trừ nợ nếu có)
+        $hubFeeProfit = $transaction->sender_fee_paid;
+        
+        // Cập nhật lợi nhuận Hub (cộng thêm tiền phí)
+        $newHubProfit = $transaction->hub_profit + $hubFeeProfit;
+        $transaction->update([
+            'hub_profit' => $newHubProfit,
+        ]);
+
+
+        DB::commit();
+
+
+        return redirect()->route('hub.cod.show', $id)
+            ->with('success', 'Đã xác nhận nhận tiền phí ' . number_format($transaction->sender_fee_paid) . '₫ từ customer');
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        
+        
+        return back()->withErrors(['error' => $e->getMessage()]);
+    }
+}
+
+/**
+ * ✅ Từ chối thanh toán phí (nếu sai/không hợp lệ)
+ */
+public function rejectCustomerFee(Request $request, $id)
+{
+    $request->validate([
+        'reason' => 'required|string|max:500',
+    ]);
+
+    DB::beginTransaction();
+    try {
+        $hubId = Auth::id();
+        
+        $transaction = CodTransaction::byHub($hubId)->findOrFail($id);
+
+        if ($transaction->sender_fee_status !== 'transferred') {
+            return back()->withErrors([
+                'error' => 'Chỉ có thể từ chối khi customer đã chuyển tiền (transferred)'
+            ]);
+        }
+
+        // Trả về trạng thái pending để customer thanh toán lại
+        $transaction->update([
+            'sender_fee_status' => 'rejected',
+            'sender_fee_payment_proof' => null, // Xóa ảnh cũ
+            'sender_fee_rejection_reason' => $request->reason,
+        ]);
+
+
+        DB::commit();
+
+        return redirect()->route('hub.cod.show', $id)
+            ->with('success', 'Đã từ chối thanh toán. Customer cần thanh toán lại.');
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        return back()->withErrors(['error' => $e->getMessage()]);
+    }
+}
+
+/**
+ * ✅ Xác nhận hàng loạt
+ */
+public function batchConfirmCustomerFees(Request $request)
+{
+    $request->validate([
+        'transaction_ids' => 'required|array|min:1',
+        'transaction_ids.*' => 'exists:cod_transactions,id',
+        'note' => 'nullable|string|max:500',
+    ]);
+
+    DB::beginTransaction();
+    try {
+        $hubId = Auth::id();
+        $transactionIds = $request->transaction_ids;
+
+        $transactions = CodTransaction::byHub($hubId)
+            ->whereIn('id', $transactionIds)
+            ->where('sender_fee_status', 'transferred')
+            ->get();
+
+        if ($transactions->isEmpty()) {
+            throw new \Exception('Không có giao dịch hợp lệ để xác nhận');
+        }
+
+        $totalFee = 0;
+        foreach ($transactions as $transaction) {
+            $hubFeeProfit = $transaction->sender_fee_paid;
+            $newHubProfit = $transaction->hub_profit + $hubFeeProfit;
+            
+            $transaction->update([
+                'sender_fee_status' => 'completed',
+                'sender_fee_confirmed_by' => $hubId,
+                'sender_fee_confirmed_at' => now(),
+                'hub_profit' => $newHubProfit,
+            ]);
+
+            CodTransactionLog::create([
+                'cod_transaction_id' => $transaction->id,
+                'user_id' => $hubId,
+                'action' => 'hub_confirm_customer_fee',
+                'old_status' => 'transferred',
+                'new_status' => 'completed',
+                'metadata' => [
+                    'fee_amount' => $hubFeeProfit,
+                    'old_hub_profit' => $transaction->hub_profit - $hubFeeProfit,
+                    'new_hub_profit' => $newHubProfit,
+                    'batch' => true,
+                ],
+                'note' => $request->note,
+                'ip_address' => $request->ip(),
+            ]);
+
+            $totalFee += $hubFeeProfit;
+        }
+
+        DB::commit();
+
+        return redirect()->route('hub.cod.index', ['tab' => 'pending_fee_confirm'])
+            ->with('success', "Đã xác nhận {$transactions->count()} giao dịch, tổng " . number_format($totalFee) . "₫");
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        return back()->withErrors(['error' => $e->getMessage()]);
+    }
+}
 
     public function confirmFromDriver(Request $request, $id)
     {

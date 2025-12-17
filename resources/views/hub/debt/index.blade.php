@@ -29,7 +29,6 @@
                     <div>
                         <div class="text-warning fw-bold small">Chờ xác nhận</div>
                         <div class="h4 fw-bold">{{ $stats['pending_confirmation'] }} khoản</div>
-                        <small class="text-muted">{{ number_format($stats['pending_amount']) }}₫</small>
                     </div>
                     <i class="bi bi-clock-history display-6 text-warning opacity-50"></i>
                 </div>
@@ -42,7 +41,6 @@
                     <div>
                         <div class="text-success fw-bold small">Đã xác nhận</div>
                         <div class="h4 fw-bold">{{ $stats['confirmed'] }} khoản</div>
-                        <small class="text-muted">{{ number_format($stats['confirmed_amount']) }}₫</small>
                     </div>
                     <i class="bi bi-check-circle display-6 text-success opacity-50"></i>
                 </div>
@@ -117,7 +115,7 @@
                                         <small class="text-muted">{{ $trans->sender->phone ?? '' }}</small>
                                     </td>
                                     <td class="text-danger fw-bold">
-                                        {{ number_format($trans->sender_debt_deducted) }}₫
+                                        {{ number_format($trans->sender_fee_paid) }}₫
                                     </td>
                                     <td>
                                         <span class="badge bg-primary">Chuyển khoản</span>
@@ -170,7 +168,7 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <p><strong>Số tiền:</strong> {{ number_format($trans->sender_debt_deducted) }}₫</p>
+                    <p><strong>Số tiền:</strong> {{ number_format($trans->sender_fee_paid) }}₫</p>
 
                     @if($trans->sender_debt_payment_proof)
                         <img src="{{ asset('storage/'.$trans->sender_debt_payment_proof) }}"

@@ -514,6 +514,16 @@ Route::prefix('hub')
                 ->name('get-system-qr');
             Route::get('/{id}', [HubCodController::class, 'show'])->name('show');
 
+            // ✅ XÁC NHẬN PHÍ TỪ CUSTOMER
+            Route::post('/{id}/confirm-customer-fee', [HubCodController::class, 'confirmCustomerFee'])
+                ->name('confirm-customer-fee');
+
+            Route::post('/{id}/reject-customer-fee', [HubCodController::class, 'rejectCustomerFee'])
+                ->name('reject-customer-fee');
+
+            Route::post('/batch-confirm-customer-fees', [HubCodController::class, 'batchConfirmCustomerFees'])
+                ->name('batch-confirm-customer-fees');
+
              // lấy mã qr
             Route::get('/get-sender-qr/{id}', [HubCodController::class, 'getSenderQrCode'])
                 ->name('get-sender-qr');

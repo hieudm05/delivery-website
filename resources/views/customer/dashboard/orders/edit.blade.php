@@ -649,15 +649,50 @@ let geocodeTimeout = null;
 let autocompleteTimeout = null;
 let editingProductIndex = null; // Track đang sửa product nào
 
+// ✅ CHUẨN HÓA specials ngay từ đầu
+// ✅ CHUẨN HÓA specials ngay từ đầu (TRƯỚC KHI $(document).ready)
 productsList = productsList.map(p => {
+    let specials = [];
+    
+    // ✅ XỬ LÝ TẤT CẢ CASE
+    if (Array.isArray(p.specials)) {
+        specials = p.specials;
+    } else if (typeof p.specials === 'string') {
+        if (p.specials === '' || p.specials === '[]') {
+            specials = [];
+        } else {
+            try {
+                const parsed = JSON.parse(p.specials);
+                specials = Array.isArray(parsed) ? parsed : [];
+            } catch(e) {
+                console.warn('⚠️ Parse specials failed:', p.specials);
+                specials = [];
+            }
+        }
+    } else if (p.specials === null || p.specials === undefined) {
+        specials = [];
+    }
+    
+    // ✅ CONVERT TIẾNG VIỆT → TIẾNG ANH
+    const vietnameseToEnglish = {
+        'Giá trị cao': 'high_value',
+        'Quá khổ': 'oversized',
+        'Dễ vỡ': 'fragile',
+        'Chất lỏng': 'liquid',
+        'Nguyên khối': 'bulk',
+        'Từ tính, Pin': 'battery',
+        'Hóa đơn, Giấy chứng nhận': 'certificate'
+    };
+    
+    specials = specials.map(s => vietnameseToEnglish[s] || s).filter(Boolean);
+    
+    console.log(`📦 Product "${p.name}" → specials:`, specials);
+    
     return {
         ...p,
-        specials: Array.isArray(p.specials)
-            ? p.specials
-            : (typeof p.specials === 'string' ? JSON.parse(p.specials) : [])
+        specials: specials
     };
 });
-
 
 $(document).ready(function() {
   console.log('🚀 Khởi tạo form sửa đơn...');
@@ -678,6 +713,7 @@ $(document).ready(function() {
     renderProductsList();
     preselectAddress();
     loadPostOffices(); // ✅ Load bưu cục
+    displayInitialExtraCost();
     calculateCost();
     formatExistingCurrencyValues();
   });
@@ -705,6 +741,17 @@ function loadProvinces() {
   });
 }
 
+
+function displayInitialExtraCost() {
+    const extraCost = calculateExtraCostFromSpecials(productsList);
+    
+    if (extraCost > 0) {
+        $('.extra-cost').text(extraCost.toLocaleString('vi-VN') + ' đ');
+        console.log('💰 Phụ phí ban đầu:', extraCost);
+    } else {
+        $('.extra-cost').text('0 đ');
+    }
+}
 function filterHanoiOnly(data) {
   const hanoi = data.find(p => 
     p.name.includes('Hà Nội') || 
@@ -778,7 +825,7 @@ function loadPostOffices() {
     return;
   }
   
-  // ✅ THÊM: Preselect ngay nếu có bưu cục cũ
+  // ✅ Preselect ngay nếu có bưu cục cũ
   if (savedPostOfficeId) {
     @php
       $postOfficeName = $order->postOffice->name ?? 'Bưu cục đã chọn';
@@ -796,27 +843,8 @@ function loadPostOffices() {
     );
   }
   
-  // Sau đó mới fetch danh sách mới
-  fetchNearbyPostOffices(senderLat, senderLng);
-  
-  // ✅ Đợi tối đa 5 giây
-  let attempts = 0;
-  const checkInterval = setInterval(() => {
-    attempts++;
-    const optionsCount = $('#postOfficeSelect option').length;
-    
-    if (optionsCount > 1 || attempts > 10) {
-      clearInterval(checkInterval);
-      
-      // Đảm bảo bưu cục cũ vẫn được selected
-      if (savedPostOfficeId && $('#postOfficeSelect').val() !== savedPostOfficeId) {
-        const optionExists = $(`#postOfficeSelect option[value="${savedPostOfficeId}"]`).length > 0;
-        if (optionExists) {
-          $('#postOfficeSelect').val(savedPostOfficeId);
-        }
-      }
-    }
-  }, 500);
+  // ✅ GỌI VỚI preserveSelection = true
+  fetchNearbyPostOffices(senderLat, senderLng, true);
 }
 
 // ============ XỬ LÝ KHI ĐỔI BƯU CỤC ============
@@ -1163,25 +1191,42 @@ function renderProductsList() {
   }
   
   let html = '<h6 class="fw-bold mb-2">Danh sách hàng hóa:</h6>';
+  
   productsList.forEach((item, idx) => {
     const icon = item.type === 'package' ? '📦' : '📄';
     
-    // ✅ THÊM: Format specials labels
+    // ✅ Format specials với ICON
     let specialsHtml = '';
-    if (item.specials && item.specials.length > 0) {
-      const specialsLabels = item.specials.map(s => {
-        const labelMap = {
-          'high_value': 'Giá trị cao',
-          'oversized': 'Quá khổ',
-          'fragile': 'Dễ vỡ',
-          'liquid': 'Chất lỏng',
-          'bulk': 'Nguyên khối',
-          'battery': 'Từ tính, Pin',
-          'certificate': 'Hóa đơn, Giấy chứng nhận'
-        };
-        return labelMap[s] || s;
-      }).join(', ');
-      specialsHtml = `<br><small class="text-warning"><i class="bi bi-star-fill"></i> ${specialsLabels}</small>`;
+    let totalItemExtraFee = 0;
+    
+    if (item.specials && Array.isArray(item.specials) && item.specials.length > 0) {
+      const labelMap = {
+        'high_value': { label: 'Giá trị cao', icon: '💎', fee: 5000 },
+        'oversized': { label: 'Quá khổ', icon: '📏', fee: 10000 },
+        'fragile': { label: 'Dễ vỡ', icon: '⚠️', fee: 5000 },
+        'liquid': { label: 'Chất lỏng', icon: '💧', fee: 3000 },
+        'bulk': { label: 'Nguyên khối', icon: '📦', fee: 3000 },
+        'battery': { label: 'Từ tính, Pin', icon: '🔋', fee: 2000 },
+        'certificate': { label: 'Hóa đơn, GCN', icon: '📄', fee: 2000 }
+      };
+      
+      // ✅ Tính tổng phụ phí của item này
+      const specialsBadges = item.specials.map(s => {
+        const info = labelMap[s];
+        if (info) {
+          totalItemExtraFee += info.fee;
+          return `<span class="badge bg-warning text-dark me-1" style="font-size: 11px;">${info.icon} ${info.label}</span>`;
+        }
+        return '';
+      }).filter(Boolean).join('');
+      
+      if (specialsBadges) {
+        specialsHtml = `<br><div class="mt-1">${specialsBadges}</div>`;
+      }
+      
+      if (totalItemExtraFee > 0) {
+        specialsHtml += `<br><small class="text-info fw-bold">💰 Phụ phí: +${totalItemExtraFee.toLocaleString('vi-VN')}đ</small>`;
+      }
     }
     
     html += `
@@ -1206,6 +1251,12 @@ function renderProductsList() {
   
   container.html(html);
   $('.products-json').val(JSON.stringify(productsList));
+  
+  // ✅ CẬP NHẬT TỔNG PHỤ PHÍ NGAY
+  const totalExtraCost = calculateExtraCostFromSpecials(productsList);
+  $('.extra-cost').text(totalExtraCost.toLocaleString('vi-VN') + ' đ');
+  
+  console.log('📊 Tổng phụ phí hiện tại:', totalExtraCost);
 }
 
 // ============ PRODUCTS: SỬA (ĐỔ THÔNG TIN VÀO FORM) ============
@@ -1213,6 +1264,8 @@ function editProduct(idx) {
     const product = productsList[idx];
     
     console.log('📝 Đang sửa product:', product);
+    console.log('📝 Specials của product:', product.specials);
+    console.log('📝 Type của specials:', typeof product.specials, Array.isArray(product.specials));
     
     // Hiện form sửa
     $('#editingProductForm').slideDown();
@@ -1228,42 +1281,49 @@ function editProduct(idx) {
     $('#edit-product-width').val(product.width || '');
     $('#edit-product-height').val(product.height || '');
     
-    // ✅ BƯỚC 1: Clear tất cả checkboxes trước
+    // ✅ Clear tất cả checkboxes TRƯỚC
     $('.edit-special-checkbox').prop('checked', false);
+    console.log('🧹 Đã clear tất cả checkboxes');
     
-    // ✅ BƯỚC 2: Đánh dấu lại specials từ product
+    // ✅ DEBUG: Kiểm tra có bao nhiêu checkbox
+    const totalCheckboxes = $('.edit-special-checkbox').length;
+    console.log(`📊 Tổng số checkboxes: ${totalCheckboxes}`);
+    
+    // ✅ Check lại specials
     if (product.specials && Array.isArray(product.specials) && product.specials.length > 0) {
-        console.log('🏷️ Specials cần check:', product.specials);
+        console.log('🏷️ Bắt đầu check specials:', product.specials);
         
-        product.specials.forEach(specialValue => {
-            // ✅ FIX: Tìm checkbox theo VALUE attribute
-            // specialValue có thể là tiếng Anh (high_value) hoặc Việt (Giá trị cao)
-            // Backend gửi về tiếng Việt, nhưng checkbox value là tiếng Anh
+        product.specials.forEach((specialKey, index) => {
+            console.log(`\n--- Checking special #${index}: "${specialKey}" ---`);
             
-            // Lấy key tiếng Anh từ tên Việt
-            const specialsTranslation = {
-                'Giá trị cao': 'high_value',
-                'Quá khổ': 'oversized',
-                'Dễ vỡ': 'fragile',
-                'Chất lỏng': 'liquid',
-                'Nguyên khối': 'bulk',
-                'Từ tính, Pin': 'battery',
-                'Hóa đơn, Giấy chứng nhận': 'certificate'
-            };
+            // ✅ Thử nhiều cách tìm checkbox
+            const $checkbox1 = $(`.edit-special-checkbox[value="${specialKey}"]`);
+            const $checkbox2 = $(`#edit-chk-${specialKey.replace('_', '-')}`);
             
-            // Nếu specialValue là tiếng Việt, convert sang tiếng Anh
-            let specialKey = specialsTranslation[specialValue] || specialValue;
+            console.log(`  Selector 1: .edit-special-checkbox[value="${specialKey}"] → Found: ${$checkbox1.length}`);
+            console.log(`  Selector 2: #edit-chk-${specialKey.replace('_', '-')} → Found: ${$checkbox2.length}`);
             
-            // Tìm checkbox có value = specialKey
-            const $checkbox = $(`.edit-special-checkbox[value="${specialKey}"]`);
-            
-            if ($checkbox.length > 0) {
-                $checkbox.prop('checked', true);
-                console.log(`✅ Đã check: ${specialKey} (${specialValue})`);
+            if ($checkbox1.length > 0) {
+                $checkbox1.prop('checked', true);
+                console.log(`  ✅ CHECKED via selector 1`);
+            } else if ($checkbox2.length > 0) {
+                $checkbox2.prop('checked', true);
+                console.log(`  ✅ CHECKED via selector 2`);
             } else {
-                console.warn(`⚠️ Không tìm thấy checkbox cho: ${specialKey}`);
+                console.error(`  ❌ KHÔNG TÌM THẤY checkbox cho: "${specialKey}"`);
+                
+                // ✅ List tất cả checkboxes hiện có
+                console.log('  📋 Danh sách tất cả checkboxes:');
+                $('.edit-special-checkbox').each(function(i) {
+                    console.log(`    [${i}] ID: ${$(this).attr('id')}, Value: ${$(this).val()}`);
+                });
             }
         });
+        
+        // ✅ Kiểm tra kết quả cuối cùng
+        const checkedCount = $('.edit-special-checkbox:checked').length;
+        console.log(`\n✅ Tổng kết: ${checkedCount}/${product.specials.length} checkboxes được checked`);
+        
     } else {
         console.log('ℹ️ Product không có specials');
     }
@@ -1272,6 +1332,30 @@ function editProduct(idx) {
     $('#editingProductForm')[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
+// ============ TÍNH PHỤ PHÍ TỪ SPECIALS ============
+function calculateExtraCostFromSpecials(products) {
+    let totalExtra = 0;
+    
+    const specialsFees = {
+        'high_value': 5000,
+        'oversized': 10000,
+        'liquid': 3000,
+        'battery': 2000,
+        'fragile': 5000,
+        'bulk': 3000,
+        'certificate': 2000
+    };
+    
+    products.forEach(product => {
+        if (product.specials && Array.isArray(product.specials)) {
+            product.specials.forEach(special => {
+                totalExtra += specialsFees[special] || 0;
+            });
+        }
+    });
+    
+    return totalExtra;
+}
 // ============ PRODUCTS: LƯU SAU KHI SỬA ============
 function saveEditProduct() {
     if (editingProductIndex === null) {
@@ -1292,19 +1376,13 @@ function saveEditProduct() {
         return;
     }
     
-    // ✅ LẤY SPECIALS TỪ CHECKBOXES
-    // ⚠️ QUAN TRỌNG: Checkboxes có value="high_value", "oversized", etc.
-    // Nhưng backend cần tiếng Anh để tính phí
     const specials = [];
     $('.edit-special-checkbox:checked').each(function() {
-        const specialValue = $(this).val(); // Lấy value (tiếng Anh)
-        specials.push(specialValue);
-        console.log(`✅ Lưu special: ${specialValue}`);
+        specials.push($(this).val());
     });
     
     console.log('💾 Specials sau khi lưu:', specials);
     
-    // ✅ CẬP NHẬT PRODUCT
     productsList[editingProductIndex] = {
         type: productsList[editingProductIndex].type,
         name: name,
@@ -1314,17 +1392,14 @@ function saveEditProduct() {
         length: length,
         width: width,
         height: height,
-        specials: specials // ✅ LƯU DẠNG TIẾNG ANH VỀ BACKEND
+        specials: specials
     };
     
     console.log('✅ Product sau khi update:', productsList[editingProductIndex]);
     
-    // Reset form
     cancelEditProduct();
-    renderProductsList();
-    
-    // ✅ TÍNH LẠI PHÍ NGAY
-    calculateCost();
+    renderProductsList(); // ✅ Đã cập nhật phụ phí
+    calculateCost(); // ✅ Gọi lại API
 }
 
 // ============ PRODUCTS: HỦY SỬA ============
@@ -1346,8 +1421,8 @@ function cancelEditProduct() {
 function removeProduct(idx) {
   if (confirm('Xóa hàng này?')) {
     productsList.splice(idx, 1);
-    renderProductsList();
-    calculateCost();
+    renderProductsList(); // ✅ Đã cập nhật phụ phí bên trong
+    calculateCost(); // ✅ Gọi lại API tính phí
   }
 }
 
@@ -1567,6 +1642,120 @@ function calculateCost() {
   });
 }
 
+// ============ CALCULATE COST CHO TRANG SỬA ĐƠN ============
+function calculateCostForEdit() {
+    if (!productsList || productsList.length === 0) {
+        resetCostDisplay();
+        return;
+    }
+    
+    $('.cost-breakdown').css('opacity', '0.5');
+    $('.total-cost').html('<span class="spinner-border spinner-border-sm"></span> Đang tính...');
+    
+    let codAmount = 0;
+    const codRawInput = $('.cod-amount-raw').val();
+    if (codRawInput && codRawInput.trim()) {
+        codAmount = parseFloat(codRawInput);
+    }
+    
+    const services = [];
+    $('.service-checkbox:checked').each(function() {
+        services.push($(this).val());
+    });
+    
+    if ($('.cod-checkbox').is(':checked')) {
+        if (!services.includes('cod')) {
+            services.push('cod');
+        }
+    }
+    
+    const payer = $('.payer-radio:checked').val() || 'sender';
+    const itemType = $('.item-type:checked').val() || 'package';
+    const postOfficeId = $('#postOfficeSelect').val();
+    const recipientLat = $('.recipient-lat').val();
+    const recipientLng = $('.recipient-lng').val();
+    
+    // ✅ DEBUG LOG
+    console.log('📊 Tính phí (Edit) với:', {
+        post_office_id: postOfficeId,
+        recipient: [recipientLat, recipientLng],
+        products: productsList.map(p => ({
+            name: p.name,
+            specials: p.specials // ✅ Check specials có đúng không
+        })),
+        services: services,
+        codAmount: codAmount
+    });
+    
+    const data = {
+        products_json: JSON.stringify(productsList),
+        services: services,
+        cod_amount: codAmount,
+        payer: payer,
+        item_type: itemType,
+        recipient_latitude: recipientLat,
+        recipient_longitude: recipientLng,
+        post_office_id: postOfficeId, // ✅ Gửi post_office_id thay vì sender coordinates
+    };
+    
+    $.ajax({
+        url: '{{ route("customer.orders.calculate") }}',
+        type: 'POST',
+        data: data,
+        dataType: 'json',
+        success: function(res) {
+            console.log('✅ Kết quả tính phí:', res);
+            
+            $('.cost-breakdown').css('opacity', '1');
+            if (res && res.success === true) {
+                $('.base-cost').text((res.base_cost || 0).toLocaleString('vi-VN') + ' đ');
+                $('.extra-cost').text((res.extra_cost || 0).toLocaleString('vi-VN') + ' đ');
+                
+                if (res.distance_fee && res.distance_fee > 0) {
+                    $('.distance-fee').text(res.distance_fee.toLocaleString('vi-VN') + ' đ');
+                    $('.distance-fee-row').show();
+                } else {
+                    $('.distance-fee').text('0 đ');
+                    $('.distance-fee-row').hide();
+                }
+                
+                if (res.cod_fee && res.cod_fee > 0) {
+                    $('.cod-fee').text(res.cod_fee.toLocaleString('vi-VN') + ' đ');
+                    $('.cod-fee-row').show();
+                } else {
+                    $('.cod-fee').text('0 đ');
+                    $('.cod-fee-row').hide();
+                }
+                
+                $('.total-cost').text((res.total || 0).toLocaleString('vi-VN') + ' đ');
+                $('.sender-pays').text((res.sender_pays || 0).toLocaleString('vi-VN') + ' đ');
+                $('.recipient-pays').text((res.recipient_pays || 0).toLocaleString('vi-VN') + ' đ');
+            } else {
+                $('.total-cost').html('<span class="text-danger">Lỗi: ' + (res.message || 'Tính phí thất bại') + '</span>');
+            }
+        },
+        error: function(xhr) {
+            console.error('❌ Calculate error:', xhr);
+            $('.cost-breakdown').css('opacity', '1');
+            
+            let errorMsg = 'Lỗi tính phí';
+            
+            if (xhr.status === 419) {
+                errorMsg = 'Phiên làm việc hết hạn. Vui lòng tải lại trang.';
+                setTimeout(() => location.reload(), 2000);
+            } else {
+                try {
+                    const error = JSON.parse(xhr.responseText);
+                    errorMsg = 'Lỗi: ' + (error.message || errorMsg);
+                } catch (e) {}
+            }
+            
+            $('.total-cost').html('<span class="text-danger">' + errorMsg + '</span>');
+        }
+    });
+}
+
+// ✅ THAY THẾ TẤT CẢ CÁC CHỖ GỌI calculateCost() BẰNG calculateCostForEdit()
 function resetCostDisplay() {
   $('.base-cost').text('0 đ');
   $('.extra-cost').text('0 đ');

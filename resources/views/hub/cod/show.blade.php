@@ -123,6 +123,205 @@
                     </div>
                     <div class="card-body p-4">
                         <div class="timeline">
+                            <!-- ✅ SECTION: XÁC NHẬN PHÍ TỪ CUSTOMER -->
+                            @if($transaction->sender_fee_paid > 0)
+                            <div class="card shadow mb-4">
+                                <div class="card-header py-3 bg-success text-white">
+                                    <h6 class="m-0 font-weight-bold">
+                                        <i class="bi bi-cash-coin"></i> Xác nhận phí từ Customer
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <table class="table table-borderless">
+                                                <tr>
+                                                    <td width="40%"><strong>Số tiền phí:</strong></td>
+                                                    <td>
+                                                        <span class="badge bg-success fs-6">
+                                                            {{ number_format($transaction->sender_fee_paid) }}đ
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                                {{-- <tr>
+                                                    <td><strong>Trạng thái:</strong></td>
+                                                    <td>
+                                                        @if($transaction->sender_fee_status === 'pending')
+                                                            <span class="badge bg-warning">Chờ thanh toán</span>
+                                                        @elseif($transaction->sender_fee_status === 'transferred')
+                                                            <span class="badge bg-info">Đã chuyển - Chờ xác nhận</span>
+                                                        @elseif($transaction->sender_fee_status === 'completed')
+                                                            <span class="badge bg-success">Đã xác nhận</span>
+                                                        @else
+                                                            <span class="badge bg-secondary">{{ $transaction->sender_fee_status }}</span>
+                                                        @endif
+                                                    </td>
+                                                </tr> --}}
+                                                @if($transaction->sender_fee_payment_method)
+                                                <tr>
+                                                    <td><strong>Phương thức:</strong></td>
+                                                    <td>{{ ucfirst($transaction->sender_fee_payment_method) }}</td>
+                                                </tr>
+                                                @endif
+                                                @if($transaction->sender_fee_paid_at)
+                                                <tr>
+                                                    <td><strong>Thời gian TT:</strong></td>
+                                                    <td>{{ $transaction->sender_fee_paid_at->format('d/m/Y H:i') }}</td>
+                                                </tr>
+                                                @endif
+                                                @if($transaction->sender_fee_confirmed_at)
+                                                <tr>
+                                                    <td><strong>Xác nhận lúc:</strong></td>
+                                                    <td>{{ $transaction->sender_fee_confirmed_at->format('d/m/Y H:i') }}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><strong>Người xác nhận:</strong></td>
+                                                    <td>{{ $transaction->feeConfirmer->full_name ?? 'N/A' }}</td>
+                                                </tr>
+                                                @endif
+                                                @if($transaction->sender_fee_rejection_reason)
+                                                <tr>
+                                                    <td><strong>Lý do từ chối:</strong></td>
+                                                    <td>
+                                                        <div class="alert alert-danger mb-0">
+                                                            {{ $transaction->sender_fee_rejection_reason }}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                                @endif
+                                            </table>
+                                        </div>
+                                        
+                                        <div class="col-md-6">
+                                            @if($transaction->sender_fee_payment_proof)
+                                            <div>
+                                                <strong class="d-block mb-2">Chứng từ thanh toán:</strong>
+                                                <img src="{{ asset('storage/' . $transaction->sender_fee_payment_proof) }}" 
+                                                    alt="Payment Proof" 
+                                                    class="img-fluid rounded border"
+                                                    style="max-height: 300px; cursor: pointer;"
+                                                    data-bs-toggle="modal" 
+                                                    data-bs-target="#proofModal">
+                                            </div>
+                                            @endif
+                                        </div>
+                                    </div>
+
+                                    <!-- ✅ ACTIONS -->
+                                    @if($transaction->sender_fee_status === 'transferred')
+                                    <div class="mt-3 border-top pt-3">
+                                        <div class="d-flex gap-2">
+                                            <button type="button" 
+                                                    class="btn btn-success"
+                                                    data-bs-toggle="modal" 
+                                                    data-bs-target="#confirmFeeModalDetail">
+                                                <i class="bi bi-check-circle"></i> Xác nhận đã nhận
+                                            </button>
+                                            
+                                            <button type="button" 
+                                                    class="btn btn-danger"
+                                                    data-bs-toggle="modal" 
+                                                    data-bs-target="#rejectFeeModalDetail">
+                                                <i class="bi bi-x-circle"></i> Từ chối
+                                            </button>
+                                        </div>
+                                    </div>
+                                    @elseif($transaction->sender_fee_status === 'completed')
+                                    <div class="alert alert-success mt-3 mb-0">
+                                        <i class="bi bi-check-circle"></i> Đã xác nhận nhận phí từ customer
+                                    </div>
+                                    @endif
+                                </div>
+                            </div>
+
+                            <!-- MODAL XÁC NHẬN -->
+                            <div class="modal fade" id="confirmFeeModalDetail" tabindex="-1">
+                                <div class="modal-dialog">
+                                    <div class="modal-content">
+                                        <form action="{{ route('hub.cod.confirm-customer-fee', $transaction->id) }}" method="POST">
+                                            @csrf
+                                            <div class="modal-header bg-success text-white">
+                                                <h5 class="modal-title">
+                                                    <i class="bi bi-check-circle"></i> Xác nhận nhận phí
+                                                </h5>
+                                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                <div class="alert alert-info">
+                                                    <p class="mb-2"><strong>Số tiền:</strong> 
+                                                        <span class="text-success fs-5">{{ number_format($transaction->sender_fee_paid) }}đ</span>
+                                                    </p>
+                                                    <p class="mb-0 text-muted">
+                                                        <small>Số tiền này sẽ được tính vào lợi nhuận Hub</small>
+                                                    </p>
+                                                </div>
+
+                                                <div class="mb-3">
+                                                    <label class="form-label fw-bold">Ghi chú</label>
+                                                    <textarea name="note" class="form-control" rows="2" 
+                                                            placeholder="Ghi chú xác nhận..."></textarea>
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                                                <button type="submit" class="btn btn-success">Xác nhận đã nhận</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- MODAL TỪ CHỐI -->
+                            <div class="modal fade" id="rejectFeeModalDetail" tabindex="-1">
+                                <div class="modal-dialog">
+                                    <div class="modal-content">
+                                        <form action="{{ route('hub.cod.reject-customer-fee', $transaction->id) }}" method="POST">
+                                            @csrf
+                                            <div class="modal-header bg-danger text-white">
+                                                <h5 class="modal-title">
+                                                    <i class="bi bi-x-circle"></i> Từ chối thanh toán
+                                                </h5>
+                                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                <div class="alert alert-warning">
+                                                    <p class="mb-0">Customer sẽ phải thanh toán lại sau khi bị từ chối</p>
+                                                </div>
+
+                                                <div class="mb-3">
+                                                    <label class="form-label fw-bold">Lý do từ chối <span class="text-danger">*</span></label>
+                                                    <textarea name="reason" class="form-control" rows="3" required 
+                                                            placeholder="VD: Sai số tiền, ảnh không rõ ràng, chuyển nhầm tài khoản..."></textarea>
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                                                <button type="submit" class="btn btn-danger">Từ chối</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- MODAL XEM ẢNH -->
+                            @if($transaction->sender_fee_payment_proof)
+                            <div class="modal fade" id="proofModal" tabindex="-1">
+                                <div class="modal-dialog modal-lg">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title">Chứng từ thanh toán</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <div class="modal-body text-center">
+                                            <img src="{{ asset('storage/' . $transaction->sender_fee_payment_proof) }}" 
+                                                alt="Payment Proof" 
+                                                class="img-fluid">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            @endif
+                            @endif
                             <!-- BƯỚC 1: Driver → Hub -->
                             <div class="timeline-item {{ $transaction->shipper_payment_status === 'confirmed' ? 'completed' : ($transaction->shipper_payment_status === 'transferred' ? 'pending' : 'waiting') }}">
                                 <div class="timeline-marker">
@@ -455,7 +654,7 @@
                                         </div>
                                     </div>
 
-                                    @if ($transaction->hub_system_status === 'pending')
+                                    @if ($transaction->hub_system_status === 'pending' )
                                         @if(!$systemHasBankAccount)
                                             <div class="alert alert-danger border-danger mb-3">
                                                 <div class="d-flex align-items-start">
@@ -495,7 +694,7 @@
                                                 </div>
                                             </div>
                                         </div>
-                                    @elseif($transaction->hub_system_status === 'confirmed')
+                                    @elseif($transaction->hub_system_status === 'confirmed' )
                                         <div class="alert alert-success border-success mb-0">
                                             <div class="d-flex align-items-start">
                                                 <i class="bi bi-check-circle-fill text-success me-2 fs-5"></i>

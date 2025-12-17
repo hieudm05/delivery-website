@@ -19,7 +19,7 @@
                             <div class="col-md-6">
                                 <small class="text-white d-block mb-1">Số tiền nộp</small>
                                 <h3 class="text-white mb-0 fw-bold">
-                                    {{ number_format($transaction->hub_system_amount) }}đ
+                                    {{ number_format($transaction->hub_system_amount ? $transaction->hub_system_amount  : 0) }}đ
                                 </h3>
                             </div>
                             <div class="col-md-6">

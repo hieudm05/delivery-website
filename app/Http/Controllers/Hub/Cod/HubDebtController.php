@@ -94,143 +94,154 @@ class HubDebtController extends Controller
         return view('hub.debt.show', compact('transaction', 'debtHistory'));
     }
 
-    /**
-     * Xác nhận đã nhận tiền trả nợ
-     */
-    public function confirm(Request $request, $id)
-    {
-        $request->validate([
-            'note' => 'nullable|string|max:500',
-        ]);
+/**
+ * Xác nhận đã nhận tiền trả nợ
+ * ✅ CẬP NHẬT: Đồng bộ sender_fee_status trong CodTransaction
+ */
+public function confirm(Request $request, $id)
+{
+    $request->validate([
+        'note' => 'nullable|string|max:500',
+    ]);
 
-        DB::beginTransaction();
-        try {
-            $hubId = Auth::id();
-            
-            $transaction = CodTransaction::byHub($hubId)->findOrFail($id);
+    DB::beginTransaction();
+    try {
+        $hubId = Auth::id();
+        
+        $transaction = CodTransaction::byHub($hubId)->findOrFail($id);
 
-            // Kiểm tra trạng thái
-            if ($transaction->sender_debt_payment_status !== 'pending') {
-                return back()->withErrors(['error' => 'Chỉ có thể xác nhận khoản thanh toán đang chờ xác nhận']);
-            }
-
-            // Cập nhật trạng thái transaction
-            $transaction->update([
-                'sender_debt_payment_status' => 'completed',
-                'sender_debt_confirmed_at' => now(),
-                'sender_debt_confirmed_by' => $hubId,
-            ]);
-
-            // Đánh dấu các khoản nợ là đã trả
-            $debts = SenderDebt::where('sender_id', $transaction->sender_id)
-                ->where('hub_id', $hubId)
-                ->where('type', 'debt')
-                ->where('status', 'unpaid')
-                ->orderBy('created_at', 'asc')
-                ->get();
-
-            $remainingAmount = $transaction->sender_debt_deducted;
-            
-            foreach ($debts as $debt) {
-                if ($remainingAmount <= 0) break;
-                
-                if ($debt->amount <= $remainingAmount) {
-                    // Trả hết khoản nợ này
-                    $debt->update([
-                        'status' => 'paid',
-                        'paid_at' => now(),
-                        'note' => ($debt->note ?? '') . "\n✅ Đã thanh toán vào " . now()->format('d/m/Y H:i')
-                    ]);
-                    $remainingAmount -= $debt->amount;
-                } else {
-                    // Trả một phần
-                    $debt->update([
-                        'amount' => $debt->amount - $remainingAmount,
-                        'note' => ($debt->note ?? '') . "\n💰 Đã thanh toán " . number_format($remainingAmount) . "₫"
-                    ]);
-                    $remainingAmount = 0;
-                }
-            }
-
-            Log::info("Hub confirmed debt payment", [
-                'transaction_id' => $transaction->id,
-                'hub_id' => $hubId,
-                'sender_id' => $transaction->sender_id,
-                'amount' => $transaction->sender_debt_deducted,
-            ]);
-
-            DB::commit();
-
-            return redirect()->route('hub.debt.index', ['tab' => 'confirmed'])
-                ->with('success', 'Đã xác nhận nhận tiền trả nợ ' . number_format($transaction->sender_debt_deducted) . '₫');
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error("Error confirming debt payment: " . $e->getMessage());
-            return back()->withErrors(['error' => 'Có lỗi xảy ra: ' . $e->getMessage()]);
+        // Kiểm tra trạng thái
+        if ($transaction->sender_debt_payment_status !== 'pending') {
+            return back()->withErrors(['error' => 'Chỉ có thể xác nhận khoản thanh toán đang chờ xác nhận']);
         }
-    }
 
-    /**
-     * Từ chối thanh toán nợ
-     */
-    public function reject(Request $request, $id)
-    {
-        $request->validate([
-            'rejection_reason' => 'required|string|max:500',
+        // ✅ CẬP NHẬT: Đồng bộ cả sender_fee_status
+        $transaction->update([
+            'sender_debt_payment_status' => 'completed',
+            'sender_debt_confirmed_at' => now(),
+            'sender_debt_confirmed_by' => $hubId,
+            // ✅ THÊM: Cập nhật trạng thái phí về "đã xác nhận"
+            'sender_fee_status' => 'confirmed',
+            'sender_fee_confirmed_at' => now(),
+            'sender_fee_confirmed_by' => $hubId,
         ]);
 
-        DB::beginTransaction();
-        try {
-            $hubId = Auth::id();
+        // Đánh dấu các khoản nợ là đã trả
+        $debts = SenderDebt::where('sender_id', $transaction->sender_id)
+            ->where('hub_id', $hubId)
+            ->where('type', 'debt')
+            ->where('status', 'unpaid')
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        $remainingAmount = $transaction->sender_debt_deducted;
+        
+        foreach ($debts as $debt) {
+            if ($remainingAmount <= 0) break;
             
-            $transaction = CodTransaction::byHub($hubId)->findOrFail($id);
-
-            // Kiểm tra trạng thái
-            if ($transaction->sender_debt_payment_status !== 'pending') {
-                return back()->withErrors(['error' => 'Chỉ có thể từ chối khoản thanh toán đang chờ xác nhận']);
-            }
-
-            // Cập nhật trạng thái
-            $transaction->update([
-                'sender_debt_payment_status' => 'rejected',
-                'sender_debt_rejected_at' => now(),
-                'sender_debt_rejected_by' => $hubId,
-                'sender_debt_rejection_reason' => $request->rejection_reason,
-            ]);
-
-            // Cập nhật note cho các khoản nợ
-            $debts = SenderDebt::where('sender_id', $transaction->sender_id)
-                ->where('hub_id', $hubId)
-                ->where('type', 'debt')
-                ->where('status', 'unpaid')
-                ->get();
-
-            foreach ($debts as $debt) {
+            if ($debt->amount <= $remainingAmount) {
+                // Trả hết khoản nợ này
                 $debt->update([
-                    'note' => ($debt->note ?? '') . "\n❌ Từ chối thanh toán: " . $request->rejection_reason
+                    'status' => 'paid',
+                    'paid_at' => now(),
+                    'note' => ($debt->note ?? '') . "\n✅ Đã thanh toán vào " . now()->format('d/m/Y H:i')
                 ]);
+                $remainingAmount -= $debt->amount;
+            } else {
+                // Trả một phần
+                $debt->update([
+                    'amount' => $debt->amount - $remainingAmount,
+                    'note' => ($debt->note ?? '') . "\n💰 Đã thanh toán " . number_format($remainingAmount) . "₫"
+                ]);
+                $remainingAmount = 0;
             }
-
-            Log::info("Hub rejected debt payment", [
-                'transaction_id' => $transaction->id,
-                'hub_id' => $hubId,
-                'sender_id' => $transaction->sender_id,
-                'amount' => $transaction->sender_debt_deducted,
-                'reason' => $request->rejection_reason,
-            ]);
-
-            DB::commit();
-
-            return redirect()->route('hub.debt.index', ['tab' => 'rejected'])
-                ->with('warning', 'Đã từ chối thanh toán nợ. Lý do: ' . $request->rejection_reason);
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error("Error rejecting debt payment: " . $e->getMessage());
-            return back()->withErrors(['error' => 'Có lỗi xảy ra: ' . $e->getMessage()]);
         }
+
+        Log::info("Hub confirmed debt payment", [
+            'transaction_id' => $transaction->id,
+            'hub_id' => $hubId,
+            'sender_id' => $transaction->sender_id,
+            'amount' => $transaction->sender_debt_deducted,
+            'sender_fee_status' => 'confirmed', // ✅ Log thêm
+        ]);
+
+        DB::commit();
+
+        return redirect()->route('hub.debt.index', ['tab' => 'confirmed'])
+            ->with('success', 'Đã xác nhận nhận tiền trả nợ ' . number_format($transaction->sender_fee_paid) . '₫');
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        Log::error("Error confirming debt payment: " . $e->getMessage());
+        return back()->withErrors(['error' => 'Có lỗi xảy ra: ' . $e->getMessage()]);
     }
+}
+
+/**
+ * Từ chối thanh toán nợ
+ * ✅ CẬP NHẬT: Đồng bộ sender_fee_status trong CodTransaction
+ */
+public function reject(Request $request, $id)
+{
+    $request->validate([
+        'rejection_reason' => 'required|string|max:500',
+    ]);
+
+    DB::beginTransaction();
+    try {
+        $hubId = Auth::id();
+        
+        $transaction = CodTransaction::byHub($hubId)->findOrFail($id);
+
+        // Kiểm tra trạng thái
+        if ($transaction->sender_debt_payment_status !== 'pending') {
+            return back()->withErrors(['error' => 'Chỉ có thể từ chối khoản thanh toán đang chờ xác nhận']);
+        }
+
+        // ✅ CẬP NHẬT: Đồng bộ cả sender_fee_status
+        $transaction->update([
+            'sender_debt_payment_status' => 'rejected',
+            'sender_debt_rejected_at' => now(),
+            'sender_debt_rejected_by' => $hubId,
+            'sender_debt_rejection_reason' => $request->rejection_reason,
+            // ✅ THÊM: Cập nhật trạng thái phí về "bị từ chối"
+            'sender_fee_status' => 'rejected',
+            'sender_fee_rejection_reason' => $request->rejection_reason,
+        ]);
+
+        // Cập nhật note cho các khoản nợ
+        $debts = SenderDebt::where('sender_id', $transaction->sender_id)
+            ->where('hub_id', $hubId)
+            ->where('type', 'debt')
+            ->where('status', 'unpaid')
+            ->get();
+
+        foreach ($debts as $debt) {
+            $debt->update([
+                'note' => ($debt->note ?? '') . "\n❌ Từ chối thanh toán: " . $request->rejection_reason
+            ]);
+        }
+
+        Log::info("Hub rejected debt payment", [
+            'transaction_id' => $transaction->id,
+            'hub_id' => $hubId,
+            'sender_id' => $transaction->sender_id,
+            'amount' => $transaction->sender_debt_deducted,
+            'reason' => $request->rejection_reason,
+            'sender_fee_status' => 'rejected', // ✅ Log thêm
+        ]);
+
+        DB::commit();
+
+        return redirect()->route('hub.debt.index', ['tab' => 'rejected'])
+            ->with('warning', 'Đã từ chối thanh toán nợ. Lý do: ' . $request->rejection_reason);
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        Log::error("Error rejecting debt payment: " . $e->getMessage());
+        return back()->withErrors(['error' => 'Có lỗi xảy ra: ' . $e->getMessage()]);
+    }
+}
 
     /**
      * Xác nhận hàng loạt
