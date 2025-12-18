@@ -8,7 +8,7 @@
     <!-- Header -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
-            <h2 class="mb-1">💵 Quản lý dòng tiền</h2>
+            <h2 class="mb-1">Trang thống kê</h2>
             <p class="text-muted mb-0">Theo dõi thu chi và lợi nhuận bưu cục</p>
         </div>
         
@@ -31,85 +31,108 @@
     </div>
 
     <!-- Cashflow Overview -->
-    <div class="row g-4 mb-4">
-        <!-- Received from Driver -->
-        <div class="col-md-3">
-            <div class="card border-0 shadow-sm h-100 bg-gradient-success text-white">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-start mb-3">
-                        <div>
-                            <p class="mb-1 small opacity-75">Thu từ tài xế</p>
-                            <h3 class="mb-0">
-                                {{ number_format($report['income']['received_from_driver']) }}đ
-                            </h3>
+        <div class="row g-4 mb-4">
+            <!-- Received from Driver -->
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm h-100 bg-gradient-success text-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <div>
+                                <p class="mb-1 small opacity-75">Thu từ tài xế</p>
+                                <h3 class="mb-0">
+                                    {{ number_format($report['income']['received_from_driver']) }}đ
+                                </h3>
+                            </div>
+                            <i class="fas fa-arrow-down fa-2x opacity-75"></i>
                         </div>
-                        <i class="fas fa-arrow-down fa-2x opacity-75"></i>
+                        <p class="small mb-0 opacity-75">
+                            Tiền COD + Cước đã thu
+                        </p>
                     </div>
-                    <p class="small mb-0 opacity-75">
-                        Tiền COD + Cước đã thu
-                    </p>
+                </div>
+            </div>
+
+            <!-- Hub Profit -->
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm h-100 bg-gradient-primary text-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <div>
+                                <p class="mb-1 small opacity-75">Lợi nhuận Hub</p>
+                                <h3 class="mb-0">
+                                    {{ number_format($report['net_income']) }}đ
+                                </h3>
+                            </div>
+                            <i class="fas fa-chart-line fa-2x opacity-75"></i>
+                        </div>
+                        <p class="small mb-0 opacity-75">
+                            Sau khi trừ chi phí
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Total Expenses -->
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm h-100 bg-gradient-danger text-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <div>
+                                <p class="mb-1 small opacity-75">Tổng chi</p>
+                                <h3 class="mb-0">
+                                    {{ number_format($report['expenses']['total_expenses']) }}đ
+                                </h3>
+                            </div>
+                            <i class="fas fa-arrow-up fa-2x opacity-75"></i>
+                        </div>
+                        <p class="small mb-0 opacity-75">
+                            Sender + Driver + Admin
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pending Payments -->
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm h-100 bg-gradient-warning text-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <div>
+                                <p class="mb-1 small opacity-75">Chờ thanh toán</p>
+                                <h3 class="mb-0">
+                                    {{ number_format($report['pending_payments']['total_pending']) }}đ
+                                </h3>
+                            </div>
+                            <i class="fas fa-exclamation-circle fa-2x opacity-75"></i>
+                        </div>
+                        <p class="small mb-0 opacity-75">
+                            Cần xử lý trong hôm nay
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>
-
-        <!-- Hub Profit -->
-        <div class="col-md-3">
-            <div class="card border-0 shadow-sm h-100 bg-gradient-primary text-white">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-start mb-3">
-                        <div>
-                            <p class="mb-1 small opacity-75">Lợi nhuận Hub</p>
-                            <h3 class="mb-0">
-                                {{ number_format($report['net_income']) }}đ
-                            </h3>
-                        </div>
-                        <i class="fas fa-chart-line fa-2x opacity-75"></i>
-                    </div>
-                    <p class="small mb-0 opacity-75">
-                        Sau khi trừ chi phí
-                    </p>
-                </div>
-            </div>
+        <div class="row g-4 mb-4">
+        <div class="col-md-4">
+            <a href="{{ route('hub.customer-statistics.index') }}" 
+            class="btn btn-outline-primary w-100 d-flex align-items-center justify-content-center gap-2">
+                <i class="fas fa-users"></i>
+                <span>Thống kê khách hàng</span>
+            </a>
         </div>
-
-        <!-- Total Expenses -->
-        <div class="col-md-3">
-            <div class="card border-0 shadow-sm h-100 bg-gradient-danger text-white">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-start mb-3">
-                        <div>
-                            <p class="mb-1 small opacity-75">Tổng chi</p>
-                            <h3 class="mb-0">
-                                {{ number_format($report['expenses']['total_expenses']) }}đ
-                            </h3>
-                        </div>
-                        <i class="fas fa-arrow-up fa-2x opacity-75"></i>
-                    </div>
-                    <p class="small mb-0 opacity-75">
-                        Sender + Driver + Admin
-                    </p>
-                </div>
-            </div>
+        <div class="col-md-4">
+            <a href="{{ route('hub.cod.index') }}" 
+            class="btn btn-outline-success w-100 d-flex align-items-center justify-content-center gap-2">
+                <i class="fas fa-money-check-alt"></i>
+                <span>Quản lý COD</span>
+            </a>
         </div>
-
-        <!-- Pending Payments -->
-        <div class="col-md-3">
-            <div class="card border-0 shadow-sm h-100 bg-gradient-warning text-white">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-start mb-3">
-                        <div>
-                            <p class="mb-1 small opacity-75">Chờ thanh toán</p>
-                            <h3 class="mb-0">
-                                {{ number_format($report['pending_payments']['total_pending']) }}đ
-                            </h3>
-                        </div>
-                        <i class="fas fa-exclamation-circle fa-2x opacity-75"></i>
-                    </div>
-                    <p class="small mb-0 opacity-75">
-                        Cần xử lý trong hôm nay
-                    </p>
-                </div>
-            </div>
+        <div class="col-md-4">
+            <a href="{{ route('hub.debt.index') }}" 
+            class="btn btn-outline-warning w-100 d-flex align-items-center justify-content-center gap-2">
+                <i class="fas fa-credit-card"></i>
+                <span>Quản lý công nợ</span>
+            </a>
         </div>
     </div>
 
