@@ -18,13 +18,6 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
-
-        // User::factory()->create([
-        //     'name' => 'Test User',
-        //     'email' => 'test@example.com',
-        // ]);
-
         // Data mẫu cho bảng users
         // User::factory()->admin()->create();
         // User::factory()->driver()->create();
