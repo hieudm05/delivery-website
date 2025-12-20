@@ -24,6 +24,7 @@ use App\Http\Controllers\Hub\BankAccountHubController;
 use App\Http\Controllers\Hub\Cod\HubCodController;
 use App\Http\Controllers\Hub\Cod\HubDebtController;
 use App\Http\Controllers\Hub\HubController;
+use App\Http\Controllers\Hub\HubCustomerStatisticsController;
 use App\Http\Controllers\Hub\HubIssueManagementController;
 use App\Http\Controllers\Hub\HubReturnController;
 use App\Http\Controllers\Hub\Staff\HubDriverController;
@@ -621,6 +622,14 @@ Route::prefix('hub')
             // Thống kê nợ
             Route::get('/statistics/overview', 'statistics')->name('statistics');
         });
+        Route::prefix('customer-statistics')
+            ->name('customer-statistics.')
+            ->controller(HubCustomerStatisticsController::class)
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::get('/{customerId}', 'show')->name('show');
+                Route::get('/export/excel', 'export')->name('export');
+            });
     });
 
 // PUBLIC TRACKING ROUTES - Không cần auth
