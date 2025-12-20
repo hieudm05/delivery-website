@@ -237,34 +237,44 @@ class HubReturnController extends Controller
     public function statistics(Request $request)
     {
         $hubId = $this->getHubId();
-        $from = $request->get('from', now()->startOfMonth());
-        $to = $request->get('to', now()->endOfMonth());
+        
+        // ✅ FIX: Handle from/to params correctly
+        $from = $request->has('from') ? $request->get('from') : now()->startOfMonth()->format('Y-m-d');
+        $to = $request->has('to') ? $request->get('to') : now()->endOfMonth()->format('Y-m-d');
+        
+        // ✅ Ensure they are Carbon instances
+        $fromDate = is_string($from) ? \Carbon\Carbon::createFromFormat('Y-m-d', $from) : $from;
+        $toDate = is_string($to) ? \Carbon\Carbon::createFromFormat('Y-m-d', $to) : $to;
+        
+        // ✅ Tạo biến hiển thị định dạng đẹp cho view
+        $fromFormatted = $fromDate->format('d/m/Y');
+        $toFormatted = $toDate->format('d/m/Y');
 
         $stats = [
             // Tổng quan
             'total_returns' => OrderReturn::forHub($hubId)
-                ->whereBetween('initiated_at', [$from, $to])
+                ->whereBetween('initiated_at', [$fromDate, $toDate->endOfDay()])
                 ->count(),
             
             'completed_returns' => OrderReturn::forHub($hubId)
                 ->completed()
-                ->whereBetween('completed_at', [$from, $to])
+                ->whereBetween('completed_at', [$fromDate, $toDate->endOfDay()])
                 ->count(),
             
             'total_return_fee' => OrderReturn::forHub($hubId)
                 ->completed()
-                ->whereBetween('completed_at', [$from, $to])
+                ->whereBetween('completed_at', [$fromDate, $toDate->endOfDay()])
                 ->sum('return_fee'),
             
             'total_cod_returned' => OrderReturn::forHub($hubId)
                 ->completed()
                 ->where('cod_returned', true)
-                ->whereBetween('completed_at', [$from, $to])
+                ->whereBetween('completed_at', [$fromDate, $toDate->endOfDay()])
                 ->sum('cod_amount'),
             
             // Theo lý do
             'by_reason' => OrderReturn::forHub($hubId)
-                ->whereBetween('initiated_at', [$from, $to])
+                ->whereBetween('initiated_at', [$fromDate, $toDate->endOfDay()])
                 ->select('reason_type', DB::raw('count(*) as count'))
                 ->groupBy('reason_type')
                 ->get(),
@@ -272,7 +282,7 @@ class HubReturnController extends Controller
             // Theo tài xế
             'by_driver' => OrderReturn::forHub($hubId)
                 ->completed()
-                ->whereBetween('completed_at', [$from, $to])
+                ->whereBetween('completed_at', [$fromDate, $toDate->endOfDay()])
                 ->select('return_driver_id', DB::raw('count(*) as count'))
                 ->groupBy('return_driver_id')
                 ->with('driver')
@@ -281,13 +291,13 @@ class HubReturnController extends Controller
             // Theo tình trạng hàng
             'by_condition' => OrderReturn::forHub($hubId)
                 ->completed()
-                ->whereBetween('completed_at', [$from, $to])
+                ->whereBetween('completed_at', [$fromDate, $toDate->endOfDay()])
                 ->select('package_condition', DB::raw('count(*) as count'))
                 ->groupBy('package_condition')
                 ->get(),
         ];
 
-        return view('hub.returns.statistics', compact('stats', 'from', 'to'));
+        return view('hub.returns.statistics', compact('stats', 'from', 'to', 'fromFormatted', 'toFormatted'));
     }
 
     /**
