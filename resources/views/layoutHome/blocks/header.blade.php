@@ -8,7 +8,6 @@
       </div>
       <div>
         <h1 class="sitename" style="margin: 0; font-size: 18px; font-weight: 700;">Giao Hàng 24</h1>
-        <small style="color: #666; font-size: 11px;">Hà Nội</small>
       </div>
     </div>
   </a>
@@ -19,9 +18,9 @@
       <li><a href="{{ url('/') }}" class="active">Trang Chủ</a></li>
       <li><a href="#featured-services">Dịch Vụ</a></li>
       <li><a href="#services">Các Giải Pháp</a></li>
-      <li><a href="#pricing">Bảng Giá</a></li>
       <li><a href="#faq">Hỏi Đáp</a></li>
       <li><a href="#about">Về Chúng Tôi</a></li>
+      <li><a href="{{ route("driver-apply.index") }}">Ứng tuyển</a></li>
     </ul>
     <i class="mobile-nav-toggle d-xl-none bi bi-list"></i>
   </nav>

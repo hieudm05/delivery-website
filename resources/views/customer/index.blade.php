@@ -250,65 +250,6 @@
 </section>
 <!-- /Features Section -->
 
-<!-- Pricing Section -->
-<section id="pricing" class="pricing section">
-  <div class="container section-title" data-aos="fade-up">
-    <span>Bảng Giá</span>
-    <h2>Gói Cước Phí Linh Hoạt</h2>
-    <p>Chọn gói phù hợp với nhu cầu kinh doanh của bạn</p>
-  </div>
-
-  <div class="container">
-    <div class="row gy-4">
-      <div class="col-lg-4" data-aos="zoom-in" data-aos-delay="100">
-        <div class="pricing-item">
-          <h3>Cá Nhân</h3>
-          <h4><sup>₫</sup>25<span> / kg</span></h4>
-          <ul>
-            <li><i class="bi bi-check"></i><span>Giao hàng nội thành</span></li>
-            <li><i class="bi bi-check"></i><span>Không tối thiểu hóa đơn</span></li>
-            <li><i class="bi bi-check"></i><span>Bảo hiểm cơ bản</span></li>
-            <li class="na"><i class="bi bi-x"></i><span>Hỗ trợ ưu tiên</span></li>
-            <li class="na"><i class="bi bi-x"></i><span>API tích hợp</span></li>
-          </ul>
-          <a href="#" class="buy-btn">Bắt Đầu Ngay</a>
-        </div>
-      </div>
-
-      <div class="col-lg-4" data-aos="zoom-in" data-aos-delay="200">
-        <div class="pricing-item featured">
-          <h3>Doanh Nghiệp</h3>
-          <h4><sup>₫</sup>18<span> / kg</span></h4>
-          <ul>
-            <li><i class="bi bi-check"></i><span>Giao hàng toàn quốc</span></li>
-            <li><i class="bi bi-check"></i><span>Tối thiểu 100 đơn/tháng</span></li>
-            <li><i class="bi bi-check"></i><span>Bảo hiểm toàn diện</span></li>
-            <li><i class="bi bi-check"></i><span>Hỗ trợ ưu tiên 24/7</span></li>
-            <li><i class="bi bi-check"></i><span>API tích hợp miễn phí</span></li>
-          </ul>
-          <a href="#" class="buy-btn">Liên Hệ Ngay</a>
-        </div>
-      </div>
-
-      <div class="col-lg-4" data-aos="zoom-in" data-aos-delay="300">
-        <div class="pricing-item">
-          <h3>Doanh Nghiệp Lớn</h3>
-          <h4><sup>₫</sup>15<span> / kg</span></h4>
-          <ul>
-            <li><i class="bi bi-check"></i><span>Giao hàng quốc tế</span></li>
-            <li><i class="bi bi-check"></i><span>Tối thiểu 500 đơn/tháng</span></li>
-            <li><i class="bi bi-check"></i><span>Bảo hiểm cao cấp</span></li>
-            <li><i class="bi bi-check"></i><span>Chuyên viên tài khoản riêng</span></li>
-            <li><i class="bi bi-check"></i><span>Tùy chỉnh giải pháp</span></li>
-          </ul>
-          <a href="#" class="buy-btn">Liên Hệ Ngay</a>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-<!-- /Pricing Section -->
-
 <!-- Testimonials Section -->
 <section id="testimonials" class="testimonials section dark-background">
   <img src="assets/img/testimonials-bg.jpg" class="testimonials-bg" alt="">
