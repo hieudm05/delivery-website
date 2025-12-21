@@ -136,7 +136,7 @@
     
     <input type="hidden" name="can_edit_sender" value="{{ !$order->pickup_driver_id && !$order->driver_id ? 'true' : 'false' }}">
     <input type="hidden" id="delivery_time_formatted" name="delivery_time_formatted">
-    <input type="hidden" id="pickup_time_formatted" name="pickup_time_formatted">
+    {{-- <input type="hidden" id="pickup_time_formatted" name="pickup_time_formatted"> --}}
     
     <div class="row">
       <!-- CỘT TRÁI -->
@@ -158,7 +158,6 @@
               <div class="mb-2"><strong>Họ tên:</strong> {{ $order->sender_name }}</div>
               <div class="mb-2"><strong>SĐT:</strong> {{ $order->sender_phone }}</div>
               <div class="mb-2"><strong>Địa chỉ:</strong> {{ $order->sender_address }}</div>
-              <div class="mb-2"><strong>Thời gian lấy:</strong> {{ $order->pickup_time->format('H:i d/m/Y') }}</div>
               
               <!-- Hidden inputs -->
               <input type="hidden" name="sender_name" value="{{ $order->sender_name }}">
@@ -166,7 +165,6 @@
               <input type="hidden" name="sender_address" value="{{ $order->sender_address }}">
               <input type="hidden" name="sender_latitude" class="sender-latitude" value="{{ $order->sender_latitude }}">
               <input type="hidden" name="sender_longitude" class="sender-longitude" value="{{ $order->sender_longitude }}">
-              <input type="hidden" class="pickup-time" value="{{ $order->pickup_time->format('Y-m-d\TH:i') }}">
             </div>
 
             <!-- ✅ CHO PHÉP ĐỔI BƯU CỤC -->
@@ -1898,9 +1896,9 @@ $('#orderEditForm').on('submit', function(e) {
   $('.products-json').val(JSON.stringify(productsList));
   
   const pickupValue = $('.pickup-time').val();
-  if (pickupValue) {
-    $('#pickup_time_formatted').val(formatDatetimeForDatabase(pickupValue));
-  }
+  // if (pickupValue) {
+  //   $('#pickup_time_formatted').val(formatDatetimeForDatabase(pickupValue));
+  // }
   
   const deliveryValue = $('.delivery-time-input').val();
   if (deliveryValue) {

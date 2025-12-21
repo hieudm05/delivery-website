@@ -3,7 +3,7 @@
 <div class="container">
   <div class="row gy-4 d-flex justify-content-between">
     <div class="col-lg-6 order-2 order-lg-1 d-flex flex-column justify-content-center">
-      <h1 data-aos="fade-up" class="mb-4">Giao Hàng Nhanh Chóng & An Toàn Tại Hà Nội</h1>
+      <h2 data-aos="fade-up" class="mb-4">Giao Hàng Nhanh Chóng & An Toàn Tại Hà Nội</h2>
       <p data-aos="fade-up" data-aos-delay="100" class="mb-4 fs-5">
         Giao Hàng 24 chuyên cung cấp dịch vụ giao hàng tại Hà Nội với đội ngũ chuyên nghiệp, hệ thống theo dõi thực thời gian và cam kết giao hàng đúng hẹn. Hàng chục nghìn khách hàng đã tin tưởng chúng tôi.
       </p>

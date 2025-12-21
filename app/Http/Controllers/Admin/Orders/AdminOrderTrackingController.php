@@ -237,7 +237,7 @@ class AdminOrderTrackingController extends Controller
                     'recipient_name' => $order->recipient_name,
                     'has_issues' => $order->hasDeliveryIssues(),
                     'driver_id' => $order->driver_id,
-                    'pickup_time' => $order->pickup_time->format('H:i d/m'),
+                    // 'pickup_time' => $order->pickup_time->format('H:i d/m'),
                     'delivery_time' => $order->delivery_time->format('H:i d/m'),
                 ];
             })->filter()->values();

@@ -5,13 +5,12 @@
         <div style="display: flex; align-items: center; gap: 8px;">
           <div style="font-size: 24px;">🚚</div>
           <div>
-            <span class="sitename" style="color: #0d42f4; font-weight: 700;">Giao Hàng 24</span>
-            <small style="color: #666; font-size: 11px; display: block;">Giao Hàng Tại Hà Nội</small>
+            <span class="sitename" style="color: #0d42f4; font-weight: 700;">Giao24h</span>
           </div>
         </div>
       </a>
       <p>
-        Giao Hàng 24 cam kết cung cấp dịch vụ giao hàng chất lượng cao, nhanh chóng và an toàn tại Hà Nội. Với đội ngũ nhân viên chuyên nghiệp, phương tiện hiện đại và hệ thống quản lý tiên tiến, chúng tôi đã phục vụ hàng chục nghìn khách hàng. Giao hàng nhanh, uy tín là cam kết của chúng tôi.
+        Giao 24h cam kết cung cấp dịch vụ giao hàng chất lượng cao, nhanh chóng và an toàn tại Hà Nội. Với đội ngũ nhân viên chuyên nghiệp, phương tiện hiện đại và hệ thống quản lý tiên tiến, chúng tôi đã phục vụ hàng chục nghìn khách hàng. Giao hàng nhanh, uy tín là cam kết của chúng tôi.
       </p>
       <div class="social-links d-flex mt-4">
         <a href="https://twitter.com" title="Twitter"><i class="bi bi-twitter-x"></i></a>

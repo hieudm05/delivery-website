@@ -7,7 +7,7 @@
         🚚
       </div>
       <div>
-        <h1 class="sitename" style="margin: 0; font-size: 18px; font-weight: 700;">Giao Hàng 24</h1>
+        <h1 class="sitename" style="margin: 0; font-size: 18px; font-weight: 700;">Giao24h</h1>
       </div>
     </div>
   </a>

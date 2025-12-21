@@ -1,11 +1,103 @@
 // ============================================
-// FILE: fetchNearbyPostOffices.js (FIXED VERSION)
-// Chỉ xử lý LOGIC TÌM BƯU CỤC - KHÔNG xử lý geocoding
+// FILE: fetchNearbyPostOffices.js (CACHED VERSION)
+// ✅ Thêm caching để tránh mất dữ liệu bưu cục
 // ============================================
 
-// Hàm tính khoảng cách Haversine (fallback khi API không hoạt động)
+// ✅ BIẾN CACHE TOÀN CỤC
+let postOfficesCache = {
+    data: null,           // Dữ liệu bưu cục đã load
+    coordinates: null,    // Tọa độ đã dùng để load
+    timestamp: null,      // Thời gian load
+    expiryMinutes: 30     // Cache hết hạn sau 30 phút
+};
+
+// ✅ Hàm kiểm tra cache còn hợp lệ không
+function isCacheValid(lat, lon) {
+    if (!postOfficesCache.data || !postOfficesCache.coordinates || !postOfficesCache.timestamp) {
+        return false;
+    }
+    
+    // Kiểm tra tọa độ có thay đổi không (sai số 0.001 ~ 100m)
+    const latDiff = Math.abs(postOfficesCache.coordinates.lat - lat);
+    const lonDiff = Math.abs(postOfficesCache.coordinates.lon - lon);
+    
+    if (latDiff > 0.001 || lonDiff > 0.001) {
+        console.log('📍 Tọa độ thay đổi, cache không hợp lệ');
+        return false;
+    }
+    
+    // Kiểm tra thời gian hết hạn
+    const now = Date.now();
+    const cacheAge = (now - postOfficesCache.timestamp) / 1000 / 60; // phút
+    
+    if (cacheAge > postOfficesCache.expiryMinutes) {
+        console.log('⏰ Cache đã hết hạn (' + cacheAge.toFixed(1) + ' phút)');
+        return false;
+    }
+    
+    console.log('✅ Cache còn hợp lệ (' + cacheAge.toFixed(1) + ' phút)');
+    return true;
+}
+
+// ✅ Hàm lưu cache
+function saveCache(lat, lon, data) {
+    postOfficesCache = {
+        data: data,
+        coordinates: { lat, lon },
+        timestamp: Date.now(),
+        expiryMinutes: 30
+    };
+    console.log('💾 Đã lưu cache với', data.length, 'bưu cục');
+}
+
+// ✅ Hàm hiển thị từ cache
+function displayFromCache(preserveSelection = false, selectedValue = null, selectedText = null) {
+    if (!postOfficesCache.data || postOfficesCache.data.length === 0) {
+        $('#postOfficeSelect').html('<option value="">Không có dữ liệu cache</option>');
+        return false;
+    }
+    
+    console.log('📦 Hiển thị từ cache:', postOfficesCache.data.length, 'bưu cục');
+    
+    let html = '<option value="">Chọn bưu cục gần nhất</option>';
+    
+    // Thêm lại option đã chọn nếu không tìm thấy trong cache
+    if (preserveSelection && selectedValue && selectedText) {
+        const foundInCache = postOfficesCache.data.some(office => office.id == selectedValue);
+        
+        if (!foundInCache) {
+            console.log('🔖 Thêm lại bưu cục đã chọn:', selectedText);
+            html += `<option value="${selectedValue}" selected>🔖 ${selectedText} (Đã chọn trước đó)</option>`;
+        }
+    }
+    
+    postOfficesCache.data.forEach((office, index) => {
+        const distanceKm = (office.distance / 1000).toFixed(1);
+        const distanceText = office.status === 'HAVERSINE' ? 
+            `~${distanceKm}km` : `${distanceKm}km`;
+        
+        const durationText = office.duration ? ` (${office.duration})` : '';
+        
+        const isSelected = preserveSelection && office.id == selectedValue ? 'selected' : '';
+        
+        html += `<option value="${office.id}" 
+            data-lat="${office.lat}" 
+            data-lng="${office.lng}" 
+            data-distance="${office.distance}" 
+            data-index="${index}"
+            ${isSelected}>
+            ${index + 1}. ${office.name} - ${office.address} ${distanceText}${durationText}
+        </option>`;
+    });
+    
+    $('#postOfficeSelect').html(html);
+    console.log('✅ Đã hiển thị từ cache');
+    return true;
+}
+
+// Hàm tính khoảng cách Haversine (giữ nguyên)
 function haversineDistance(lat1, lon1, lat2, lon2) {
-    const R = 6371; // Bán kính Trái Đất (km)
+    const R = 6371;
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLon = (lon2 - lon1) * Math.PI / 180;
     const a = 
@@ -16,7 +108,6 @@ function haversineDistance(lat1, lon1, lat2, lon2) {
     return R * c;
 }
 
-// Hàm kiểm tra kết nối Goong API
 async function testGoongConnection() {
     try {
         const testUrl = `https://api.goong.io/Geocode?address=Hanoi&api_key=${GOONG_API_KEY}`;
@@ -31,7 +122,7 @@ async function testGoongConnection() {
     }
 }
 
-// Hàm tìm bưu cục gần tọa độ - SỬ DỤNG OVERPASS API
+// ✅ HÀM CHÍNH - Thêm cache logic
 async function fetchNearbyPostOffices(lat, lon, preserveSelection = false) {
     if (!lat || !lon || isNaN(lat) || isNaN(lon)) {
         console.warn('⚠️ Tọa độ không hợp lệ:', { lat, lon });
@@ -39,15 +130,25 @@ async function fetchNearbyPostOffices(lat, lon, preserveSelection = false) {
         return;
     }
 
-    console.log('🔍 Bắt đầu tìm bưu cục tại:', { lat, lon });
+    console.log('🔍 Yêu cầu tìm bưu cục tại:', { lat, lon });
     
-    // ✅ LƯU LẠI GIÁ TRỊ ĐÃ CHỌN (nếu có)
+    // ✅ KIỂM TRA CACHE TRƯỚC
+    if (isCacheValid(lat, lon)) {
+        const selectedValue = preserveSelection ? $('#postOfficeSelect').val() : null;
+        const selectedText = preserveSelection ? $('#postOfficeSelect option:selected').text() : null;
+        
+        if (displayFromCache(preserveSelection, selectedValue, selectedText)) {
+            return; // Sử dụng cache thành công
+        }
+    }
+    
+    // ✅ LƯU GIÁ TRỊ ĐÃ CHỌN
     const selectedValue = preserveSelection ? $('#postOfficeSelect').val() : null;
     const selectedText = preserveSelection ? $('#postOfficeSelect option:selected').text() : null;
     
     $('#postOfficeSelect').html('<option value="">Đang tải bưu cục...</option>');
 
-    const radius = 10000; // 10km
+    const radius = 10000;
     
     const overpassQuery = `
         [out:json][timeout:25];
@@ -72,7 +173,7 @@ async function fetchNearbyPostOffices(lat, lon, preserveSelection = false) {
         console.log('📦 Kết quả Overpass:', data);
 
         if (!data.elements || data.elements.length === 0) {
-            console.warn('⚠️ Không tìm thấy bưu cục trong bán kính 5km');
+            console.warn('⚠️ Không tìm thấy bưu cục, thử Nominatim');
             await fetchNearbyPostOfficesNominatim(lat, lon, preserveSelection, selectedValue, selectedText);
             return;
         }
@@ -105,7 +206,7 @@ async function fetchNearbyPostOffices(lat, lon, preserveSelection = false) {
         console.log('📍 Danh sách bưu cục tìm được:', postOffices);
 
         if (postOffices.length === 0) {
-            $('#postOfficeSelect').html('<option value="">Không tìm thấy bưu cục trong bán kính 5km</option>');
+            $('#postOfficeSelect').html('<option value="">Không tìm thấy bưu cục trong bán kính 10km</option>');
             return;
         }
 
@@ -113,13 +214,20 @@ async function fetchNearbyPostOffices(lat, lon, preserveSelection = false) {
 
     } catch (err) {
         console.error('❌ Lỗi Overpass API:', err);
+        
+        // ✅ NẾU CÓ CACHE CŨ, DÙNG LẠI
+        if (postOfficesCache.data && postOfficesCache.data.length > 0) {
+            console.log('🔄 API lỗi, sử dụng cache cũ');
+            displayFromCache(preserveSelection, selectedValue, selectedText);
+            return;
+        }
+        
         console.log('🔄 Thử dùng Nominatim thay thế...');
         await fetchNearbyPostOfficesNominatim(lat, lon, preserveSelection, selectedValue, selectedText);
     }
 }
 
-// Backup: Tìm bưu cục bằng Nominatim
-async function fetchNearbyPostOfficesNominatim(lat, lon) {
+async function fetchNearbyPostOfficesNominatim(lat, lon, preserveSelection = false, selectedValue = null, selectedText = null) {
     console.log('📡 Gọi Nominatim API...');
     
     const keywords = ['bưu cục', 'post office', 'vnpost', 'vietnam post'];
@@ -152,6 +260,13 @@ async function fetchNearbyPostOfficesNominatim(lat, lon) {
     console.log('📦 Kết quả Nominatim:', allResults);
     
     if (allResults.length === 0) {
+        // ✅ Thử dùng cache nếu có
+        if (postOfficesCache.data && postOfficesCache.data.length > 0) {
+            console.log('🔄 Nominatim lỗi, dùng cache cũ');
+            displayFromCache(preserveSelection, selectedValue, selectedText);
+            return;
+        }
+        
         $('#postOfficeSelect').html('<option value="">Không tìm thấy bưu cục gần đây</option>');
         return;
     }
@@ -178,12 +293,11 @@ async function fetchNearbyPostOfficesNominatim(lat, lon) {
     console.log('📍 Danh sách bưu cục sau khi lọc:', uniqueOffices);
     
     if (uniqueOffices.length > 0) {
-        await calculateDistanceAndDisplay(lat, lon, uniqueOffices);
+        await calculateDistanceAndDisplay(lat, lon, uniqueOffices, preserveSelection, selectedValue, selectedText);
     }
 }
 
-// Tính khoảng cách và hiển thị
-// ✅ THÊM CÁC THAM SỐ preserveSelection, selectedValue, selectedText
+// ✅ CẬP NHẬT HÀM NÀY - Lưu cache sau khi tính xong
 async function calculateDistanceAndDisplay(lat, lon, postOffices, preserveSelection = false, selectedValue = null, selectedText = null) {
     if (postOffices.length === 0) {
         $('#postOfficeSelect').html('<option value="">Không tìm thấy bưu cục</option>');
@@ -217,7 +331,7 @@ async function calculateDistanceAndDisplay(lat, lon, postOffices, preserveSelect
                 clearTimeout(timeoutId);
                 
                 if (!distanceResponse.ok) {
-                    throw new Error(`HTTP ${distanceResponse.status}: ${distanceResponse.statusText}`);
+                    throw new Error(`HTTP ${distanceResponse.status}`);
                 }
                 
                 const distanceData = await distanceResponse.json();
@@ -261,7 +375,7 @@ async function calculateDistanceAndDisplay(lat, lon, postOffices, preserveSelect
                 });
             }
         } else {
-            console.log('🔧 Goong không khả dụng, sử dụng Haversine formula');
+            console.log('🔧 Goong không khả dụng, sử dụng Haversine');
             officesWithDistance = postOffices.map(office => {
                 const haversineDist = haversineDistance(lat, lon, office.lat, office.lng);
                 return {
@@ -275,16 +389,18 @@ async function calculateDistanceAndDisplay(lat, lon, postOffices, preserveSelect
 
         officesWithDistance.sort((a, b) => a.distance - b.distance);
 
+        // ✅ LƯU CACHE NGAY SAU KHI TÍNH XONG
+        saveCache(lat, lon, officesWithDistance.slice(0, 15));
+
         console.log('✅ Danh sách bưu cục đã sắp xếp:', officesWithDistance.slice(0, 5));
 
         let html = '<option value="">Chọn bưu cục gần nhất</option>';
         
-        // ✅ NÉU CÓ selectedValue VÀ KHÔNG TÌM THẤY TRONG DANH SÁCH MỚI → THÊM VÀO
         if (preserveSelection && selectedValue && selectedText) {
             const foundInList = officesWithDistance.some(office => office.id == selectedValue);
             
             if (!foundInList) {
-                console.log('🔄 Thêm lại bưu cục đã chọn vào danh sách:', selectedText);
+                console.log('🔄 Thêm lại bưu cục đã chọn:', selectedText);
                 html += `<option value="${selectedValue}" selected>🔖 ${selectedText} (Đã chọn trước đó)</option>`;
             }
         }
@@ -296,7 +412,6 @@ async function calculateDistanceAndDisplay(lat, lon, postOffices, preserveSelect
             
             const durationText = office.duration ? ` (${office.duration})` : '';
             
-            // ✅ KIỂM TRA XEM CÓ PHẢI BƯU CỤC ĐÃ CHỌN KHÔNG
             const isSelected = preserveSelection && office.id == selectedValue ? 'selected' : '';
             
             html += `<option value="${office.id}" 
@@ -310,10 +425,17 @@ async function calculateDistanceAndDisplay(lat, lon, postOffices, preserveSelect
         });
         
         $('#postOfficeSelect').html(html);
-        console.log('✅ Đã hiển thị', Math.min(15, officesWithDistance.length), 'bưu cục gần nhất');
+        console.log('✅ Đã hiển thị', Math.min(15, officesWithDistance.length), 'bưu cục');
         
     } catch (err) {
         console.error('❌ Lỗi khi tính khoảng cách:', err);
+        
+        // ✅ Thử dùng cache nếu có
+        if (postOfficesCache.data && postOfficesCache.data.length > 0) {
+            console.log('🔄 Lỗi tính toán, dùng cache');
+            displayFromCache(preserveSelection, selectedValue, selectedText);
+            return;
+        }
         
         console.log('🔧 Sử dụng Haversine fallback cuối cùng');
         const officesWithHaversine = postOffices.map(office => {
@@ -324,9 +446,11 @@ async function calculateDistanceAndDisplay(lat, lon, postOffices, preserveSelect
             };
         }).sort((a, b) => a.distance - b.distance);
         
+        // ✅ Lưu cache fallback
+        saveCache(lat, lon, officesWithHaversine.slice(0, 15));
+        
         let html = '<option value="">Chọn bưu cục gần nhất</option>';
         
-        // ✅ Thêm lại option cũ nếu cần
         if (preserveSelection && selectedValue && selectedText) {
             const foundInList = officesWithHaversine.some(office => office.id == selectedValue);
             if (!foundInList) {
@@ -352,34 +476,3 @@ async function calculateDistanceAndDisplay(lat, lon, postOffices, preserveSelect
         console.log('✅ Đã hiển thị fallback với Haversine');
     }
 }
-
-// SỰ KIỆN CHECKBOX
-$(document).ready(function() {
-    console.log('✅ Script fetchNearbyPostOffices.js đã load');
-    
-    $('#sameAsAccount').change(function() {
-        const isChecked = $(this).is(':checked');
-        console.log('🔄 Checkbox thay đổi:', isChecked);
-        
-        if (isChecked) {
-            $('#post-office-selects').show();
-            $('#appointment-select').hide();
-            
-            const lat = parseFloat($('#sender-latitude').val());
-            const lon = parseFloat($('#sender-longitude').val());
-            
-            console.log('📍 Tọa độ người gửi:', { lat, lon });
-            
-            if (!isNaN(lat) && !isNaN(lon) && lat && lon) {
-                fetchNearbyPostOffices(lat, lon);
-            } else {
-                console.warn('⚠️ Chưa chọn thông tin người gửi hoặc không có tọa độ');
-                $('#postOfficeSelect').html('<option value="">Vui lòng chọn thông tin người gửi trước</option>');
-            }
-        } else {
-            $('#post-office-selects').hide();
-            $('#appointment-select').show();
-            $('#postOfficeSelect').html('<option value="">Chọn bưu cục gần nhất</option>');
-        }
-    });
-});

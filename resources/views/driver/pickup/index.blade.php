@@ -75,13 +75,13 @@
                         </div>
 
                         <!-- Thời gian lấy hàng -->
-                        <div class="mb-3">
+                        {{-- <div class="mb-3">
                             <p class="mb-0">
                                 <i class="fas fa-clock text-warning"></i> 
                                 <strong>Thời gian lấy hàng:</strong> 
                                 {{ $order->pickup_time ? $order->pickup_time->format('H:i - d/m/Y') : 'Chưa xác định' }}
                             </p>
-                        </div>
+                        </div> --}}
 
                         <!-- Thông tin đơn hàng -->
                         <div class="border-top pt-2">

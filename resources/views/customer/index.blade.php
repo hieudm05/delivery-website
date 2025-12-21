@@ -135,7 +135,7 @@
             <i class="bi bi-diagram-3"></i>
             <div>
               <h5>Mạng Lưới Toàn Quốc</h5>
-              <p>Kết nối 63 tỉnh thành với hơn 1000 điểm phát hành, đảm bảo giao hàng mọi nơi nhanh chóng và an toàn</p>
+              <p>Kết nối các quận huyện Hà Nội với hơn 1000 điểm phát hành, đảm bảo giao hàng mọi nơi nhanh chóng và an toàn</p>
             </div>
           </li>
           <li>
