@@ -143,7 +143,7 @@
             <div class="d-flex justify-content-between align-items-center">
                 <h6 class="mb-0"><i class="fas fa-list"></i> Danh sách đơn hoàn ({{ $returns->total() }})</h6>
                 @if($returns->isNotEmpty() && $status == 'pending')
-                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="selectAll()">
+                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="toggleSelectAll()">
                         <i class="fas fa-check-square"></i> Chọn tất cả
                     </button>
                 @endif
@@ -284,42 +284,8 @@
     </div>
 </div>
 
-<!-- Batch Assign Modal -->
-<div class="modal fade" id="batchAssignModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <form method="POST" action="{{ route('hub.returns.batch-assign') }}">
-                @csrf
-                <div class="modal-header">
-                    <h5 class="modal-title">Phân công hàng loạt</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="alert alert-info">
-                        <i class="fas fa-info-circle"></i>
-                        Đã chọn <strong id="selectedCount">0</strong> đơn
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Chọn tài xế</label>
-                        <select name="driver_id" class="form-select" required>
-                            <option value="">-- Chọn tài xế --</option>
-                            <!-- Will be loaded via AJAX -->
-                        </select>
-                    </div>
-
-                    <input type="hidden" name="return_ids" id="batchReturnIds">
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-check"></i> Phân công
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
+<!-- ✅ INCLUDE MODAL MỚI -->
+@include('hub.returns.partials.batch-assign-modal')
 
 <!-- Cancel Return Modal -->
 <div class="modal fade" id="cancelReturnModal" tabindex="-1">
@@ -353,27 +319,18 @@
 </div>
 
 <script>
-// Select All
-function selectAll() {
-    const checkboxes = document.querySelectorAll('.return-checkbox');
+// Select All Toggle
+function toggleSelectAll() {
     const selectAllCheckbox = document.getElementById('selectAllCheckbox');
-    checkboxes.forEach(cb => cb.checked = selectAllCheckbox.checked);
-    updateSelectedCount();
-}
-
-document.getElementById('selectAllCheckbox')?.addEventListener('change', selectAll);
-
-// Update Selected Count
-function updateSelectedCount() {
-    const checked = document.querySelectorAll('.return-checkbox:checked');
-    document.getElementById('selectedCount').textContent = checked.length;
+    selectAllCheckbox.checked = !selectAllCheckbox.checked;
     
-    const ids = Array.from(checked).map(cb => cb.value);
-    document.getElementById('batchReturnIds').value = JSON.stringify(ids);
+    const checkboxes = document.querySelectorAll('.return-checkbox');
+    checkboxes.forEach(cb => cb.checked = selectAllCheckbox.checked);
 }
 
-document.querySelectorAll('.return-checkbox').forEach(cb => {
-    cb.addEventListener('change', updateSelectedCount);
+document.getElementById('selectAllCheckbox')?.addEventListener('change', function() {
+    const checkboxes = document.querySelectorAll('.return-checkbox');
+    checkboxes.forEach(cb => cb.checked = this.checked);
 });
 
 // Cancel Return

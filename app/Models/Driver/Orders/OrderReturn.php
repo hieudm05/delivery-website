@@ -513,4 +513,16 @@ class OrderReturn extends Model
         if (!$this->actual_return_latitude || !$this->actual_return_longitude) return null;
         return "https://www.google.com/maps?q={$this->actual_return_latitude},{$this->actual_return_longitude}";
     }
+    /**
+     * Mapping package conditions
+     */
+    public static function packageConditionLabels()
+    {
+        return [
+            'good' => '✅ Nguyên vẹn',
+            'damaged' => '⚠️ Hư hỏng',
+            'opened' => '📦 Đã mở',
+            'missing' => '❌ Thiếu sót',
+        ];
+    }
 }
