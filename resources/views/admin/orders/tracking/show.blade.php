@@ -289,12 +289,6 @@
                         </div>
                     </div>
                     <div class="info-row">
-                        <div class="info-label">Thời gian lấy:</div>
-                        <div class="info-value">
-                            {{ $order->pickup_time->format('H:i d/m/Y') }}
-                        </div>
-                    </div>
-                    <div class="info-row">
                         <div class="info-label">Thời gian giao:</div>
                         <div class="info-value">
                             {{ $order->delivery_time->format('H:i d/m/Y') }}

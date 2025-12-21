@@ -301,79 +301,71 @@
   <form id="orderForm" method="POST" action="{{ route('customer.orders.store') }}" enctype="multipart/form-data">
     @csrf
     <input type="hidden" id="order_mode" name="order_mode" value="single">
-    <input type="hidden" id="pickup_time_formatted" name="pickup_time_formatted">
 
     <div class="row">
       <!-- CỘT TRÁI: THÔNG TIN NGƯỜI GỬI + HÀNG HÓA CHUNG -->
       <div class="col-lg-5">
-        <!-- NGƯỜI GỬI -->
+       <!-- NGƯỜI GỬI -->
         <div class="card mb-4">
-          <div class="card-header pb-0">
+        <div class="card-header pb-0">
             <div class="d-flex justify-content-between align-items-center">
-              <h6 class="mb-0"><i class="bi bi-box-seam"></i> Thông tin người gửi</h6>
-              <div class="form-check mb-0">
-                <input type="checkbox" class="form-check-input" id="sameAsAccount">
-                <label for="sameAsAccount" class="form-check-label">Gửi tại bưu cục</label>
-              </div>
+            <h6 class="mb-0"><i class="bi bi-box-seam"></i> Thông tin người gửi</h6>
             </div>
-          </div>
+        </div>
 
-          <div class="card-body">
+        <div class="card-body">
             @php
-              $account = $user;
+            $account = $user;
             @endphp
             @if (!$account || !$account->userInfo)
-              <div class="alert alert-warning">
+            <div class="alert alert-warning">
                 <a href="{{url('/customer/account')}}" class="alert-link">⚠️ Vui lòng cập nhật thông tin tài khoản trước</a>
-              </div>
+            </div>
             @else
-              <div class="mb-3">
+            <div class="mb-3">
                 <label class="form-label">Chọn thông tin người gửi</label>
                 <select class="form-select" id="sender-select" name="sender_id" required>
-                  <option value="">-- Chọn người gửi --</option>
-                  <option value="{{ $account->id }}" 
-                          data-name="{{ $account->full_name }}"
-                          data-phone="{{ $account->phone }}"
-                          data-lat="{{ $account->userInfo->latitude ?? '' }}" 
-                          data-lng="{{ $account->userInfo->longitude ?? '' }}"
-                          data-address="{{ $account->userInfo->full_address ?? '' }}">
+                <option value="">-- Chọn người gửi --</option>
+                <option value="{{ $account->id }}" 
+                        data-name="{{ $account->full_name }}"
+                        data-phone="{{ $account->phone }}"
+                        data-lat="{{ $account->userInfo->latitude ?? '' }}" 
+                        data-lng="{{ $account->userInfo->longitude ?? '' }}"
+                        data-address="{{ $account->userInfo->full_address ?? '' }}">
                     {{ $account->full_name }} - {{ $account->phone }} - {{ $account->userInfo->full_address}}
-                  </option>
+                </option>
                 </select>
-              </div>
+            </div>
 
-              <div id="sender-info" class="d-none">
+            <div id="sender-info" class="d-none">
                 <div class="p-3 bg-light rounded">
-                  <div><strong>Họ tên:</strong> <span id="sender-name-display"></span></div>
-                  <div><strong>SĐT:</strong> <span id="sender-phone-display"></span></div>
-                  <div><strong>Địa chỉ:</strong> <span id="sender-address-display"></span></div>
+                <div><strong>Họ tên:</strong> <span id="sender-name-display"></span></div>
+                <div><strong>SĐT:</strong> <span id="sender-phone-display"></span></div>
+                <div><strong>Địa chỉ:</strong> <span id="sender-address-display"></span></div>
                 </div>
-              </div>
+            </div>
 
-              <input type="hidden" id="sender-latitude" name="sender_latitude">
-              <input type="hidden" id="sender-longitude" name="sender_longitude">
-              <input type="hidden" id="sender-address" name="sender_address">
-              <input type="hidden" id="sender-name" name="sender_name">
-              <input type="hidden" id="sender-phone" name="sender_phone">
+            <input type="hidden" id="sender-latitude" name="sender_latitude">
+            <input type="hidden" id="sender-longitude" name="sender_longitude">
+            <input type="hidden" id="sender-address" name="sender_address">
+            <input type="hidden" id="sender-name" name="sender_name">
+            <input type="hidden" id="sender-phone" name="sender_phone">
             @endif
 
-            <div id="post-office-selects" style="display:none;">
-              <label for="postOfficeSelect" class="form-label">Bưu cục gần bạn</label>
-              <select class="form-select mb-3" id="postOfficeSelect" name="post_office_id">
-                <option value="">-- Chọn bưu cục --</option>
-              </select>
+            {{-- ✅ CHỈ CÒN PHẦN CHỌN BƯU CỤC --}}
+            <div id="post-office-selects" class="mt-3">
+            <label for="postOfficeSelect" class="form-label">
+                Bưu cục gửi hàng <span class="text-danger">*</span>
+                <small class="text-muted">(Bắt buộc - Chọn bưu cục gần bạn nhất)</small>
+            </label>
+            <select class="form-select" id="postOfficeSelect" name="post_office_id" required>
+                <option value="">-- Vui lòng chọn người gửi trước --</option>
+            </select>
+            <small class="text-muted d-block mt-1">
+                <i class="bi bi-info-circle"></i> Bạn sẽ gửi hàng tại bưu cục này
+            </small>
             </div>
-
-            <div id="appointment-select" style="display:block;">
-              <label for="pickup-time" class="form-label">Thời gian hẹn lấy hàng <span class="text-danger">*</span></label>
-              <input type="datetime-local" class="form-control" id="pickup-time" name="pickup_time" required>
             </div>
-
-            <div class="mt-3">
-              <label class="form-label">Ghi chú chung (áp dụng cho tất cả đơn)</label>
-              <textarea class="form-control" id="common-note" name="note" rows="2" placeholder="Ghi chú chung cho tất cả người nhận..."></textarea>
-            </div>
-          </div>
         </div>
 
         <!-- SHARED PRODUCTS SECTION (Only in multi mode) -->
@@ -596,17 +588,14 @@ $(document).ready(function() {
             console.log('✅ Provinces loaded, initializing app...');
             provincesLoaded = true;
             setupEventHandlers();
-            setDefaultDateTime();
             setupGoongAutocomplete();
             setupToggleForms();
             setupCurrencyFormatting();
             setupModeSelector();
             setupSharedProductForm();
             
-            // ✅ Thêm người nhận đầu tiên với Hà Nội mặc định
             addRecipient(); 
             
-            // ✅ THÔNG BÁO CHO NGƯỜI DÙNG
             console.log('📍 Lưu ý: Hệ thống chỉ hỗ trợ giao hàng tại Hà Nội');
         })
         .catch((error) => { 
@@ -2424,44 +2413,37 @@ function formatDatetimeForDatabase(datetimeLocalValue) {
 }
 
 function validateDatetimes() {
-  const pickupValue = $('#pickup-time').val();
-  
-  if (!pickupValue) {
-    alert('⚠️ Vui lòng chọn thời gian hẹn lấy hàng');
-    return false;
-  }
-  
-  const pickup = new Date(pickupValue);
-  const now = new Date();
-  
-  if (pickup <= now) {
-    alert('⚠️ Thời gian hẹn lấy phải trong tương lai');
-    return false;
-  }
-  
-  let allValid = true;
-  recipientsList.forEach(recipient => {
-    const deliveryFormatted = $(`.delivery-time-formatted[data-recipient-id="${recipient.id}"]`).val();
+    // ✅ XÓA VALIDATE PICKUP TIME
+    // const pickupValue = $('#pickup-time').val();
+    // if (!pickupValue) {
+    //     alert('⚠️ Vui lòng chọn thời gian hẹn lấy hàng');
+    //     return false;
+    // }
     
-    // ✅ Kiểm tra format
-    if (!deliveryFormatted || !/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(deliveryFormatted)) {
-      alert(`⚠️ Thời gian giao cho người nhận #${recipientsList.indexOf(recipient) + 1} không hợp lệ`);
-      console.error('❌ Invalid format:', deliveryFormatted);
-      allValid = false;
-      return false;
-    }
+    // ✅ CHỈ VALIDATE DELIVERY TIME
+    let allValid = true;
+    recipientsList.forEach(recipient => {
+        const deliveryFormatted = $(`.delivery-time-formatted[data-recipient-id="${recipient.id}"]`).val();
+        
+        if (!deliveryFormatted || !/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(deliveryFormatted)) {
+            alert(`⚠️ Thời gian giao cho người nhận #${recipientsList.indexOf(recipient) + 1} không hợp lệ`);
+            console.error('❌ Invalid format:', deliveryFormatted);
+            allValid = false;
+            return false;
+        }
+        
+        // ✅ CHỈ KIỂM TRA THỜI GIAN GIAO PHẢI TRONG TƯƠNG LAI
+        const delivery = new Date(deliveryFormatted.replace(' ', 'T'));
+        const now = new Date();
+        
+        if (delivery <= now) {
+            alert(`⚠️ Thời gian giao cho người nhận #${recipientsList.indexOf(recipient) + 1} phải trong tương lai`);
+            allValid = false;
+            return false;
+        }
+    });
     
-    const delivery = new Date(deliveryFormatted.replace(' ', 'T'));
-    const minDeliveryTime = new Date(pickup.getTime() + 60 * 60 * 1000);
-    
-    if (delivery < minDeliveryTime) {
-      alert(`⚠️ Thời gian giao cho người nhận #${recipientsList.indexOf(recipient) + 1} phải ít nhất 1 giờ sau thời gian lấy`);
-      allValid = false;
-      return false;
-    }
-  });
-  
-  return allValid;
+    return allValid;
 }
 
 // ============ LOAD PROVINCES ============
@@ -2523,8 +2505,20 @@ $('#sender-select').on('change', function() {
         $('#sender-phone-display').text(phone);
         $('#sender-address-display').text(address);
         $('#sender-info').removeClass('d-none');
+        
+        // ✅ TỰ ĐỘNG LOAD BƯU CỤC KHI CHỌN NGƯỜI GỬI
+        console.log('📍 Đang tìm bưu cục gần:', { lat, lng });
+        
+        // Kiểm tra cache trước
+        if (isCacheValid(lat, lng)) {
+            console.log('📦 Sử dụng cache có sẵn');
+            displayFromCache(false);
+        } else {
+            fetchNearbyPostOffices(lat, lng, false);
+        }
     } else {
         $('#sender-info').addClass('d-none');
+        $('#postOfficeSelect').html('<option value="">Vui lòng chọn người gửi có tọa độ hợp lệ</option>');
     }
 });
 
@@ -2568,6 +2562,13 @@ function setupGoongAutocomplete() {
 function validateForm() {
     if (!$('#sender-select').val()) {
         alert('⚠️ Vui lòng chọn thông tin người gửi');
+        return false;
+    }
+    
+    // ✅ THÊM VALIDATE BƯU CỤC BẮT BUỘC
+    if (!$('#postOfficeSelect').val()) {
+        alert('⚠️ Vui lòng chọn bưu cục gửi hàng');
+        $('#postOfficeSelect').focus();
         return false;
     }
     
@@ -2620,7 +2621,6 @@ function validateForm() {
             return false;
         }
         
-        // In single mode, check if recipient has products
         if (orderMode === 'single' && (!recipient.products || recipient.products.length === 0)) {
             alert(`⚠️ Vui lòng thêm ít nhất 1 hàng hóa cho người nhận #${index}`);
             return false;
@@ -2639,7 +2639,6 @@ $('#orderForm').on('submit', function(e) {
         return false;
     }
     
-    // ✅ Update products_json cho mỗi recipient
     recipientsList.forEach(recipient => {
         if (orderMode === 'single') {
             $(`.products-json-${recipient.id}`).val(JSON.stringify(recipient.products || []));
@@ -2648,11 +2647,9 @@ $('#orderForm').on('submit', function(e) {
         }
     });
     
-    // ✅ Ensure each recipient has services array
     recipientsList.forEach(recipient => {
         const servicesJson = $(`.services-json-${recipient.id}`).val();
         if (!servicesJson || servicesJson === '[]') {
-            // Get services from checkboxes
             const services = [];
             $(`.service-checkbox[data-recipient-id="${recipient.id}"]:checked`).each(function() {
                 services.push($(this).val());
@@ -2664,13 +2661,12 @@ $('#orderForm').on('submit', function(e) {
         }
     });
     
-    // ✅ Format pickup time
-    const pickupValue = $('#pickup-time').val();
-    $('#pickup_time_formatted').val(formatDatetimeForDatabase(pickupValue));
+    // ✅ XÓA PHẦN FORMAT PICKUP TIME
+    // const pickupValue = $('#pickup-time').val();
+    // $('#pickup_time_formatted').val(formatDatetimeForDatabase(pickupValue));
     
     const formData = new FormData(this);
     
-    // ✅ Add images
     recipientsList.forEach(recipient => {
         if (recipient.selectedImages && recipient.selectedImages.length > 0) {
             recipient.selectedImages.forEach((file) => {
@@ -2694,7 +2690,6 @@ $('#orderForm').on('submit', function(e) {
     this.submit();
     return false;
 });
-
 // ============ HANDLE BACKEND ERRORS ============
 function returnBackendError(xhr) {
     let errorMsg = 'Có lỗi xảy ra khi tạo đơn hàng.';

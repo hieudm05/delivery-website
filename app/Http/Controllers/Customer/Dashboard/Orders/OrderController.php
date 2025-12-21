@@ -46,7 +46,7 @@ class OrderController extends Controller
             'sender_address' => 'required|string',
             'sender_latitude' => 'nullable|numeric',
             'sender_longitude' => 'nullable|numeric',
-            'pickup_time_formatted' => 'required|date_format:Y-m-d H:i:s',
+            // 'pickup_time_formatted' => 'required|date_format:Y-m-d H:i:s',
             
             // Post office
             'post_office_id' => 'nullable|string',
@@ -216,7 +216,7 @@ class OrderController extends Controller
         'sender_address' => $order->sender_address,
         'sender_latitude' => $order->sender_latitude,
         'sender_longitude' => $order->sender_longitude,
-        'pickup_time' => $order->pickup_time->format('Y-m-d\TH:i'),
+        // 'pickup_time' => $order->pickup_time->format('Y-m-d\TH:i'),
         'post_office_id' => $order->post_office_id,
     ];
     
@@ -274,7 +274,6 @@ public function update(Request $request, $id)
             'sender_address' => 'required_if:can_edit_sender,true|string',
             'sender_latitude' => 'nullable|numeric',
             'sender_longitude' => 'nullable|numeric',
-            'pickup_time_formatted' => 'required_if:can_edit_sender,true|date_format:Y-m-d H:i:s',
             'post_office_id' => 'required|string',
         ], [
             'recipient_name.required' => 'Vui lòng nhập tên người nhận',
@@ -382,7 +381,7 @@ public function update(Request $request, $id)
                 $updateData['sender_longitude'] = $validated['sender_longitude'];
             }
             
-            $updateData['pickup_time'] = $validated['pickup_time_formatted'];
+            // $updateData['pickup_time'] = $validated['pickup_time_formatted'];
             $updateData['post_office_id'] = $validated['post_office_id'];
         } else {
             // ✅ Nếu đã có tài xế, CHỈ CHO PHÉP ĐỔI BƯU CỤC
@@ -477,7 +476,6 @@ private function createOrderGroup($request)
         'sender_latitude' => $request->sender_latitude,
         'sender_longitude' => $request->sender_longitude,
         'post_office_id' => $request->post_office_id,
-        'pickup_time' => $request->pickup_time_formatted,
         'total_recipients' => count($request->recipients),
         'status' => 'pending',
         'note' => $request->note,
@@ -909,7 +907,6 @@ private function createStandaloneOrder($request, $recipientData)
         'sender_latitude' => $request->sender_latitude,
         'sender_longitude' => $request->sender_longitude,
         'post_office_id' => $request->post_office_id ?? 11564316606,
-        'pickup_time' => $request->pickup_time_formatted,
         
         'recipient_name' => $recipientData['recipient_name'],
         'recipient_phone' => $recipientData['recipient_phone'],
@@ -1001,7 +998,7 @@ private function createGroupOrder($orderGroup, $request, $recipientData)
         'sender_latitude' => $request->sender_latitude,
         'sender_longitude' => $request->sender_longitude,
         'post_office_id' => $request->post_office_id ?? 11564316606,
-        'pickup_time' => $request->pickup_time_formatted,
+        // 'pickup_time' => $request->pickup_time_formatted,
         
         'recipient_name' => $recipientData['recipient_name'],
         'recipient_phone' => $recipientData['recipient_phone'],

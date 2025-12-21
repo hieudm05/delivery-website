@@ -69,10 +69,10 @@
                                 <i class="bi bi-clock me-1"></i>
                                 {{ $order->created_at->format('H:i d/m/Y') }}
                             </small>
-                            <small class="text-muted">
+                            {{-- <small class="text-muted">
                                 <i class="bi bi-arrow-up-right me-1"></i>
                                 {{ $order->pickup_time->format('H:i d/m') }}
-                            </small>
+                            </small> --}}
                             <small class="text-muted">
                                 <i class="bi bi-arrow-down-right me-1"></i>
                                 {{ $order->delivery_time->format('H:i d/m') }}

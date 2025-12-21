@@ -54,11 +54,11 @@
                     <!-- Thời gian -->
                     <div class="border-bottom pb-3 mb-3">
                         <h6><i class="fas fa-clock"></i> Thời gian</h6>
-                        <p class="mb-1"><strong>Lấy hàng tại shop:</strong> 
+                        {{-- <p class="mb-1"><strong>Lấy hàng tại shop:</strong> 
                             <span class="text-warning">
                                 {{ $order->pickup_time ? $order->pickup_time->format('H:i - d/m/Y') : 'Chưa xác định' }}
                             </span>
-                        </p>
+                        </p> --}}
                         <p class="mb-0"><strong>Giao hàng dự kiến :</strong> 
                             {{ $order->delivery_time ? $order->delivery_time->format('H:i - d/m/Y') : 'Chưa xác định' }}
                         </p>
