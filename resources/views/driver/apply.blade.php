@@ -171,8 +171,13 @@
                         </div>
                     </div>
 
-                    <form method="POST" action="{{ route('driver-apply.store') }}" enctype="multipart/form-data" novalidate id="driverApplicationForm">
-                        @csrf
+                  <form method="POST" 
+                        action="{{ route('driver-apply.store') }}" 
+                        enctype="multipart/form-data" 
+                        novalidate 
+                        id="driverApplicationForm"
+                        data-check-location-url="{{ route('driver-apply.check-location') }}"
+                        data-nearby-url="{{ route('driver-apply.nearby') }}">
                         
                         <div class="row g-3">
                             <!-- Họ tên -->
@@ -325,7 +330,7 @@
     let miniMapInstance = null;
 
     // ============================================
-    // FALLBACK: Vị trí mặc định (Cao đẳng FPT)
+    // FALLBACK: Vị trí mặc định (FPT Polytechnic Hoài Đức)
     // ============================================
     const HANOI_CENTER = { lat: 21.0383388, lng: 105.7471234 };
 
@@ -339,7 +344,126 @@
     }
 
     // ============================================
-    // KIỂM TRA VỊ TRÍ HIỆN TẠI
+    // LẤY VỊ TRÍ GPS CHÍNH XÁC - CẢI TIẾN
+    // ============================================
+    async function getCurrentLocation() {
+        return new Promise((resolve, reject) => {
+            if (!navigator.geolocation) {
+                return reject({ 
+                    code: 'NOT_SUPPORTED', 
+                    message: 'Trình duyệt không hỗ trợ định vị' 
+                });
+            }
+
+            console.log('🔍 Đang lấy vị trí GPS chính xác...');
+            
+            let attempts = 0;
+            const maxAttempts = 3;
+            let bestPosition = null;
+
+            function tryGetPosition() {
+                attempts++;
+                
+                const timeout = setTimeout(() => {
+                    console.warn(`⏱️ Lần thử ${attempts}/${maxAttempts} hết thời gian`);
+                    
+                    if (attempts < maxAttempts) {
+                        tryGetPosition(); // Thử lại
+                    } else if (bestPosition) {
+                        console.log('✅ Sử dụng vị trí tốt nhất có được:', bestPosition);
+                        resolve(bestPosition);
+                    } else {
+                        reject({ 
+                            code: 'TIMEOUT', 
+                            message: 'Hết thời gian chờ lấy vị trí' 
+                        });
+                    }
+                }, 15000);
+
+                navigator.geolocation.getCurrentPosition(
+                    pos => {
+                        clearTimeout(timeout);
+                        
+                        const accuracy = pos.coords.accuracy;
+                        const location = {
+                            lat: pos.coords.latitude,
+                            lng: pos.coords.longitude,
+                            accuracy: accuracy
+                        };
+
+                        console.log(`✅ Lần ${attempts}: Độ chính xác ${Math.round(accuracy)}m`);
+
+                        // ✅ KIỂM TRA ĐỘ CHÍNH XÁC
+                        if (accuracy > 5000) {
+                            // Độ chính xác quá kém (> 5km) - có thể từ WiFi/IP
+                            console.warn(`⚠️ Độ chính xác kém (${Math.round(accuracy)}m), thử lại...`);
+                            
+                            if (!bestPosition || accuracy < bestPosition.accuracy) {
+                                bestPosition = location;
+                            }
+                            
+                            if (attempts < maxAttempts) {
+                                setTimeout(tryGetPosition, 1000); // Thử lại sau 1s
+                            } else {
+                                // Đã thử hết, dùng vị trí tốt nhất
+                                console.warn('⚠️ Không thể lấy GPS chính xác, dùng vị trí ước lượng');
+                                resolve({
+                                    ...bestPosition,
+                                    isLowAccuracy: true
+                                });
+                            }
+                        } else if (accuracy > 500) {
+                            // Độ chính xác trung bình (500m - 5km)
+                            console.log(`📍 Độ chính xác khá (${Math.round(accuracy)}m)`);
+                            
+                            if (!bestPosition || accuracy < bestPosition.accuracy) {
+                                bestPosition = location;
+                            }
+                            
+                            if (attempts < maxAttempts && accuracy > 100) {
+                                setTimeout(tryGetPosition, 1000); // Thử lấy chính xác hơn
+                            } else {
+                                resolve(bestPosition);
+                            }
+                        } else {
+                            // Độ chính xác tốt (< 500m)
+                            console.log(`✅ Độ chính xác tốt (${Math.round(accuracy)}m)`);
+                            resolve(location);
+                        }
+                    },
+                    err => {
+                        clearTimeout(timeout);
+                        console.error(`❌ Lỗi GPS lần ${attempts}:`, err);
+                        
+                        if (attempts < maxAttempts) {
+                            setTimeout(tryGetPosition, 1000);
+                        } else if (bestPosition) {
+                            console.log('⚠️ Sử dụng vị trí tốt nhất đã lấy được');
+                            resolve({
+                                ...bestPosition,
+                                isLowAccuracy: true
+                            });
+                        } else {
+                            reject({ 
+                                code: err.code, 
+                                message: err.message 
+                            });
+                        }
+                    },
+                    { 
+                        enableHighAccuracy: true,
+                        timeout: 14000,
+                        maximumAge: 0
+                    }
+                );
+            }
+
+            tryGetPosition(); // Bắt đầu lần thử đầu tiên
+        });
+    }
+
+    // ============================================
+    // KIỂM TRA VỊ TRÍ HIỆN TẠI - CẢI TIẾN
     // ============================================
     $('#btnCheckLocation').on('click', async function() {
         const $btn = $(this);
@@ -349,30 +473,24 @@
         $btn.prop('disabled', true);
         $info.hide();
         $loading.show();
+        $loading.html(`
+            <div class="d-flex align-items-center gap-2 mt-3">
+                <div class="spinner-border spinner-border-sm text-white" role="status"></div>
+                <span>Đang lấy vị trí GPS chính xác...</span>
+            </div>
+        `);
 
         try {
-            // Lấy vị trí
-            const position = await new Promise((resolve, reject) => {
-                if (!navigator.geolocation) {
-                    reject(new Error('Trình duyệt không hỗ trợ định vị'));
-                    return;
-                }
+            const location = await getCurrentLocation();
+            const lat = location.lat;
+            const lng = location.lng;
+            const accuracy = location.accuracy;
 
-                navigator.geolocation.getCurrentPosition(resolve, reject, {
-                    enableHighAccuracy: true,
-                    timeout: 10000,
-                    maximumAge: 0
-                });
-            });
-
-            const lat = position.coords.latitude;
-            const lng = position.coords.longitude;
-
-            console.log('📍 Vị trí:', lat, lng);
+            console.log('📍 Vị trí:', lat, lng, '- Độ chính xác:', accuracy + 'm');
 
             // Gọi API check location
             const response = await $.ajax({
-                url: "{{ route('driver-apply.check-location') }}",
+                url: $('#driverApplicationForm').data('check-location-url'),
                 method: 'GET',
                 data: { lat, lng },
                 timeout: 15000
@@ -389,6 +507,16 @@
                 // Hiển thị bản đồ mini
                 $loading.hide();
                 $info.show();
+
+                // Thêm cảnh báo nếu độ chính xác thấp
+                if (accuracy > 1000) {
+                    $('.location-info').before(`
+                        <div class="alert alert-warning alert-sm mb-2" style="background: rgba(255, 193, 7, 0.2); border: none; padding: 8px 12px;">
+                            <small style="color: #fff;">⚠️ Độ chính xác GPS thấp (~${Math.round(accuracy/1000)}km). 
+                            Vị trí có thể không chính xác.</small>
+                        </div>
+                    `);
+                }
 
                 // Khởi tạo mini map
                 if (!miniMapInstance) {
@@ -410,7 +538,9 @@
                         iconSize: [25, 41],
                         iconAnchor: [12, 41]
                     })
-                }).addTo(miniMapInstance).bindPopup('Bạn đang ở đây').openPopup();
+                }).addTo(miniMapInstance)
+                  .bindPopup(`Bạn đang ở đây<br><small>Độ chính xác: ±${Math.round(accuracy)}m</small>`)
+                  .openPopup();
 
                 miniMapInstance.setView([lat, lng], 15);
             }
@@ -418,7 +548,19 @@
         } catch (error) {
             console.error('❌ Lỗi:', error);
             $loading.hide();
-            alert('⚠️ Không thể lấy vị trí: ' + error.message);
+            
+            let errorMessage = 'Không thể lấy vị trí: ';
+            if (error.code === 1) {
+                errorMessage += 'Bạn chưa cho phép truy cập vị trí. Vui lòng bật GPS và cho phép trình duyệt truy cập vị trí.';
+            } else if (error.code === 2) {
+                errorMessage += 'Không thể xác định vị trí. Vui lòng kiểm tra GPS/kết nối mạng.';
+            } else if (error.code === 3 || error.code === 'TIMEOUT') {
+                errorMessage += 'Quá thời gian chờ. GPS có thể bị tắt hoặc tín hiệu yếu.';
+            } else {
+                errorMessage += error.message;
+            }
+            
+            alert('⚠️ ' + errorMessage);
         } finally {
             $btn.prop('disabled', false);
         }
@@ -524,34 +666,7 @@
     }
 
     // ============================================
-    // LẤY VỊ TRÍ HIỆN TẠI
-    // ============================================
-    async function getCurrentLocation() {
-        return new Promise((resolve, reject) => {
-            if (!navigator.geolocation) {
-                return reject({ code: 'NOT_SUPPORTED', message: 'Trình duyệt không hỗ trợ định vị' });
-            }
-
-            const timeout = setTimeout(() => {
-                reject({ code: 'TIMEOUT', message: 'Hết thời gian chờ lấy vị trí' });
-            }, 15000);
-
-            navigator.geolocation.getCurrentPosition(
-                pos => {
-                    clearTimeout(timeout);
-                    resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-                },
-                err => {
-                    clearTimeout(timeout);
-                    reject({ code: err.code, message: err.message });
-                },
-                { enableHighAccuracy: false, timeout: 12000, maximumAge: 300000 }
-            );
-        });
-    }
-
-    // ============================================
-    // TÌM BƯU CỤC GẦN VỊ TRÍ
+    // TÌM BƯU CỤC GẦN VỊ TRÍ - CẢI TIẾN
     // ============================================
     async function searchNearbyPostOffices() {
         if (isGettingLocation) return;
@@ -561,32 +676,80 @@
             $postOfficeLoading.show();
             $postOfficeList.hide();
             $refreshBtn.hide();
-            $loadingText.text('Đang lấy vị trí của bạn...');
+            $loadingText.html('<i class="bi bi-radar"></i> Đang lấy vị trí GPS chính xác của bạn...');
 
             let location = null;
             let useDefaultLocation = false;
+            let showAccuracyWarning = false;
 
             try {
                 location = await getCurrentLocation();
-                console.log('📍 Vị trí thực:', location);
+                console.log('📍 Vị trí GPS:', location);
+                
+                // Kiểm tra độ chính xác
+                if (location.accuracy > 5000 || location.isLowAccuracy) {
+                    showAccuracyWarning = true;
+                    $loadingText.html(`
+                        <div>
+                            <i class="bi bi-exclamation-triangle text-warning"></i> 
+                            <strong>Độ chính xác GPS thấp (~${Math.round(location.accuracy/1000)}km)</strong>
+                            <br><small>Vị trí có thể không chính xác. Đang tìm bưu cục gần nhất...</small>
+                        </div>
+                    `);
+                } else if (location.accuracy > 500) {
+                    $loadingText.html(`
+                        <i class="bi bi-check-circle text-success"></i> 
+                        Đã lấy vị trí (Độ chính xác: ~${Math.round(location.accuracy)}m)
+                    `);
+                } else {
+                    $loadingText.html(`
+                        <i class="bi bi-check-circle text-success"></i> 
+                        Đã lấy vị trí GPS chính xác (±${Math.round(location.accuracy)}m)
+                    `);
+                }
+                
             } catch (geoError) {
-                console.warn('⚠️ Không lấy được vị trí thực, dùng trung tâm Hà Nội');
+                console.warn('⚠️ Không lấy được GPS, dùng vị trí mặc định FPT Polytechnic');
                 location = HANOI_CENTER;
                 useDefaultLocation = true;
 
-                if (geoError.code === 'PERMISSION_DENIED') {
-                    $loadingText.html(`<i class="bi bi-exclamation-triangle text-warning"></i> Bạn chưa cho phép truy cập vị trí. Đang hiển thị bưu cục tại trung tâm Hà Nội.`);
+                let errorMessage = '';
+                if (geoError.code === 1 || geoError.code === 'PERMISSION_DENIED') {
+                    errorMessage = `
+                        <div>
+                            <i class="bi bi-exclamation-triangle text-warning"></i> 
+                            <strong>Bạn chưa cho phép truy cập vị trí</strong>
+                            <br><small>Đang sử dụng vị trí mặc định: Cao đẳng FPT Polytechnic, Hoài Đức, Hà Nội</small>
+                            <br><small class="text-muted">💡 Bật GPS và cho phép trình duyệt truy cập vị trí để có kết quả chính xác</small>
+                        </div>
+                    `;
+                } else if (geoError.code === 'TIMEOUT') {
+                    errorMessage = `
+                        <div>
+                            <i class="bi bi-clock text-info"></i> 
+                            <strong>GPS mất quá nhiều thời gian</strong>
+                            <br><small>Đang sử dụng vị trí mặc định: Cao đẳng FPT Polytechnic, Hoài Đức, Hà Nội</small>
+                        </div>
+                    `;
                 } else {
-                    $loadingText.html(`<i class="bi bi-info-circle text-info"></i> Đang hiển thị bưu cục tại trung tâm Hà Nội.`);
+                    errorMessage = `
+                        <div>
+                            <i class="bi bi-info-circle text-info"></i> 
+                            <strong>Không thể lấy vị trí GPS</strong>
+                            <br><small>Đang sử dụng vị trí mặc định: Cao đẳng FPT Polytechnic, Hoài Đức, Hà Nội</small>
+                        </div>
+                    `;
                 }
+                
+                $loadingText.html(errorMessage);
             }
 
             userLocation = location;
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            $loadingText.text('Đang tìm bưu cục gần bạn...');
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            $loadingText.html('<i class="bi bi-search"></i> Đang tìm bưu cục trong vòng 50km...');
 
             const response = await $.ajax({
-                url: "{{ route('driver-apply.nearby') }}",
+                url: $('#driverApplicationForm').data('nearby-url'),
                 method: 'GET',
                 data: { lat: location.lat, lng: location.lng },
                 timeout: 30000
@@ -599,11 +762,22 @@
             if (response.success && response.data?.length > 0) {
                 console.log(`✅ Tìm thấy ${response.data.length} bưu cục`);
                 
+                // Hiển thị cảnh báo nếu cần
                 if (useDefaultLocation) {
                     $postOfficeList.prepend(`
-                        <div class="alert alert-info alert-dismissible fade show mb-3">
-                            <strong>📍 Lưu ý:</strong> Danh sách hiển thị dựa trên trung tâm Hà Nội. 
-                            Bạn có thể bật định vị để tìm bưu cục gần hơn.
+                        <div class="alert alert-warning alert-dismissible fade show mb-3">
+                            <strong>📍 Vị trí mặc định</strong>
+                            <br>Danh sách dựa trên Cao đẳng FPT Polytechnic, Hoài Đức
+                            <br><small>💡 Bật GPS và nhấn "Làm mới vị trí" để tìm bưu cục gần bạn hơn</small>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    `);
+                } else if (showAccuracyWarning) {
+                    $postOfficeList.prepend(`
+                        <div class="alert alert-warning alert-dismissible fade show mb-3">
+                            <strong>⚠️ Độ chính xác GPS thấp</strong>
+                            <br>Vị trí có thể không chính xác (độ lệch ~${Math.round(location.accuracy/1000)}km)
+                            <br><small>💡 Kiểm tra xem GPS đã bật chưa, sau đó nhấn "Làm mới vị trí"</small>
                             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                         </div>
                     `);
@@ -611,7 +785,12 @@
                 
                 renderPostOfficeList(response.data);
             } else {
-                $postOfficeList.html(`<div class="alert alert-warning mb-0"><strong>Không tìm thấy bưu cục!</strong><br><small>Vui lòng thử lại hoặc liên hệ hỗ trợ.</small></div>`);
+                $postOfficeList.html(`
+                    <div class="alert alert-warning mb-0">
+                        <strong>Không tìm thấy bưu cục!</strong>
+                        <br><small>Vui lòng thử lại hoặc liên hệ hỗ trợ.</small>
+                    </div>
+                `);
             }
 
         } catch (error) {
@@ -635,11 +814,17 @@
         }
     }
 
+    // ============================================
+    // NÚT LÀM MỚI VỊ TRÍ
+    // ============================================
     $refreshBtn.on('click', function() {
         console.log('🔄 Làm mới vị trí...');
         searchNearbyPostOffices();
     });
 
+    // ============================================
+    // VALIDATE FORM TRƯỚC KHI GỬI
+    // ============================================
     $('#driverApplicationForm').on('submit', function(e) {
         if (!$('#postOfficeId').val()) {
             e.preventDefault();
@@ -649,6 +834,9 @@
         }
     });
 
+    // ============================================
+    // TỰ ĐỘNG TÌM BƯU CỤC KHI LOAD TRANG
+    // ============================================
     searchNearbyPostOffices();
 });
 </script>

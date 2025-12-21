@@ -31,7 +31,7 @@
                     <div class="flex-grow-1">
                         <h5 class="alert-heading mb-1">{{ $alert['title'] }}</h5>
                         <p class="mb-2">{{ $alert['message'] }}</p>
-                        <a href="{{ $alert['action'] }}" class="btn btn-sm btn-{{ $alert['type'] }}">
+                        <a href="{{ route("customer.cod.index") }}" class="btn btn-sm btn-{{ $alert['type'] }}">
                             {{ $alert['action_label'] }}
                         </a>
                     </div>
@@ -123,7 +123,7 @@
                         </div>
                     </div>
                     @if($debtStats['has_debt'])
-                    <a href="{{ route('customer.income.debt') }}" class="btn btn-sm btn-outline-warning w-100">
+                    <a href="{{ route('customer.cod.index') }}" class="btn btn-sm btn-outline-warning w-100">
                         Thanh toán ngay
                     </a>
                     @else

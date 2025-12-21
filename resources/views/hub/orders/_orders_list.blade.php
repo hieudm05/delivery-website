@@ -40,7 +40,10 @@
                     </td>
                     <td>
                         <div class="d-flex flex-column">
-                            <small class="text-muted">Lấy: {{ $order->pickup_time->format('H:i d/m') }}</small>
+                           <small class="text-muted">
+                                Lấy: {{ $order->pickup_time ? $order->pickup_time->format('H:i d/m') : '--' }}
+                            </small>
+
                             <small class="text-muted">Giao: {{ $order->delivery_time->format('H:i d/m') }}</small>
                         </div>
                     </td>
