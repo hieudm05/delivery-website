@@ -188,7 +188,7 @@ class Order extends Model
      */
     public function canEdit()
     {
-        return in_array($this->status, [self::STATUS_PENDING, self::STATUS_CONFIRMED]);
+        return in_array($this->status, [self::STATUS_PENDING]);
     }
 
     /**

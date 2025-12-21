@@ -132,4 +132,24 @@ class OrderDeliveryIssue extends Model
             throw $e;
         }
     }
+    /**
+     * Mapping package conditions
+     */
+    public static function packageConditionLabels(): array
+    {
+        return [
+            'good' => '✅ Nguyên vẹn',
+            'damaged' => '⚠️ Hư hỏng',
+            'opened' => '📦 Đã mở',
+            'missing' => '❌ Thiếu sót',
+        ];
+    }
+
+    /**
+     * Auto accessor - Laravel tự động gọi khi dùng ->package_condition_label
+     */
+    public function getPackageConditionLabelAttribute(): string
+    {
+        return self::packageConditionLabels()[$this->package_condition] ?? $this->package_condition;
+    }
 }

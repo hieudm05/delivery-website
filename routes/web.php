@@ -575,34 +575,45 @@ Route::prefix('hub')
             });
 
         // ✅ RETURN MANAGEMENT - Quản lý hoàn hàng (Bảng riêng)
-        Route::prefix('returns')
-            ->name('returns.')
-            ->controller(HubReturnController::class)
-            ->group(function () {
-                // Dashboard hoàn hàng
-                Route::get('/', 'index')->name('index');
-                
-                // Chi tiết đơn hoàn
-                Route::get('/{id}', 'show')->name('show');
-                
-                // Form phân công tài xế
-                Route::get('/{id}/assign', 'assignForm')->name('assign-form');
-                
-                // Phân công tài xế hoàn hàng
-                Route::post('/{id}/assign', 'assignDriver')->name('assign');
-                
-                // Phân công hàng loạt
-                Route::post('/batch-assign', 'batchAssign')->name('batch-assign');
-                
-                // Hủy hoàn hàng
-                Route::post('/{id}/cancel', 'cancel')->name('cancel');
-                
-                // Thống kê hoàn hàng
-                Route::get('/statistics/overview', 'statistics')->name('statistics');
-                
-                // API: Lấy danh sách tài xế
-                Route::get('/{id}/available-drivers', 'getAvailableDriversApi')->name('available-drivers');
-            });
+       Route::prefix('returns')
+    ->name('returns.')
+    ->controller(HubReturnController::class)
+    ->group(function () {
+        // Dashboard hoàn hàng
+        Route::get('/', 'index')->name('index');
+        
+        // Chi tiết đơn hoàn
+        Route::get('/{id}', 'show')->name('show');
+        
+        // Form phân công tài xế đơn lẻ
+        Route::get('/{id}/assign', 'assignForm')->name('assign-form');
+        
+        // Phân công tài xế đơn lẻ
+        Route::post('/{id}/assign', 'assignDriver')->name('assign');
+        
+        // ===== BATCH OPERATIONS =====
+        
+        // API: Lấy thông tin các đơn đã chọn
+        Route::post('/selected-info', 'getSelectedReturnsInfo')->name('selected-info');
+        
+        // API: Lấy danh sách tài xế cho batch assign
+        Route::post('/batch-available-drivers', 'getBatchAvailableDrivers')->name('batch-available-drivers');
+        
+        // API: Gợi ý phân công thông minh
+        Route::post('/suggest-assignments', 'suggestDriverAssignments')->name('suggest-assignments');
+        
+        // Phân công hàng loạt (nhiều đơn cho nhiều tài xế)
+        Route::post('/batch-assign', 'batchAssign')->name('batch-assign');
+        
+        // Hủy hoàn hàng
+        Route::post('/{id}/cancel', 'cancel')->name('cancel');
+        
+        // Thống kê hoàn hàng
+        Route::get('/statistics/overview', 'statistics')->name('statistics');
+        
+        // API: Lấy danh sách tài xế (đơn lẻ)
+        Route::get('/{id}/available-drivers', 'getAvailableDriversApi')->name('available-drivers');
+    });
         Route::prefix('debt')->name('debt.')->controller(HubDebtController::class)->group(function () {
             // Danh sách các khoản nợ cần xác nhận
             Route::get('/', 'index')->name('index');

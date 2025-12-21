@@ -72,6 +72,7 @@ class HubReturnController extends Controller
             'timeline.creator',
             'images'
         ])->findOrFail($id);
+        
         // ✅ Kiểm tra quyền truy cập
         if ($return->order->post_office_id != $hubId) {
             abort(403, 'Bạn không có quyền truy cập đơn hoàn này');
@@ -81,7 +82,7 @@ class HubReturnController extends Controller
     }
 
     /**
-     * ✅ FORM PHÂN CÔNG TÀI XẾ
+     * ✅ FORM PHÂN CÔNG TÀI XẾ ĐƠN LẺ
      */
     public function assignForm($id)
     {
@@ -94,7 +95,8 @@ class HubReturnController extends Controller
         }
 
         if (!$return->isPending()) {
-            return back()->with('error', 'Đơn hoàn không ở trạng thái chờ phân công');
+            return back()->with('error', 'Đơn hoàn không ở trạng thái chờ phân công')
+                ->with('alert_type', 'error');
         }
 
         // Lấy danh sách tài xế available
@@ -104,7 +106,7 @@ class HubReturnController extends Controller
     }
 
     /**
-     * ✅ PHÂN CÔNG TÀI XẾ HOÀN HÀNG
+     * ✅ PHÂN CÔNG TÀI XẾ HOÀN HÀNG ĐƠN LẺ
      */
     public function assignDriver(Request $request, $id)
     {
@@ -113,7 +115,7 @@ class HubReturnController extends Controller
             'note' => 'nullable|string|max:500',
         ]);
 
-        $return = OrderReturn::findOrFail($id);
+        $return = OrderReturn::with('order')->findOrFail($id);
 
         // ✅ Kiểm tra quyền
         $hubId = $this->getHubId();
@@ -122,7 +124,8 @@ class HubReturnController extends Controller
         }
 
         if (!$return->isPending()) {
-            return back()->with('error', 'Đơn hoàn không ở trạng thái chờ phân công');
+            return back()->with('error', 'Đơn hoàn không ở trạng thái chờ phân công')
+                ->with('alert_type', 'error');
         }
 
         try {
@@ -133,7 +136,7 @@ class HubReturnController extends Controller
             // Thêm note nếu có
             if ($request->note) {
                 $return->addTimelineEvent(
-                    'status_changed',
+                    'note_added',
                     "Ghi chú từ Hub: {$request->note}",
                     Auth::id()
                 );
@@ -147,50 +150,310 @@ class HubReturnController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Có lỗi xảy ra: ' . $e->getMessage());
+            return back()->with('error', 'Có lỗi xảy ra: ' . $e->getMessage())
+                ->with('alert_type', 'error');
         }
     }
 
     /**
-     * ✅ PHÂN CÔNG HÀNG LOẠT
+     * ✅ PHÂN CÔNG HÀNG LOẠT - NHIỀU ĐƠN CHO NHIỀU TÀI XẾ
      */
     public function batchAssign(Request $request)
     {
+        \Log::info('batchAssign called', ['request' => $request->all()]);
+
         $request->validate([
-            'return_ids' => 'required|array',
-            'return_ids.*' => 'exists:order_returns,id',
-            'driver_id' => 'required|exists:users,id',
+            'assignments' => 'required|array|min:1',
+            'assignments.*.return_id' => 'required|exists:order_returns,id',
+            'assignments.*.driver_id' => 'required|exists:users,id',
+            'note' => 'nullable|string|max:500',
+        ], [
+            'assignments.required' => 'Vui lòng chọn ít nhất một đơn để phân công',
+            'assignments.*.return_id.required' => 'Mã đơn hoàn không hợp lệ',
+            'assignments.*.driver_id.required' => 'Vui lòng chọn tài xế cho từng đơn',
         ]);
 
         try {
             DB::beginTransaction();
 
             $hubId = $this->getHubId();
-            $assigned = 0;
+            
+            if (!$hubId) {
+                throw new \Exception('Không tìm thấy Hub ID');
+            }
 
-            foreach ($request->return_ids as $returnId) {
-                $return = OrderReturn::with('order')->find($returnId);
-                
-                // ✅ Kiểm tra quyền và trạng thái
-                if ($return && 
-                    $return->isPending() && 
-                    $return->order->post_office_id === $hubId) {
+            $assigned = 0;
+            $failed = 0;
+            $errors = [];
+
+            foreach ($request->assignments as $assignment) {
+                try {
+                    \Log::info('Processing assignment', $assignment);
+
+                    $return = OrderReturn::with('order')->find($assignment['return_id']);
                     
-                    $return->assignDriver($request->driver_id, Auth::id());
+                    // Kiểm tra exists
+                    if (!$return) {
+                        $failed++;
+                        $errors[] = "Đơn #{$assignment['return_id']} không tồn tại";
+                        \Log::warning('Return not found', ['return_id' => $assignment['return_id']]);
+                        continue;
+                    }
+
+                    // ✅ FIX: So sánh loose (==) thay vì strict (!==)
+                    if ($return->order->post_office_id != $hubId) {
+                        $failed++;
+                        $errors[] = "Đơn #{$return->id} không thuộc bưu cục của bạn";
+                        \Log::warning('Return not belong to hub', [
+                            'return_id' => $return->id,
+                            'return_hub' => $return->order->post_office_id,
+                            'return_hub_type' => gettype($return->order->post_office_id),
+                            'current_hub' => $hubId,
+                            'current_hub_type' => gettype($hubId),
+                        ]);
+                        continue;
+                    }
+
+                    // Kiểm tra status
+                    if (!$return->isPending()) {
+                        $failed++;
+                        $errors[] = "Đơn #{$return->id} không ở trạng thái chờ phân công";
+                        \Log::warning('Return not pending', [
+                            'return_id' => $return->id,
+                            'status' => $return->status
+                        ]);
+                        continue;
+                    }
+
+                    // ✅ Kiểm tra tài xế có thuộc hub không
+                    $driver = User::where('id', $assignment['driver_id'])
+                        ->where('role', 'driver')
+                        ->whereHas('driverProfile', function($q) use ($hubId) {
+                            // ✅ FIX: So sánh loose
+                            $q->whereRaw('post_office_id = ?', [$hubId])
+                              ->where('status', 'approved');
+                        })
+                        ->first();
+
+                    if (!$driver) {
+                        $failed++;
+                        $errors[] = "Tài xế không hợp lệ cho đơn #{$return->id}";
+                        \Log::warning('Driver not valid', [
+                            'driver_id' => $assignment['driver_id'],
+                            'hub_id' => $hubId
+                        ]);
+                        continue;
+                    }
+
+                    // Phân công
+                    $return->assignDriver($assignment['driver_id'], Auth::id());
+
+                    // Thêm note nếu có
+                    if ($request->note) {
+                        $return->addTimelineEvent(
+                            'note_added',
+                            "Ghi chú phân công hàng loạt: {$request->note}",
+                            Auth::id()
+                        );
+                    }
+
                     $assigned++;
+                    \Log::info('Assignment successful', [
+                        'return_id' => $return->id,
+                        'driver_id' => $assignment['driver_id']
+                    ]);
+
+                } catch (\Exception $e) {
+                    $failed++;
+                    $errors[] = "Đơn #{$assignment['return_id']}: {$e->getMessage()}";
+                    \Log::error('Assignment failed', [
+                        'return_id' => $assignment['return_id'],
+                        'error' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString()
+                    ]);
                 }
             }
 
             DB::commit();
 
-            return redirect()->route('hub.returns.index')
-                ->with('success', "Đã phân công {$assigned} đơn hoàn")
-                ->with('alert_type', 'success');
+            $message = "Đã phân công thành công {$assigned} đơn hoàn";
+            
+            if ($failed > 0) {
+                $message .= ", thất bại {$failed} đơn";
+            }
+
+            \Log::info('Batch assign completed', [
+                'assigned' => $assigned,
+                'failed' => $failed,
+                'errors' => $errors
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => $message,
+                'assigned' => $assigned,
+                'failed' => $failed,
+                'errors' => $errors,
+            ]);
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Có lỗi xảy ra: ' . $e->getMessage());
+            \Log::error('Batch assign error', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Có lỗi xảy ra: ' . $e->getMessage()
+            ], 500);
         }
+    }
+
+    /**
+     * ✅ API: Lấy thông tin chi tiết các đơn đã chọn
+     */
+    public function getSelectedReturnsInfo(Request $request)
+    {
+        \Log::info('getSelectedReturnsInfo called', ['request' => $request->all()]);
+
+        $request->validate([
+            'return_ids' => 'required|array',
+            'return_ids.*' => 'exists:order_returns,id',
+        ]);
+
+        $hubId = $this->getHubId();
+        
+        if (!$hubId) {
+            return response()->json([
+                'error' => 'Không tìm thấy Hub ID'
+            ], 400);
+        }
+        
+        // ✅ FIX: Sử dụng loose comparison trong whereHas
+        $returns = OrderReturn::with(['order', 'driver'])
+            ->whereIn('id', $request->return_ids)
+            ->whereHas('order', function($q) use ($hubId) {
+                $q->whereRaw('post_office_id = ?', [$hubId]);
+            })
+            ->pending()
+            ->get();
+
+        \Log::info('Returns found', ['count' => $returns->count()]);
+
+        $totalFee = $returns->sum('return_fee');
+        $totalCod = $returns->sum('cod_amount');
+
+        return response()->json([
+            'returns' => $returns->map(function($return) {
+                return [
+                    'id' => $return->id,
+                    'order_id' => $return->order->id,
+                    'sender_name' => $return->sender_name,
+                    'sender_phone' => $return->sender_phone,
+                    'sender_address' => $return->sender_address,
+                    'return_fee' => number_format($return->return_fee, 0, '', ''),
+                    'cod_amount' => number_format($return->cod_amount, 0, '', ''),
+                    'reason_type' => $return->reason_type_label,
+                    'failed_attempts' => $return->failed_attempts,
+                ];
+            }),
+            'total_fee' => number_format($totalFee, 0, '', ''),
+            'total_cod' => number_format($totalCod, 0, '', ''),
+        ]);
+    }
+
+    /**
+     * ✅ API: Lấy danh sách tài xế cho modal phân công hàng loạt
+     */
+    public function getBatchAvailableDrivers(Request $request)
+    {
+        \Log::info('getBatchAvailableDrivers called');
+
+        $hubId = $this->getHubId();
+        
+        if (!$hubId) {
+            return response()->json([
+                'error' => 'Không tìm thấy Hub ID'
+            ], 400);
+        }
+
+        $drivers = $this->getAvailableDrivers($hubId);
+
+        \Log::info('Drivers found', ['count' => $drivers->count()]);
+
+        return response()->json([
+            'drivers' => $drivers->map(function($driver) {
+                $activeReturns = OrderReturn::forDriver($driver->id)
+                    ->whereIn('status', [OrderReturn::STATUS_ASSIGNED, OrderReturn::STATUS_RETURNING])
+                    ->count();
+
+                return [
+                    'id' => $driver->id,
+                    'name' => $driver->full_name,
+                    'phone' => $driver->phone,
+                    'active_returns' => $activeReturns,
+                    'status' => $driver->driverProfile->status ?? 'unknown',
+                ];
+            })
+        ]);
+    }
+
+    /**
+     * ✅ API: Gợi ý phân công thông minh theo khu vực
+     */
+    public function suggestDriverAssignments(Request $request)
+    {
+        $request->validate([
+            'return_ids' => 'required|array',
+            'return_ids.*' => 'exists:order_returns,id',
+        ]);
+
+        $hubId = $this->getHubId();
+        
+        // Lấy các đơn hoàn
+        $returns = OrderReturn::with('order')
+            ->whereIn('id', $request->return_ids)
+            ->whereHas('order', function($q) use ($hubId) {
+                $q->whereRaw('post_office_id = ?', [$hubId]);
+            })
+            ->pending()
+            ->get();
+
+        // Lấy danh sách tài xế
+        $drivers = $this->getAvailableDrivers($hubId);
+
+        if ($drivers->isEmpty()) {
+            return response()->json([
+                'suggestions' => [],
+                'message' => 'Không có tài xế khả dụng'
+            ]);
+        }
+
+        // Gợi ý phân công dựa trên số đơn đang hoàn
+        $suggestions = [];
+
+        foreach ($returns as $return) {
+            // Chọn tài xế có ít đơn nhất
+            $bestDriver = $drivers->sortBy(function($driver) {
+                return OrderReturn::forDriver($driver->id)
+                    ->whereIn('status', [OrderReturn::STATUS_ASSIGNED, OrderReturn::STATUS_RETURNING])
+                    ->count();
+            })->first();
+
+            if ($bestDriver) {
+                $suggestions[] = [
+                    'return_id' => $return->id,
+                    'driver_id' => $bestDriver->id,
+                    'driver_name' => $bestDriver->full_name,
+                    'reason' => 'Tài xế có ít đơn đang hoàn nhất',
+                ];
+            }
+        }
+
+        return response()->json([
+            'suggestions' => $suggestions,
+        ]);
     }
 
     /**
@@ -211,7 +474,8 @@ class HubReturnController extends Controller
         }
 
         if ($return->isCompleted() || $return->isCancelled()) {
-            return back()->with('error', 'Không thể hủy đơn hoàn đã hoàn thành hoặc đã hủy');
+            return back()->with('error', 'Không thể hủy đơn hoàn đã hoàn thành hoặc đã hủy')
+                ->with('alert_type', 'error');
         }
 
         try {
@@ -227,7 +491,8 @@ class HubReturnController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Có lỗi xảy ra: ' . $e->getMessage());
+            return back()->with('error', 'Có lỗi xảy ra: ' . $e->getMessage())
+                ->with('alert_type', 'error');
         }
     }
 
@@ -238,15 +503,15 @@ class HubReturnController extends Controller
     {
         $hubId = $this->getHubId();
         
-        // ✅ FIX: Handle from/to params correctly
+        // Handle from/to params
         $from = $request->has('from') ? $request->get('from') : now()->startOfMonth()->format('Y-m-d');
         $to = $request->has('to') ? $request->get('to') : now()->endOfMonth()->format('Y-m-d');
         
-        // ✅ Ensure they are Carbon instances
+        // Ensure they are Carbon instances
         $fromDate = is_string($from) ? \Carbon\Carbon::createFromFormat('Y-m-d', $from) : $from;
         $toDate = is_string($to) ? \Carbon\Carbon::createFromFormat('Y-m-d', $to) : $to;
         
-        // ✅ Tạo biến hiển thị định dạng đẹp cho view
+        // Format cho view
         $fromFormatted = $fromDate->format('d/m/Y');
         $toFormatted = $toDate->format('d/m/Y');
 
@@ -301,7 +566,7 @@ class HubReturnController extends Controller
     }
 
     /**
-     * ✅ API: Lấy danh sách tài xế có thể nhận hoàn
+     * ✅ API: Lấy danh sách tài xế có thể nhận hoàn (cho đơn lẻ)
      */
     public function getAvailableDriversApi($returnId)
     {
@@ -312,7 +577,7 @@ class HubReturnController extends Controller
             'drivers' => $drivers->map(function($driver) {
                 return [
                     'id' => $driver->id,
-                    'name' => $driver->name,
+                    'name' => $driver->full_name,
                     'phone' => $driver->phone,
                     'active_returns' => OrderReturn::forDriver($driver->id)
                         ->whereIn('status', [OrderReturn::STATUS_ASSIGNED, OrderReturn::STATUS_RETURNING])
@@ -323,19 +588,12 @@ class HubReturnController extends Controller
     }
 
     /**
-     * ✅ HELPER: Lấy Hub ID (integer) - SỬA LẠI
+     * ✅ HELPER: Lấy Hub ID
      */
     private function getHubId()
     {
-        // Option 1: Từ bảng hubs
         $hub = Hub::where('user_id', Auth::id())->first();
         return $hub ? $hub->post_office_id : null;
-        
-        // Option 2: Nếu User có trường hub_id
-        // return auth()->user()->hub_id;
-        
-        // Option 3: Nếu User có relation hubProfile
-        // return auth()->user()->hubProfile->post_office_id ?? null;
     }
 
     /**
@@ -345,9 +603,11 @@ class HubReturnController extends Controller
     {
         return User::where('role', 'driver')
             ->whereHas('driverProfile', function($q) use ($hubId) {
-                $q->where('post_office_id', $hubId)
+                // ✅ FIX: So sánh loose
+                $q->whereRaw('post_office_id = ?', [$hubId])
                   ->where('status', 'approved');
             })
+            ->with(['driverProfile'])
             ->get();
     }
 }

@@ -175,8 +175,8 @@
                                         <small>{{ $issue->issue_time->format('H:i d/m') }}</small>
                                     </td>
                                     <td>
-                                        <span class="badge bg-danger">
-                                            {{ $issue->issue_type_label }}
+                                        <span class=" bg-danger text-white px-2 py-1 rounded">
+                                            {{ $issue->issue_type }}
                                         </span>
                                     </td>
                                     <td>
