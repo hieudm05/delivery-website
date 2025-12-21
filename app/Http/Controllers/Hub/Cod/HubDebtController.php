@@ -315,60 +315,87 @@ public function reject(Request $request, $id)
     /**
      * Thống kê tổng quan về nợ
      */
-    public function statistics(Request $request)
-    {
-        $hubId = Auth::id();
+    /**
+ * Thống kê tổng quan về nợ
+ * ✅ ĐÃ SỬA: Fix logic query để hiển thị đúng dữ liệu
+ */
+public function statistics(Request $request)
+{
+    $hubId = Auth::id();
+    
+    $startDate = $request->get('start_date') 
+        ? \Carbon\Carbon::parse($request->get('start_date'))->startOfDay()
+        : now()->startOfMonth();
+    $endDate = $request->get('end_date')
+        ? \Carbon\Carbon::parse($request->get('end_date'))->endOfDay()
+        : now()->endOfMonth();
+    
+    // ✅ SỬA: Query dựa trên created_at của transaction, sau đó lọc theo status
+    $baseQuery = CodTransaction::byHub($hubId)
+        ->whereBetween('created_at', [$startDate, $endDate])
+        ->where('sender_debt_deducted', '>', 0);
+
+    $overview = [
+        // Tổng số nợ đã trừ trong khoảng thời gian
+        'total_debt_deducted' => (clone $baseQuery)->sum('sender_debt_deducted'),
         
-        $startDate = $request->get('start_date') 
-            ? \Carbon\Carbon::parse($request->get('start_date'))->startOfDay()
-            : now()->startOfMonth();
-        $endDate = $request->get('end_date')
-            ? \Carbon\Carbon::parse($request->get('end_date'))->endOfDay()
-            : now()->endOfMonth();
+        // Số nợ đã được xác nhận (có thể xác nhận trong hoặc ngoài khoảng thời gian)
+        'confirmed_debt' => (clone $baseQuery)
+            ->where('sender_debt_payment_status', 'completed')
+            ->sum('sender_debt_deducted'),
         
-        $overview = [
-            'total_debt_deducted' => CodTransaction::byHub($hubId)
-                ->whereBetween('created_at', [$startDate, $endDate])
-                ->sum('sender_debt_deducted'),
-            'confirmed_debt' => CodTransaction::byHub($hubId)
-                ->whereBetween('sender_debt_confirmed_at', [$startDate, $endDate])
-                ->where('sender_debt_payment_status', 'completed')
-                ->sum('sender_debt_deducted'),
-            'pending_debt' => CodTransaction::byHub($hubId)
-                ->where('sender_debt_payment_status', 'pending')
-                ->sum('sender_debt_deducted'),
-            'rejected_debt' => CodTransaction::byHub($hubId)
-                ->whereBetween('sender_debt_rejected_at', [$startDate, $endDate])
-                ->where('sender_debt_payment_status', 'rejected')
-                ->sum('sender_debt_deducted'),
-        ];
+        // Số nợ đang chờ xác nhận (không cần filter thời gian cho pending)
+        'pending_debt' => CodTransaction::byHub($hubId)
+            ->where('sender_debt_payment_status', 'pending')
+            ->sum('sender_debt_deducted'),
+        
+        // Số nợ đã bị từ chối
+        'rejected_debt' => (clone $baseQuery)
+            ->where('sender_debt_payment_status', 'rejected')
+            ->sum('sender_debt_deducted'),
+    ];
 
-        $topDebtors = CodTransaction::byHub($hubId)
-            ->whereBetween('created_at', [$startDate, $endDate])
-            ->where('sender_debt_deducted', '>', 0)
-            ->with('sender')
-            ->select('sender_id', DB::raw('SUM(sender_debt_deducted) as total_debt'))
-            ->groupBy('sender_id')
-            ->orderBy('total_debt', 'desc')
-            ->limit(10)
-            ->get();
+    // ✅ Top debtors - giữ nguyên nhưng đảm bảo có dữ liệu
+    $topDebtors = CodTransaction::byHub($hubId)
+        ->whereBetween('created_at', [$startDate, $endDate])
+        ->where('sender_debt_deducted', '>', 0)
+        ->with('sender')
+        ->select('sender_id', DB::raw('SUM(sender_debt_deducted) as total_debt'))
+        ->groupBy('sender_id')
+        ->orderBy('total_debt', 'desc')
+        ->limit(10)
+        ->get();
 
-        $dailyStats = CodTransaction::byHub($hubId)
-            ->whereBetween('created_at', [$startDate, $endDate])
-            ->where('sender_debt_deducted', '>', 0)
-            ->selectRaw('DATE(created_at) as date')
-            ->selectRaw('COUNT(*) as count')
-            ->selectRaw('SUM(sender_debt_deducted) as amount')
-            ->groupBy('date')
-            ->orderBy('date')
-            ->get();
+    // ✅ Thống kê theo ngày - đảm bảo có dữ liệu đầy đủ
+    $dailyStats = CodTransaction::byHub($hubId)
+        ->whereBetween('created_at', [$startDate, $endDate])
+        ->where('sender_debt_deducted', '>', 0)
+        ->selectRaw('DATE(created_at) as date')
+        ->selectRaw('COUNT(*) as count')
+        ->selectRaw('SUM(sender_debt_deducted) as amount')
+        ->groupBy('date')
+        ->orderBy('date')
+        ->get();
 
-        return view('hub.debt.statistics', compact(
-            'overview',
-            'topDebtors',
-            'dailyStats',
-            'startDate',
-            'endDate'
-        ));
+    // ✅ THÊM: Debug info (có thể bỏ sau khi test xong)
+    if ($dailyStats->isEmpty()) {
+        Log::info('No debt statistics found', [
+            'hub_id' => $hubId,
+            'start_date' => $startDate,
+            'end_date' => $endDate,
+            'total_transactions' => CodTransaction::byHub($hubId)->count(),
+            'transactions_with_debt' => CodTransaction::byHub($hubId)
+                ->where('sender_debt_deducted', '>', 0)
+                ->count(),
+        ]);
     }
+
+    return view('hub.debt.statistics', compact(
+        'overview',
+        'topDebtors',
+        'dailyStats',
+        'startDate',
+        'endDate'
+    ));
+}
 }

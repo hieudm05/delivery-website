@@ -70,29 +70,6 @@ class IncomeController extends Controller
                 'pendingCommission'
             ));
         }
-
-        // ✅ ADMIN: Redirect to admin system overview (đã có view)
-        if ($user->isAdmin()) {
-            // Admin cần thống kê hub
-            $hubStats = \App\Models\User::where('role', 'hub')
-                ->where('status', 'active')
-                ->get()
-                ->map(function ($hub) use ($startDate, $endDate) {
-                    $hubReport = $hub->getHubIncomeReport($startDate, $endDate);
-                    return [
-                        'hub_id' => $hub->id,
-                        'hub_name' => $hub->full_name,
-                        'profit' => $hubReport['net_income'],
-                        'orders' => $hubReport['statistics']['total_orders'],
-                    ];
-                })
-                ->sortByDesc('profit');
-
-            return view('admin.income.system-overview', compact('report', 'hubStats', 'startDate', 'endDate'));
-        }
-
-        // Default: không có quyền
-        abort(403, 'Bạn không có quyền truy cập trang này');
     }
 
     /**

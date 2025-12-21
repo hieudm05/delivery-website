@@ -420,11 +420,11 @@
                                         <i class="bi bi-wallet2"></i> Trả nợ
                                     </button>
                                 @endif
-                            @endif
-                                </div>
-                            </td>
-                        </tr>
-                    @endforeach
+                                    @endif
+                                        </div>
+                                    </td>
+                                </tr>
+                            @endforeach
                             </tbody>
                         </table>
                     </div>

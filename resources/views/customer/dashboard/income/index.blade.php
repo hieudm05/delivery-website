@@ -40,7 +40,7 @@
                 <p class="mb-2">
                     Tổng nợ hiện tại: <strong>{{ number_format($report['debt']['current_debt']) }}đ</strong>
                 </p>
-                <a href="{{ route('customer.income.debt') }}" class="btn btn-sm btn-warning">
+                <a href="{{ route('customer.cod.index') }}" class="btn btn-sm btn-warning">
                     <i class="fas fa-eye"></i> Xem chi tiết
                 </a>
             </div>
