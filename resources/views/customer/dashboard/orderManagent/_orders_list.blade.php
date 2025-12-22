@@ -87,7 +87,7 @@
             <div class="mb-3">
                 <p class="mb-0 text-muted small">
                     <i class="bi bi-clock-fill me-2"></i>
-                    Giao: {{ \Carbon\Carbon::parse($order->delivery_time)->format('H:i d/m/Y') }}
+                    Giao dự kiến: {{ \Carbon\Carbon::parse($order->delivery_time)->format('H:i d/m/Y') }}
                 </p>
                 @if($order->delivery && $order->delivery->actual_delivery_time)
                 <p class="mb-0 text-success small">

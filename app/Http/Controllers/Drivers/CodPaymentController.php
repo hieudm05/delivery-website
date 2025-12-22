@@ -22,18 +22,20 @@ class CodPaymentController extends Controller
         $date = $request->get('date');
 
        $baseQuery = CodTransaction::with(['order', 'sender', 'hub', 'shipperBankAccount'])
-        ->byDriver($driverId)
-        ->whereHas('order', function($q) {
-            // ✅ CHỈ LẤY ĐƠN ĐÃ GIAO THÀNH CÔNG
-            $q->where('status', \App\Models\Customer\Dashboard\Orders\Order::STATUS_DELIVERED)
-              // ✅ KHÔNG CÓ ISSUE (không thất bại)
-              ->whereDoesntHave('deliveryIssues')
-              // ✅ KHÔNG BỊ HOÀN VỀ
-              ->where(function($query) {
-                  $query->where('has_return', false)
-                        ->orWhereNull('has_return');
-              });
-        });
+    ->byDriver($driverId)
+    ->whereHas('order', function ($q) {
+        $q->where('status', \App\Models\Customer\Dashboard\Orders\Order::STATUS_DELIVERED)
+          // ✅ COD > 0
+          ->where('cod_amount', '>', 0)
+          // ✅ KHÔNG CÓ ISSUE (không thất bại)
+          ->whereDoesntHave('deliveryIssues')
+          // ✅ KHÔNG BỊ HOÀN VỀ
+          ->where(function ($query) {
+              $query->where('has_return', false)
+                    ->orWhereNull('has_return');
+          });
+    });
+
 
         // Clone cho pagination
         $query = clone $baseQuery;
