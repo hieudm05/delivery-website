@@ -401,7 +401,7 @@
                         <li class="nav-item" role="presentation">
                             <button class="nav-link active" id="all-hubs-tab" data-bs-toggle="tab" 
                                     data-bs-target="#all-hubs" type="button" role="tab">
-                                <i class="fas fa-list"></i> Tất cả ({{ $hubStats->count() }})
+                                <i class="fas fa-list"></i> Tất cả ({{ $hubStatsAll->count() }})
                             </button>
                         </li>
                         <li class="nav-item" role="presentation">
@@ -466,7 +466,7 @@
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        @forelse($hubStats as $index => $hub)
+                                        @forelse($hubStatsAll as $index => $hub)
                                         <tr data-hub-name="{{ strtolower($hub['hub_name']) }}">
                                             <td>
                                                 @if($index == 0)

@@ -136,7 +136,7 @@ class HubReturnController extends Controller
             // Thêm note nếu có
             if ($request->note) {
                 $return->addTimelineEvent(
-                    'note_added',
+                    'note',
                     "Ghi chú từ Hub: {$request->note}",
                     Auth::id()
                 );
@@ -251,7 +251,7 @@ class HubReturnController extends Controller
                     // Thêm note nếu có
                     if ($request->note) {
                         $return->addTimelineEvent(
-                            'note_added',
+                            'note',
                             "Ghi chú phân công hàng loạt: {$request->note}",
                             Auth::id()
                         );

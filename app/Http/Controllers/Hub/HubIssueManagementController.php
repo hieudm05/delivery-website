@@ -21,7 +21,7 @@ class HubIssueManagementController extends Controller
         $search = $request->get('search');
 
         // ✅ FIX: Lấy hub_id an toàn
-        $hubId = $this->getCurrentHub();
+        $hubId = $this->getCurrentHubId();
 
         // ✅ Kiểm tra nếu không có hub_id
         if (!$hubId) {
@@ -52,6 +52,17 @@ class HubIssueManagementController extends Controller
             })
             ->orderBy('issue_time', 'desc')
             ->paginate(20);
+
+        // ✅ DEBUG: Kiểm tra query và data
+        // dd([
+        //     'hub_id' => $hubId,
+        //     'status' => $status,
+        //     'total_issues' => $issues->total(),
+        //     'query' => OrderDeliveryIssue::query()->whereHas('order', function($q) use ($hubId) {
+        //         $q->where('post_office_id', $hubId);
+        //     })->toSql(),
+        //     'first_issue' => $issues->first()
+        // ]);
 
         // Thống kê
         $stats = [
@@ -85,15 +96,26 @@ class HubIssueManagementController extends Controller
      */
     public function show($id)
     {
+        $hubId = $this->getCurrentHubId();
+        
+        if (!$hubId) {
+            return back()->with('error', 'Không tìm thấy thông tin bưu cục.')
+                ->with('alert_type', 'error');
+        }
+
         $issue = OrderDeliveryIssue::with([
             'order.delivery.images',
             'order.deliveryIssues',
             'order.products',
-            'order.activeReturn', // ✅ THÊM: Xem có OrderReturn không
+            'order.activeReturn',
             'reporter',
             'resolver',
-            'orderReturn' // ✅ THÊM: Link với OrderReturn
-        ])->findOrFail($id);
+            'orderReturn'
+        ])
+        ->whereHas('order', function($q) use ($hubId) {
+            $q->where('post_office_id', $hubId);
+        })
+        ->findOrFail($id);
 
         return view('hub.issues.show', compact('issue'));
     }
@@ -111,20 +133,28 @@ class HubIssueManagementController extends Controller
         $issue = OrderDeliveryIssue::with('order')->findOrFail($id);
 
         if ($issue->isResolved()) {
-            return back()->with('error', 'Vấn đề này đã được xử lý');
+            return back()->with('error', 'Vấn đề này đã được xử lý')
+                ->with('alert_type', 'error');
         }
 
         try {
             DB::beginTransaction();
 
-            // ✅ Resolve issue - Tự động tạo OrderReturn nếu action = return
-            $issue->resolve(
+            // ✅ Resolve issue
+            $result = $issue->resolve(
                 $request->action,
                 Auth::id(),
                 $request->note
             );
 
             DB::commit();
+
+            // ✅ Xử lý khi tự động chuyển sang hoàn hàng (thất bại >= 3 lần)
+            if (isset($result['auto_converted_to_return']) && $result['auto_converted_to_return']) {
+                return redirect()->route('hub.returns.show', $issue->orderReturn->id)
+                    ->with('warning', $result['message'])
+                    ->with('alert_type', 'warning');
+            }
 
             $actionLabels = [
                 'retry' => 'Thử giao lại',
@@ -145,7 +175,8 @@ class HubIssueManagementController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Có lỗi xảy ra: ' . $e->getMessage());
+            return back()->with('error', 'Có lỗi xảy ra: ' . $e->getMessage())
+                ->with('alert_type', 'error');
         }
     }
 
@@ -165,21 +196,29 @@ class HubIssueManagementController extends Controller
             DB::beginTransaction();
 
             $resolved = 0;
-            $returnIds = []; // ✅ Thu thập ID các OrderReturn được tạo
+            $returnIds = [];
+            $autoConvertedCount = 0;
             
             foreach ($request->issue_ids as $issueId) {
-                $issue = OrderDeliveryIssue::find($issueId);
+                $issue = OrderDeliveryIssue::with('order')->find($issueId);
                 
                 if ($issue && !$issue->isResolved()) {
-                    $issue->resolve(
+                    $result = $issue->resolve(
                         $request->action,
                         Auth::id(),
                         $request->note
                     );
                     $resolved++;
                     
-                    // ✅ Nếu tạo OrderReturn, lưu lại ID
-                    if ($request->action === 'return' && $issue->orderReturn) {
+                    // ✅ Kiểm tra nếu tự động chuyển sang hoàn hàng
+                    if (isset($result['auto_converted_to_return']) && $result['auto_converted_to_return']) {
+                        $autoConvertedCount++;
+                        if ($issue->orderReturn) {
+                            $returnIds[] = $issue->orderReturn->id;
+                        }
+                    }
+                    // ✅ Nếu action là return thông thường
+                    elseif ($request->action === 'return' && $issue->orderReturn) {
                         $returnIds[] = $issue->orderReturn->id;
                     }
                 }
@@ -187,30 +226,37 @@ class HubIssueManagementController extends Controller
 
             DB::commit();
 
+            // ✅ Thông báo nếu có đơn tự động chuyển sang hoàn hàng
+            $message = "Đã xử lý {$resolved} vấn đề";
+            if ($autoConvertedCount > 0) {
+                $message .= ". Có {$autoConvertedCount} đơn tự động chuyển sang hoàn hàng do thất bại >= 3 lần";
+            }
+
             // ✅ Nếu có OrderReturn được tạo, redirect đến trang hoàn hàng
             if (!empty($returnIds)) {
                 return redirect()->route('hub.returns.index')
-                    ->with('success', "Đã khởi tạo {$resolved} đơn hoàn hàng. Vui lòng phân công tài xế.")
+                    ->with('success', $message . '. Vui lòng phân công tài xế.')
                     ->with('alert_type', 'success')
-                    ->with('new_returns', $returnIds); // Có thể highlight các đơn mới
+                    ->with('new_returns', $returnIds);
             }
 
             return redirect()->route('hub.issues.index')
-                ->with('success', "Đã xử lý {$resolved} vấn đề")
+                ->with('success', $message)
                 ->with('alert_type', 'success');
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Có lỗi xảy ra: ' . $e->getMessage());
+            return back()->with('error', 'Có lỗi xảy ra: ' . $e->getMessage())
+                ->with('alert_type', 'error');
         }
     }
 
-
     /**
-     * ✅ HELPER: Lấy Hub ID an toàn
+     * ✅ HELPER: Lấy Hub ID an toàn (trả về integer, không phải object)
      */
-    private function getCurrentHub()
+    private function getCurrentHubId(): ?int
     {
-        return Hub::where('user_id', auth()->id())->first();
+        $hub = Hub::where('user_id', auth()->id())->first();
+        return $hub ? $hub->id : null;
     }
 }
