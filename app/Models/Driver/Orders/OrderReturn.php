@@ -268,74 +268,265 @@ class OrderReturn extends Model
     /**
      * ✅ HOÀN THÀNH HOÀN HÀNG
      */
-    public function complete(array $data)
-    {
-        DB::beginTransaction();
-        try {
-            $this->update([
-                'status' => self::STATUS_COMPLETED,
-                'completed_at' => now(),
-                'actual_return_time' => now(),
-                'actual_return_latitude' => $data['latitude'] ?? null,
-                'actual_return_longitude' => $data['longitude'] ?? null,
-                'actual_return_address' => $data['address'] ?? null,
-                'received_by_name' => $data['received_by_name'],
-                'received_by_phone' => $data['received_by_phone'],
-                'received_by_relation' => $data['received_by_relation'] ?? 'self',
-                'return_note' => $data['return_note'] ?? null,
-                'package_condition' => $data['package_condition'] ?? self::CONDITION_GOOD,
-                'package_condition_note' => $data['package_condition_note'] ?? null,
-                'cod_returned' => $data['cod_returned'] ?? false,
-                'cod_returned_at' => $data['cod_returned'] ? now() : null,
-            ]);
+    // public function complete(array $data)
+    // {
+    //     DB::beginTransaction();
+    //     try {
+    //         $this->update([
+    //             'status' => self::STATUS_COMPLETED,
+    //             'completed_at' => now(),
+    //             'actual_return_time' => now(),
+    //             'actual_return_latitude' => $data['latitude'] ?? null,
+    //             'actual_return_longitude' => $data['longitude'] ?? null,
+    //             'actual_return_address' => $data['address'] ?? null,
+    //             'received_by_name' => $data['received_by_name'],
+    //             'received_by_phone' => $data['received_by_phone'],
+    //             'received_by_relation' => $data['received_by_relation'] ?? 'self',
+    //             'return_note' => $data['return_note'] ?? null,
+    //             'package_condition' => $data['package_condition'] ?? self::CONDITION_GOOD,
+    //             'package_condition_note' => $data['package_condition_note'] ?? null,
+    //             'cod_returned' => $data['cod_returned'] ?? false,
+    //             'cod_returned_at' => $data['cod_returned'] ? now() : null,
+    //         ]);
 
-            // Cập nhật order
-            $this->order->update([
-                'status' => Order::STATUS_RETURNED,
-            ]);
-            if ($codTransaction = $this->order->codTransaction) {
-                $codTransaction->update([
-                    'sender_fee_paid' => $this->return_fee, // Phí hoàn hàng
-                    'sender_fee_paid_at' => null, // Chưa thanh toán
-                    'sender_fee_status' => 'pending', // Chờ thanh toán
-                    'sender_receive_amount' => 0, // Không nhận COD
-                    'cod_amount' => 0, // Không có COD
-                ]);
-            }
-            if ($this->return_fee > 0 && $this->order->sender_id && $this->order->post_office_id) {
-            $hub = Hub::where('post_office_id', $this->order->post_office_id)->first();
+    //         // Cập nhật order
+    //         $this->order->update([
+    //             'status' => Order::STATUS_RETURNED,
+    //         ]);
+    //         if ($codTransaction = $this->order->codTransaction) {
+    //             $codTransaction->update([
+    //                 'sender_fee_paid' => $this->return_fee, // Phí hoàn hàng
+    //                 'sender_fee_paid_at' => null, // Chưa thanh toán
+    //                 'sender_fee_status' => 'pending', // Chờ thanh toán
+    //                 'sender_receive_amount' => 0, // Không nhận COD
+    //                 'cod_amount' => 0, // Không có COD
+    //             ]);
+    //         }
+    //       // ✅ Chỉ cần kiểm tra 1 lần
+    //         if ($codTransaction = $this->order->codTransaction) {
+    //             if ($this->return_fee > 0 && $this->order->sender_id && $codTransaction->hub_id) {
+    //                 \App\Models\SenderDebt::createDebt(
+    //                     $this->order->sender_id,
+    //                     $codTransaction->hub_id,  // ✅ ĐÚNG RỒI!
+    //                     $this->return_fee,
+    //                     $this->order_id,
+    //                     "Phí hoàn hàng đơn #{$this->order_id}"
+    //                 );
+    //             }
+    //         }
+
+    //         // Timeline
+    //         $this->addTimelineEvent(
+    //             'completed',
+    //             "Hoàn trả hàng thành công cho sender",
+    //             $this->return_driver_id,
+    //             [
+    //                 'received_by' => $data['received_by_name'],
+    //                 'cod_returned' => $data['cod_returned'] ?? false,
+    //             ]
+    //         );
+
+    //         DB::commit();
+    //         return $this;
+
+    //     } catch (\Exception $e) {
+    //         DB::rollBack();
+    //         throw $e;
+    //     }
+    // }
+
+    public function complete(array $data)
+{
+    DB::beginTransaction();
+    try {
+        $this->update([
+            'status' => self::STATUS_COMPLETED,
+            'completed_at' => now(),
+            'actual_return_time' => now(),
+            'actual_return_latitude' => $data['latitude'] ?? null,
+            'actual_return_longitude' => $data['longitude'] ?? null,
+            'actual_return_address' => $data['address'] ?? null,
+            'received_by_name' => $data['received_by_name'],
+            'received_by_phone' => $data['received_by_phone'],
+            'received_by_relation' => $data['received_by_relation'] ?? 'self',
+            'return_note' => $data['return_note'] ?? null,
+            'package_condition' => $data['package_condition'] ?? self::CONDITION_GOOD,
+            'package_condition_note' => $data['package_condition_note'] ?? null,
+            'cod_returned' => $data['cod_returned'] ?? false,
+            'cod_returned_at' => $data['cod_returned'] ? now() : null,
+        ]);
+
+        // Cập nhật order
+        $this->order->update([
+            'status' => Order::STATUS_RETURNED,
+        ]);
+
+        // ✅ XÁC ĐỊNH hub_id (user_id của Hub) - VỚI KIỂM TRA ĐẦY ĐỦ
+        $hubUserId = null;
+        
+        \Log::info('🔍 Bắt đầu tìm Hub', [
+            'order_id' => $this->order_id,
+            'post_office_id' => $this->order->post_office_id,
+            'current_hub_id' => $this->order->current_hub_id,
+        ]);
+        
+        // ✅ CÁCH 1: Tìm từ bảng hubs
+        if ($this->order->post_office_id) {
+            $hub = \App\Models\Hub\Hub::where('post_office_id', $this->order->post_office_id)->first();
             
             if ($hub) {
+                $hubUserId = $hub->user_id;
+                \Log::info('✅ Tìm thấy Hub từ post_office_id', [
+                    'post_office_id' => $this->order->post_office_id,
+                    'hub_user_id' => $hubUserId,
+                ]);
+            } else {
+                \Log::warning('⚠️ KHÔNG tìm thấy Hub với post_office_id', [
+                    'post_office_id' => $this->order->post_office_id,
+                ]);
+            }
+        }
+        
+        // ✅ CÁCH 2: Nếu không tìm được, thử current_hub_id
+        if (!$hubUserId && $this->order->current_hub_id) {
+            // Kiểm tra current_hub_id có phải là user_id không
+            $userExists = \App\Models\User::where('id', $this->order->current_hub_id)
+                ->where('role', 'hub')
+                ->exists();
+            
+            if ($userExists) {
+                $hubUserId = $this->order->current_hub_id;
+                \Log::info('✅ Dùng current_hub_id làm hub_user_id', [
+                    'hub_user_id' => $hubUserId,
+                ]);
+            } else {
+                \Log::warning('⚠️ current_hub_id không hợp lệ', [
+                    'current_hub_id' => $this->order->current_hub_id,
+                ]);
+            }
+        }
+        
+        // ✅ CÁCH 3: FALLBACK - Tìm Hub gần nhất hoặc mặc định
+        if (!$hubUserId) {
+            \Log::warning('⚠️ Không tìm được Hub, thử tìm Hub mặc định');
+            
+            // Lấy Hub đầu tiên làm mặc định (hoặc có thể dùng logic khác)
+            $defaultHub = \App\Models\Hub\Hub::first();
+            
+            if ($defaultHub) {
+                $hubUserId = $defaultHub->user_id;
+                \Log::info('✅ Dùng Hub mặc định', [
+                    'hub_user_id' => $hubUserId,
+                ]);
+            }
+        }
+        
+        // ✅ KIỂM TRA CUỐI CÙNG
+        if (!$hubUserId) {
+            \Log::error('❌ KHÔNG TÌM ĐƯỢC HUB NÀO!', [
+                'order_id' => $this->order_id,
+                'post_office_id' => $this->order->post_office_id,
+                'current_hub_id' => $this->order->current_hub_id,
+            ]);
+            
+            throw new \Exception(
+                "Không xác định được Hub cho đơn hàng #{$this->order_id}. " .
+                "Vui lòng kiểm tra post_office_id hoặc current_hub_id."
+            );
+        }
+
+        // ✅ TẠO HOẶC CẬP NHẬT COD TRANSACTION
+        $codTransaction = $this->order->codTransaction;
+        
+        if (!$codTransaction) {
+            \Log::info('📝 Tạo CodTransaction mới', [
+                'order_id' => $this->order_id,
+                'hub_user_id' => $hubUserId,
+            ]);
+            
+            $codTransaction = \App\Models\Customer\Dashboard\Orders\CodTransaction::create([
+                'order_id' => $this->order_id,
+                'sender_id' => $this->order->sender_id,
+                'hub_id' => $hubUserId,
+                'driver_id' => $this->return_driver_id,
+                'cod_amount' => 0,
+                'sender_receive_amount' => 0,
+                'sender_fee_paid' => $this->return_fee,
+                'sender_fee_paid_at' => null,
+                'sender_fee_status' => 'pending',
+                'sender_payment_status' => 'pending',
+                'is_returned_order' => true,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            
+            \Log::info('✅ Tạo CodTransaction thành công', [
+                'transaction_id' => $codTransaction->id,
+            ]);
+        } else {
+            $codTransaction->update([
+                'sender_fee_paid' => $this->return_fee,
+                'sender_fee_paid_at' => null,
+                'sender_fee_status' => 'pending',
+                'sender_receive_amount' => 0,
+                'cod_amount' => 0,
+                'is_returned_order' => true,
+            ]);
+            
+            \Log::info('✅ Cập nhật CodTransaction', [
+                'transaction_id' => $codTransaction->id,
+            ]);
+        }
+
+        // ✅ TẠO NỢ CHO SENDER
+        if ($this->return_fee > 0 && $this->order->sender_id && $codTransaction->hub_id) {
+            try {
                 \App\Models\SenderDebt::createDebt(
                     $this->order->sender_id,
-                    $hub->user_id,
+                    $codTransaction->hub_id,
                     $this->return_fee,
                     $this->order_id,
                     "Phí hoàn hàng đơn #{$this->order_id}"
                 );
+                
+                \Log::info('✅ Tạo nợ thành công', [
+                    'order_id' => $this->order_id,
+                    'sender_id' => $this->order->sender_id,
+                    'hub_id' => $codTransaction->hub_id,
+                    'amount' => $this->return_fee,
+                ]);
+            } catch (\Exception $e) {
+                \Log::error('❌ Lỗi tạo nợ', [
+                    'order_id' => $this->order_id,
+                    'error' => $e->getMessage(),
+                ]);
             }
         }
 
-            // Timeline
-            $this->addTimelineEvent(
-                'completed',
-                "Hoàn trả hàng thành công cho sender",
-                $this->return_driver_id,
-                [
-                    'received_by' => $data['received_by_name'],
-                    'cod_returned' => $data['cod_returned'] ?? false,
-                ]
-            );
+        // Timeline
+        $this->addTimelineEvent(
+            'completed',
+            "Hoàn trả hàng thành công cho sender",
+            $this->return_driver_id,
+            [
+                'received_by' => $data['received_by_name'],
+                'cod_returned' => $data['cod_returned'] ?? false,
+            ]
+        );
 
-            DB::commit();
-            return $this;
+        DB::commit();
+        return $this;
 
-        } catch (\Exception $e) {
-            DB::rollBack();
-            throw $e;
-        }
+    } catch (\Exception $e) {
+        DB::rollBack();
+        \Log::error('❌ Lỗi hoàn thành hoàn hàng', [
+            'order_id' => $this->order_id,
+            'error' => $e->getMessage(),
+            'line' => $e->getLine(),
+        ]);
+        throw $e;
     }
-
+}
     /**
      * ✅ HỦY HOÀN HÀNG
      */

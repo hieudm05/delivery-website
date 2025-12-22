@@ -26,8 +26,9 @@ class HubDebtController extends Controller
 
         switch ($tab) {
             case 'pending_confirmation':
-                // Chờ xác nhận (đã upload proof nhưng chưa được xác nhận)
-                $query->where('sender_debt_payment_status', 'pending');
+                $query->where('sender_debt_payment_status', 'pending')
+                    ->where('sender_debt_deducted', '>', 0)
+                    ->whereNotNull('sender_debt_paid_at');
                 break;
             case 'confirmed':
                 // Đã xác nhận
@@ -108,7 +109,7 @@ public function confirm(Request $request, $id)
     try {
         $hubId = Auth::id();
         
-        $transaction = CodTransaction::byHub($hubId)->findOrFail($id);
+       $transaction = CodTransaction::where('hub_id', $hubId)->findOrFail($id);
 
         // Kiểm tra trạng thái
         if ($transaction->sender_debt_payment_status !== 'pending') {
@@ -121,7 +122,7 @@ public function confirm(Request $request, $id)
             'sender_debt_confirmed_at' => now(),
             'sender_debt_confirmed_by' => $hubId,
             // ✅ THÊM: Cập nhật trạng thái phí về "đã xác nhận"
-            'sender_fee_status' => 'confirmed',
+            'sender_fee_status' => 'transferred',
             'sender_fee_confirmed_at' => now(),
             'sender_fee_confirmed_by' => $hubId,
         ]);
@@ -191,7 +192,7 @@ public function reject(Request $request, $id)
     try {
         $hubId = Auth::id();
         
-        $transaction = CodTransaction::byHub($hubId)->findOrFail($id);
+        $transaction = CodTransaction::where('hub_id', $hubId)->findOrFail($id);
 
         // Kiểm tra trạng thái
         if ($transaction->sender_debt_payment_status !== 'pending') {
