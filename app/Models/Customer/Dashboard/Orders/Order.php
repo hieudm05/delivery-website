@@ -49,6 +49,7 @@ class Order extends Model
 
     protected $fillable = [
         'order_group_id',
+        'is_inner_city',
         'sender_id',
         'sender_name',
         'sender_phone',
@@ -107,6 +108,7 @@ class Order extends Model
     ];
 
     protected $casts = [
+        'is_inner_city' => 'boolean',
         'services' => 'array',
         'products_json' => 'array',
         'cod_amount' => 'decimal:2',

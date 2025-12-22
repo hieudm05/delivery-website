@@ -337,8 +337,12 @@ public function update(Request $request, $id)
         ];
         
         $calculationResult = $this->calculateOrderFees($products, $recipientData);
+        $isInnerCity = $this->isInnerCityByAddress(
+        $recipientData['recipient_full_address'] ?? ''
+        );
         
         $updateData = [
+            'is_inner_city' => $isInnerCity,
             'recipient_name' => $validated['recipient_name'],
             'recipient_phone' => $validated['recipient_phone'],
             'province_code' => $validated['province_code'],
@@ -896,10 +900,14 @@ private function createStandaloneOrder($request, $recipientData)
     
     // Calculate fees
     $calculationResult = $this->calculateOrderFees($products, $recipientData);
+    $isInnerCity = $this->isInnerCityByAddress(
+        $recipientData['recipient_full_address'] ?? ''
+    );
     
     // Create order
     $order = Order::create([
         'order_group_id' => null, // ✅ ĐƠN ĐỘC LẬP
+        'is_inner_city' => $isInnerCity,
         'sender_id' => $request->sender_id,
         'sender_name' => $request->sender_name,
         'sender_phone' => $request->sender_phone,
@@ -987,9 +995,13 @@ private function createGroupOrder($orderGroup, $request, $recipientData)
     $recipientData['sender_longitude'] = $request->sender_longitude;
     
     $calculationResult = $this->calculateOrderFees($products, $recipientData);
+    $isInnerCity = $this->isInnerCityByAddress(
+        $recipientData['recipient_full_address'] ?? ''
+    );
     
     $order = Order::create([
         'order_group_id' => $orderGroup->id, // ✅ THUỘC GROUP
+        'is_inner_city' => $isInnerCity,
         'user_id' => Auth::id(),
         'sender_id' => $request->sender_id,
         'sender_name' => $request->sender_name,
@@ -1107,4 +1119,81 @@ private function createGroupOrder($orderGroup, $request, $recipientData)
         $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
         return $R * $c;
     }
+  /**
+ * ✅ DANH SÁCH TÊN QUẬN NỘI THÀNH HÀ NỘI
+ */
+private function getInnerCityDistrictNames()
+{
+    return [
+        'Ba Đình',
+        'Hoàn Kiếm',
+        'Tây Hồ',
+        'Long Biên',
+        'Cầu Giấy',
+        'Đống Đa',
+        'Hai Bà Trưng',
+        'Hoàng Mai',
+        'Thanh Xuân',
+        'Hà Đông',
+        'Nam Từ Liêm',
+        'Bắc Từ Liêm',
+    ];
+}
+
+/**
+ * ✅ CHECK INNER CITY DỰA TRÊN ĐỊA CHỈ ĐẦY ĐỦ
+ * VD: "13 Trịnh Văn Bô, Phường Xuân Phương, Quận Nam Từ Liêm, Hà Nội"
+ */
+private function isInnerCityByAddress($fullAddress)
+{
+    if (!$fullAddress) {
+        return false;
+    }
+    
+    // Chuẩn hóa địa chỉ (bỏ dấu, lowercase)
+    $normalizedAddress = $this->removeVietnameseTones(strtolower($fullAddress));
+    
+    $innerDistricts = $this->getInnerCityDistrictNames();
+    
+    foreach ($innerDistricts as $district) {
+        $normalizedDistrict = $this->removeVietnameseTones(strtolower($district));
+        
+        // Check nếu địa chỉ chứa tên quận
+        // VD: "quan nam tu liem" hoặc "nam tu liem"
+        if (strpos($normalizedAddress, $normalizedDistrict) !== false) {
+            return true;
+        }
+    }
+    
+    return false;
+}
+
+/**
+ * ✅ BỎ DẤU TIẾNG VIỆT
+ */
+private function removeVietnameseTones($str)
+{
+    $unicode = [
+        'a' => 'á|à|ả|ã|ạ|ă|ắ|ặ|ằ|ẳ|ẵ|â|ấ|ầ|ẩ|ẫ|ậ',
+        'd' => 'đ',
+        'e' => 'é|è|ẻ|ẽ|ẹ|ê|ế|ề|ể|ễ|ệ',
+        'i' => 'í|ì|ỉ|ĩ|ị',
+        'o' => 'ó|ò|ỏ|õ|ọ|ô|ố|ồ|ổ|ỗ|ộ|ơ|ớ|ờ|ở|ỡ|ợ',
+        'u' => 'ú|ù|ủ|ũ|ụ|ư|ứ|ừ|ử|ữ|ự',
+        'y' => 'ý|ỳ|ỷ|ỹ|ỵ',
+        'A' => 'Á|À|Ả|Ã|Ạ|Ă|Ắ|Ặ|Ằ|Ẳ|Ẵ|Â|Ấ|Ầ|Ẩ|Ẫ|Ậ',
+        'D' => 'Đ',
+        'E' => 'É|È|Ẻ|Ẽ|Ẹ|Ê|Ế|Ề|Ể|Ễ|Ệ',
+        'I' => 'Í|Ì|Ỉ|Ĩ|Ị',
+        'O' => 'Ó|Ò|Ỏ|Õ|Ọ|Ô|Ố|Ồ|Ổ|Ỗ|Ộ|Ơ|Ớ|Ờ|Ở|Ỡ|Ợ',
+        'U' => 'Ú|Ù|Ủ|Ũ|Ụ|Ư|Ứ|Ừ|Ử|Ữ|Ự',
+        'Y' => 'Ý|Ỳ|Ỷ|Ỹ|Ỵ',
+    ];
+    
+    foreach ($unicode as $nonUnicode => $uni) {
+        $str = preg_replace("/($uni)/i", $nonUnicode, $str);
+    }
+    
+    return $str;
+}
 }
