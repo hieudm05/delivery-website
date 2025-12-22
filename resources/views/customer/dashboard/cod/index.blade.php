@@ -1264,10 +1264,6 @@
     <script>
         let currentDebtTransactionId = null;
         let currentDebtData = null;
-
-        /**
-         * ✅ MỞ MODAL THANH TOÁN NỢ
-         */
         /**
          * ✅ MỞ MODAL THANH TOÁN NỢ
          */

@@ -8,6 +8,7 @@
   </title>
   <!--     Fonts and icons     -->
   {{-- <link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css?family=Inter:300,400,500,600,700,900" /> --}}
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
   <!-- Nucleo Icons -->
   <link href="{{asset('assets2/css/nucleo-icons.css')}}" rel="stylesheet" />

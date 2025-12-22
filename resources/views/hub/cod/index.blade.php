@@ -134,7 +134,7 @@
                 </li>
                 
                 <!-- ✅ TAB MỚI: Chờ xác nhận phí -->
-                <li class="nav-item">
+                {{-- <li class="nav-item">
                     <a class="nav-link {{ $tab === 'pending_fee_confirm' ? 'active' : '' }}" 
                        href="?tab=pending_fee_confirm">
                         <i class="bi bi-cash-coin"></i> Chờ XN phí
@@ -144,7 +144,7 @@
                         </span>
                         @endif
                     </a>
-                </li>
+                </li> --}}
                 
                 <li class="nav-item">
                     <a class="nav-link {{ $tab === 'pending_driver_commission' ? 'active' : '' }}" 
