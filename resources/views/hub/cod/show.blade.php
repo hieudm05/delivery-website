@@ -765,7 +765,7 @@
                                         <h4 class="text-success mb-2 fw-bold">{{ number_format($transaction->sender_receive_amount) }}đ</h4>
                                         <small class="text-muted d-block">
                                             = {{ number_format($transaction->cod_amount) }}đ<br>
-                                            - {{ number_format($transaction->cod_fee) }}đ (phí COD)
+                                            - {{ number_format($transaction->sender_fee_paid) }}đ (Phí người gửi trả)
                                             @if ($transaction->sender_debt_deducted > 0)
                                                 <br>- {{ number_format($transaction->sender_debt_deducted) }}đ (trừ nợ)
                                             @endif

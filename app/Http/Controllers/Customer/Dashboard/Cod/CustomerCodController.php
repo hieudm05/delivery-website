@@ -761,53 +761,149 @@ public function paySenderFee(Request $request, $id)
 /**
  * ✅ THANH TOÁN NỢ - LUỒNG CHÍNH
  */
+// public function payDebt(Request $request, $transactionId)
+// {
+//     $request->validate([
+//         'payment_method' => 'required|in:bank_transfer,cash',
+//         'proof' => 'required_if:payment_method,bank_transfer|image|mimes:jpeg,png,jpg|max:5120',
+//     ]);
+
+//     DB::beginTransaction();
+//     try {
+//         $customerId = Auth::id();
+        
+//         // Lấy transaction của customer
+//         $transaction = CodTransaction::where('sender_id', $customerId)
+//             ->findOrFail($transactionId);
+
+//         // Kiểm tra đơn có phải là đơn hoàn không
+//         if (!$transaction->is_returned_order) {
+//             return back()->withErrors(['error' => 'Đơn hàng này không phải là đơn hoàn về']);
+//         }
+
+//         // Kiểm tra trạng thái - chỉ cho phép upload khi chưa có proof hoặc đã bị reject
+//         if (in_array($transaction->sender_debt_payment_status, ['pending', 'completed'])) {
+//             return back()->withErrors(['error' => 'Không thể upload proof lúc này. Trạng thái: ' . $transaction->sender_debt_payment_status]);
+//         }
+
+//         // ✅ QUAN TRỌNG: Lấy tổng nợ hiện tại của customer với hub
+//         $totalDebt = \App\Models\SenderDebt::where('sender_id', $customerId)
+//             ->where('hub_id', $transaction->hub_id)
+//             ->where('type', 'debt')
+//             ->where('status', 'unpaid')
+//             ->sum('amount');
+
+//         // ✅ SỐ TIỀN TRẢ NỢ = PHÍ HOÀN HÀNG (sender_fee_paid)
+//         $debtAmount = $transaction->sender_fee_paid;
+
+//         if ($debtAmount <= 0) {
+//             return back()->withErrors(['error' => 'Không có khoản nợ cần thanh toán']);
+//         }
+
+//         // ✅ Kiểm tra số tiền trả không vượt quá tổng nợ
+//         if ($debtAmount > $totalDebt) {
+//             return back()->withErrors([
+//                 'error' => 'Số tiền trả nợ (' . number_format($debtAmount) . '₫) không được vượt quá tổng nợ hiện tại: ' . number_format($totalDebt) . '₫'
+//             ]);
+//         }
+
+//         // Upload file proof (nếu chuyển khoản)
+//         $proofPath = null;
+//         if ($request->payment_method === 'bank_transfer' && $request->hasFile('proof')) {
+//             $file = $request->file('proof');
+//             $fileName = 'debt_proof_' . $transaction->id . '_' . time() . '.' . $file->getClientOriginalExtension();
+//             $proofPath = $file->storeAs('debt_payments', $fileName, 'public');
+//         }
+
+//         // ✅ CẬP NHẬT: Lưu thông tin thanh toán nợ VÀ sender_debt_deducted
+//         $transaction->update([
+//             'sender_debt_payment_method' => $request->payment_method,
+//             'sender_debt_payment_proof' => $proofPath,
+//             'sender_debt_payment_status' => $request->payment_method === 'cash' ? 'pending_cash' : 'pending',
+//             'sender_debt_paid_at' => now(),
+//             // ✅ QUAN TRỌNG: Cập nhật số tiền trả nợ
+//             'sender_debt_deducted' => $debtAmount,
+//         ]);
+
+//         Log::info("Customer uploaded debt payment", [
+//             'transaction_id' => $transaction->id,
+//             'customer_id' => $customerId,
+//             'hub_id' => $transaction->hub_id,
+//             'debt_amount' => $debtAmount,
+//             'total_debt' => $totalDebt,
+//             'payment_method' => $request->payment_method,
+//         ]);
+
+//         DB::commit();
+
+//         $message = $request->payment_method === 'cash' 
+//             ? 'Đã ghi nhận thanh toán tiền mặt ' . number_format($debtAmount) . '₫. Vui lòng đến bưu cục để hoàn tất.'
+//             : 'Đã gửi chứng từ thanh toán nợ ' . number_format($debtAmount) . '₫. Hub sẽ xác nhận trong thời gian sớm nhất.';
+
+//         return back()->with('success', $message);
+
+//     } catch (\Exception $e) {
+//         DB::rollBack();
+//         Log::error("Error uploading debt payment: " . $e->getMessage());
+//         return back()->withErrors(['error' => 'Có lỗi xảy ra: ' . $e->getMessage()]);
+//     }
+// }
+
 public function payDebt(Request $request, $transactionId)
 {
+    // ✅ 1. VALIDATE
     $request->validate([
         'payment_method' => 'required|in:bank_transfer,cash',
         'proof' => 'required_if:payment_method,bank_transfer|image|mimes:jpeg,png,jpg|max:5120',
+    ], [
+        'payment_method.required' => 'Vui lòng chọn phương thức thanh toán',
+        'proof.required_if' => 'Vui lòng tải lên ảnh chứng từ khi chuyển khoản',
     ]);
 
     DB::beginTransaction();
     try {
         $customerId = Auth::id();
         
-        // Lấy transaction của customer
+        // ✅ 2. LẤY TRANSACTION
         $transaction = CodTransaction::where('sender_id', $customerId)
             ->findOrFail($transactionId);
 
-        // Kiểm tra đơn có phải là đơn hoàn không
-        if (!$transaction->is_returned_order) {
-            return back()->withErrors(['error' => 'Đơn hàng này không phải là đơn hoàn về']);
+        // ✅ 3. KIỂM TRA ĐIỀU KIỆN
+        // Chỉ cho phép thanh toán nợ khi:
+        // - Đơn không có COD (cod_amount = 0) HOẶC
+        // - Đơn hoàn (is_returned_order = true)
+        if ($transaction->cod_amount > 0 && !$transaction->is_returned_order) {
+            return back()->withErrors([
+                'error' => 'Đơn hàng có COD không cần thanh toán riêng. Phí đã được khấu trừ từ COD.'
+            ]);
         }
 
-        // Kiểm tra trạng thái - chỉ cho phép upload khi chưa có proof hoặc đã bị reject
-        if (in_array($transaction->sender_debt_payment_status, ['pending', 'completed'])) {
-            return back()->withErrors(['error' => 'Không thể upload proof lúc này. Trạng thái: ' . $transaction->sender_debt_payment_status]);
-        }
-
-        // ✅ QUAN TRỌNG: Lấy tổng nợ hiện tại của customer với hub
-        $totalDebt = \App\Models\SenderDebt::where('sender_id', $customerId)
+        // ✅ 4. TÍNH TỔNG NỢ HIỆN TẠI CỦA CUSTOMER VỚI HUB NÀY
+        $totalDebt = SenderDebt::where('sender_id', $customerId)
             ->where('hub_id', $transaction->hub_id)
             ->where('type', 'debt')
             ->where('status', 'unpaid')
             ->sum('amount');
 
-        // ✅ SỐ TIỀN TRẢ NỢ = PHÍ HOÀN HÀNG (sender_fee_paid)
+        if ($totalDebt <= 0) {
+            return back()->withErrors(['error' => 'Không có khoản nợ cần thanh toán với bưu cục này']);
+        }
+
+        // ✅ 5. SỐ TIỀN TRẢ NỢ = PHÍ PHẢI TRẢ (sender_fee_paid)
         $debtAmount = $transaction->sender_fee_paid;
 
         if ($debtAmount <= 0) {
-            return back()->withErrors(['error' => 'Không có khoản nợ cần thanh toán']);
+            return back()->withErrors(['error' => 'Không có khoản phí cần thanh toán']);
         }
 
-        // ✅ Kiểm tra số tiền trả không vượt quá tổng nợ
+        // ✅ 6. KIỂM TRA SỐ TIỀN TRẢ KHÔNG VƯỢT QUÁ TỔNG NỢ
         if ($debtAmount > $totalDebt) {
             return back()->withErrors([
                 'error' => 'Số tiền trả nợ (' . number_format($debtAmount) . '₫) không được vượt quá tổng nợ hiện tại: ' . number_format($totalDebt) . '₫'
             ]);
         }
 
-        // Upload file proof (nếu chuyển khoản)
+        // ✅ 7. UPLOAD PROOF (NẾU CÓ)
         $proofPath = null;
         if ($request->payment_method === 'bank_transfer' && $request->hasFile('proof')) {
             $file = $request->file('proof');
@@ -815,9 +911,9 @@ public function payDebt(Request $request, $transactionId)
             $proofPath = $file->storeAs('debt_payments', $fileName, 'public');
         }
 
-        // ✅ CẬP NHẬT: Lưu thông tin thanh toán nợ VÀ sender_debt_deducted
+        // ✅ 8. CẬP NHẬT TRANSACTION
         $transaction->update([
-            'sender_debt_payment_method' => $request->payment_method,
+           'sender_debt_payment_method' => $request->payment_method,
             'sender_debt_payment_proof' => $proofPath,
             'sender_debt_payment_status' => $request->payment_method === 'cash' ? 'pending_cash' : 'pending',
             'sender_debt_paid_at' => now(),
@@ -825,6 +921,7 @@ public function payDebt(Request $request, $transactionId)
             'sender_debt_deducted' => $debtAmount,
         ]);
 
+        // ✅ 9. LOG
         Log::info("Customer uploaded debt payment", [
             'transaction_id' => $transaction->id,
             'customer_id' => $customerId,
@@ -840,7 +937,8 @@ public function payDebt(Request $request, $transactionId)
             ? 'Đã ghi nhận thanh toán tiền mặt ' . number_format($debtAmount) . '₫. Vui lòng đến bưu cục để hoàn tất.'
             : 'Đã gửi chứng từ thanh toán nợ ' . number_format($debtAmount) . '₫. Hub sẽ xác nhận trong thời gian sớm nhất.';
 
-        return back()->with('success', $message);
+        return redirect()->route('customer.cod.index', ['tab' => 'pending_fee'])
+            ->with('success', $message);
 
     } catch (\Exception $e) {
         DB::rollBack();
@@ -863,13 +961,6 @@ public function getDebtQrCode(Request $request, $id)
             ->where('sender_id', $customerId)
             ->findOrFail($id);
 
-        // ✅ VALIDATE
-        if (!$transaction->is_returned_order) {
-            return response()->json([
-                'success' => false,
-                'error' => 'Đây không phải đơn hoàn hàng'
-            ], 400);
-        }
 
         if (!$transaction->hub_id) {
             return response()->json([
