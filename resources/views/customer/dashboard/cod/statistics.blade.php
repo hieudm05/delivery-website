@@ -43,28 +43,27 @@
             </div>
         </div>
 
-
-<!-- Card 2: Tổng COD thu -->
-<div class="col-lg-3 col-md-6">
-    <div class="card border-0 shadow-sm h-100" style="border-left: 4px solid #0d6efd;">
-        <div class="card-body">
-            <div class="d-flex justify-content-between align-items-start">
-                <div>
-                    <p class="text-muted text-uppercase fw-bold mb-2" style="font-size: 0.75rem;">
-                        Tổng COD thu được
-                    </p>
-                    <h3 class="text-primary fw-bold mb-0">
-                        {{ number_format($stats['total_cod_amount']) }}₫
-                    </h3>
-                    <small class="text-muted">Từ đơn giao thành công</small>
-                </div>
-                <div class="bg-primary bg-opacity-10 text-primary p-3 rounded" style="font-size: 1.5rem;">
-                    <i class="bi bi-wallet2"></i>
+        <!-- Card 2: Tổng COD thu -->
+        <div class="col-lg-3 col-md-6">
+            <div class="card border-0 shadow-sm h-100" style="border-left: 4px solid #0d6efd;">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <p class="text-muted text-uppercase fw-bold mb-2" style="font-size: 0.75rem;">
+                                Tổng COD thu được
+                            </p>
+                            <h3 class="text-primary fw-bold mb-0">
+                                {{ number_format($stats['total_cod_amount']) }}₫
+                            </h3>
+                            <small class="text-muted">Từ đơn giao thành công</small>
+                        </div>
+                        <div class="bg-primary bg-opacity-10 text-primary p-3 rounded" style="font-size: 1.5rem;">
+                            <i class="bi bi-wallet2"></i>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
-</div>
 
         <!-- Card 3: Phí đã trả -->
         <div class="col-lg-3 col-md-6">
@@ -116,7 +115,7 @@
     <!-- ==================== CHỜ XỬ LÝ ==================== -->
     <div class="row g-4 mb-4">
         
-        <!-- ✅ CARD MỚI: Công nợ hiện tại -->
+        <!-- ✅ CARD: Công nợ hiện tại -->
         @if(isset($debtStats) && $debtStats['has_debt'])
         <div class="col-lg-4 col-md-6">
             <div class="card border-0 shadow-sm border-start border-danger border-4 debt-card">
@@ -130,13 +129,13 @@
                         <small class="text-muted d-block mb-2 fw-bold">
                             <i class="bi bi-list-ul"></i> Chi tiết theo bưu cục:
                         </small>
-                       @foreach($debtStats['by_hub'] as $debt)
+                        @foreach($debtStats['by_hub'] as $debt)
                             <div class="d-flex justify-content-between mb-2 p-2 bg-light rounded">
                                 <small class="text-truncate" style="max-width: 65%;">
                                     <i class="bi bi-building text-primary"></i>
                                     {{ $debt['hub_name'] }}
                                     
-                                    {{-- ✅ THÊM CỜ CHỜ XÁC NHẬN --}}
+                                    {{-- ✅ Cờ chờ xác nhận --}}
                                     @if($debt['pending_payment'])
                                         <span class="badge bg-warning text-dark ms-1" style="font-size: 0.65rem;">
                                             Chờ xác nhận
@@ -304,7 +303,7 @@
             <i class="bi bi-info-circle"></i> Giải thích các chỉ số
         </h6>
         <ul class="mb-0">
-            <li><strong>Tổng COD thu:</strong> Tổng tiền COD của tất cả đơn hàng</li>
+            <li><strong>Tổng COD thu:</strong> Tổng tiền COD của tất cả đơn hàng giao thành công</li>
             <li><strong>Phí đã trả:</strong> Số tiền phí bạn đã thanh toán trực tiếp cho Hub</li>
             <li><strong>Phí trừ nợ:</strong> Số tiền phí được trừ tự động từ nợ cũ của bạn</li>
             <li><strong>Công nợ hiện tại:</strong> Tổng số tiền bạn đang nợ các bưu cục (sẽ tự động trừ vào COD đơn tiếp theo)</li>

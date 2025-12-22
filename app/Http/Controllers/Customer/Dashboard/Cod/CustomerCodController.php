@@ -270,6 +270,9 @@ public function show($id)
    /**
  * ✅ THỐNG KÊ COD (Customer) - ĐÃ FIX
  */
+    /**
+ * ✅ THỐNG KÊ COD (Customer) - HOÀN CHỈNH
+ */
 public function statistics()
 {
     $userId = Auth::id();
@@ -343,12 +346,13 @@ public function statistics()
             })
             ->count(),
 
-        // ✅ COD chờ nhận
+        // ✅ COD chờ nhận - ĐÃ FIX
         'pending_cod' => (clone $baseQuery)
             ->where('sender_payment_status', 'pending')
             ->where(function ($q) {
                 $q->whereNotNull('sender_fee_paid_at')
-                    ->orWhere('sender_debt_deducted', '>', 0);
+                    ->orWhere('sender_debt_deducted', '>', 0)
+                    ->orWhere('cod_amount', '>', 0);
             })
             ->whereDoesntHave('order', function($q) {
                 $q->where('has_return', true);
@@ -359,7 +363,8 @@ public function statistics()
             ->where('sender_payment_status', 'pending')
             ->where(function ($q) {
                 $q->whereNotNull('sender_fee_paid_at')
-                    ->orWhere('sender_debt_deducted', '>', 0);
+                    ->orWhere('sender_debt_deducted', '>', 0)
+                    ->orWhere('cod_amount', '>', 0);
             })
             ->whereDoesntHave('order', function($q) {
                 $q->where('has_return', true);
@@ -385,7 +390,7 @@ public function statistics()
 
     $stats['timeline'] = $timeline;
     
-    // ✅ THÊM: Lấy thống kê nợ
+    // ✅ Lấy thống kê nợ
     $debtStats = $this->getDebtStats($userId);
     $stats['current_debt'] = $debtStats['total'];
 

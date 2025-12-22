@@ -217,7 +217,7 @@
                             <strong>{{ number_format($low) }} ({{ $lowPercent }}%)</strong>
                         </div>
                         <div class="progress" style="height: 25px;">
-                            <div class="progress-bar bg-success" role="progressbar" 
+                            <div class="progress-bar bg-success"  style="height: 100%" role="progressbar" 
                                  style="width: {{ $lowPercent }}%">
                                 {{ $lowPercent }}%
                             </div>
@@ -233,7 +233,7 @@
                             <strong>{{ number_format($medium) }} ({{ $mediumPercent }}%)</strong>
                         </div>
                         <div class="progress" style="height: 25px;">
-                            <div class="progress-bar bg-warning" role="progressbar" 
+                            <div class="progress-bar bg-warning" style="height: 100%" role="progressbar" 
                                  style="width: {{ $mediumPercent }}%">
                                 {{ $mediumPercent }}%
                             </div>
@@ -249,7 +249,7 @@
                             <strong>{{ number_format($high) }} ({{ $highPercent }}%)</strong>
                         </div>
                         <div class="progress" style="height: 25px;">
-                            <div class="progress-bar bg-danger" role="progressbar" 
+                            <div class="progress-bar bg-danger"  style="height: 100%" role="progressbar" 
                                  style="width: {{ $highPercent }}%">
                                 {{ $highPercent }}%
                             </div>
@@ -314,7 +314,7 @@
                             <div class="progress-bar bg-info" style="width: {{ $autoRate }}%">
                                 Auto: {{ $autoRate }}%
                             </div>
-                            <div class="progress-bar bg-warning" style="width: {{ 100 - $autoRate }}%">
+                            <div class="progress-bar bg-warning" style="width: {{ 100 - $autoRate }}%; height: 100%">
                                 Manual: {{ 100 - $autoRate }}%
                             </div>
                         </div>

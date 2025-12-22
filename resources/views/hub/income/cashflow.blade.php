@@ -1,4 +1,4 @@
-{{-- resources/views/hub/income/cashflow.blade.php --}}
+{{-- resources/views/hub/income/cashflow.blade.php - CẬP NHẬT --}}
 @extends('hub.layouts.app')
 
 @section('title', 'Quản lý dòng tiền')
@@ -31,88 +31,89 @@
     </div>
 
     <!-- Cashflow Overview -->
-        <div class="row g-4 mb-4">
-            <!-- Received from Driver -->
-            <div class="col-md-3">
-                <div class="card border-0 shadow-sm h-100 bg-gradient-success text-white">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-start mb-3">
-                            <div>
-                                <p class="mb-1 small opacity-75">Thu từ tài xế</p>
-                                <h3 class="mb-0">
-                                    {{ number_format($report['income']['received_from_driver']) }}đ
-                                </h3>
-                            </div>
-                            <i class="fas fa-arrow-down fa-2x opacity-75"></i>
+    <div class="row g-4 mb-4">
+        <!-- Received from Driver -->
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100 bg-gradient-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div>
+                            <p class="mb-1 small opacity-75">Thu từ tài xế</p>
+                            <h3 class="mb-0">
+                                {{ number_format($report['income']['received_from_driver']) }}đ
+                            </h3>
                         </div>
-                        <p class="small mb-0 opacity-75">
-                            Tiền COD + Cước đã thu
-                        </p>
+                        <i class="fas fa-arrow-down fa-2x opacity-75"></i>
                     </div>
-                </div>
-            </div>
-
-            <!-- Hub Profit -->
-            <div class="col-md-3">
-                <div class="card border-0 shadow-sm h-100 bg-gradient-primary text-white">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-start mb-3">
-                            <div>
-                                <p class="mb-1 small opacity-75">Lợi nhuận Hub</p>
-                                <h3 class="mb-0">
-                                    {{ number_format($report['net_income']) }}đ
-                                </h3>
-                            </div>
-                            <i class="fas fa-chart-line fa-2x opacity-75"></i>
-                        </div>
-                        <p class="small mb-0 opacity-75">
-                            Sau khi trừ chi phí
-                        </p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Total Expenses -->
-            <div class="col-md-3">
-                <div class="card border-0 shadow-sm h-100 bg-gradient-danger text-white">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-start mb-3">
-                            <div>
-                                <p class="mb-1 small opacity-75">Tổng chi</p>
-                                <h3 class="mb-0">
-                                    {{ number_format($report['expenses']['total_expenses']) }}đ
-                                </h3>
-                            </div>
-                            <i class="fas fa-arrow-up fa-2x opacity-75"></i>
-                        </div>
-                        <p class="small mb-0 opacity-75">
-                            Sender + Driver + Admin
-                        </p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Pending Payments -->
-            <div class="col-md-3">
-                <div class="card border-0 shadow-sm h-100 bg-gradient-warning text-white">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-start mb-3">
-                            <div>
-                                <p class="mb-1 small opacity-75">Chờ thanh toán</p>
-                                <h3 class="mb-0">
-                                    {{ number_format($report['pending_payments']['total_pending']) }}đ
-                                </h3>
-                            </div>
-                            <i class="fas fa-exclamation-circle fa-2x opacity-75"></i>
-                        </div>
-                        <p class="small mb-0 opacity-75">
-                            Cần xử lý trong hôm nay
-                        </p>
-                    </div>
+                    <p class="small mb-0 opacity-75">
+                        Tiền COD + Cước đã thu
+                    </p>
                 </div>
             </div>
         </div>
-        <div class="row g-4 mb-4">
+
+        <!-- ✅ NEW: Debt Payments Received -->
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100 bg-gradient-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div>
+                            <p class="mb-1 small opacity-75">Thu từ trả nợ</p>
+                            <h3 class="mb-0">
+                                {{ number_format($report['debt_payments_received'] ?? 0) }}đ
+                            </h3>
+                        </div>
+                        <i class="fas fa-hand-holding-usd fa-2x opacity-75"></i>
+                    </div>
+                    <p class="small mb-0 opacity-75">
+                        Khách hàng trả nợ
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Hub Profit -->
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100 bg-gradient-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div>
+                            <p class="mb-1 small opacity-75">Lợi nhuận Hub</p>
+                            <h3 class="mb-0">
+                                {{ number_format($report['net_income']) }}đ
+                            </h3>
+                        </div>
+                        <i class="fas fa-chart-line fa-2x opacity-75"></i>
+                    </div>
+                    <p class="small mb-0 opacity-75">
+                        Bao gồm COD + Nợ trả
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Total Expenses -->
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100 bg-gradient-danger text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div>
+                            <p class="mb-1 small opacity-75">Tổng chi</p>
+                            <h3 class="mb-0">
+                                {{ number_format($report['expenses']['total_expenses']) }}đ
+                            </h3>
+                        </div>
+                        <i class="fas fa-arrow-up fa-2x opacity-75"></i>
+                    </div>
+                    <p class="small mb-0 opacity-75">
+                        Sender + Driver + Admin
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-4">
         <div class="col-md-4">
             <a href="{{ route('hub.customer-statistics.index') }}" 
             class="btn btn-outline-primary w-100 d-flex align-items-center justify-content-center gap-2">
@@ -136,7 +137,7 @@
         </div>
     </div>
 
-    <!-- Pending Actions - PRIORITY ALERTS -->
+    <!-- Pending Actions -->
     @if($pendingFromDriver->count() > 0 || $pendingToSender->count() > 0 || $pendingCommission->count() > 0)
     <div class="card shadow-sm mb-4 border-start border-warning border-4">
         <div class="card-header bg-warning bg-opacity-10 border-0">
@@ -146,7 +147,6 @@
         </div>
         <div class="card-body">
             <div class="row g-3">
-                <!-- Confirm from Driver -->
                 @if($pendingFromDriver->count() > 0)
                 <div class="col-md-4">
                     <div class="alert alert-info mb-0">
@@ -164,7 +164,6 @@
                 </div>
                 @endif
 
-                <!-- Pay to Sender -->
                 @if($pendingToSender->count() > 0)
                 <div class="col-md-4">
                     <div class="alert alert-warning mb-0">
@@ -182,7 +181,6 @@
                 </div>
                 @endif
 
-                <!-- Pay Commission -->
                 @if($pendingCommission->count() > 0)
                 <div class="col-md-4">
                     <div class="alert alert-success mb-0">
@@ -204,7 +202,7 @@
     </div>
     @endif
 
-    <!-- Payment Breakdown -->
+    <!-- ✅ UPDATED: Payment Breakdown - Thêm phần Debt Payments -->
     <div class="row g-4 mb-4">
         <!-- Money Flow IN -->
         <div class="col-md-6">
@@ -226,10 +224,23 @@
                             </strong>
                         </div>
                         
+                        {{-- ✅ NEW: Debt Payments --}}
+                        @if(($report['debt_payments_received'] ?? 0) > 0)
+                        <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                            <div>
+                                <i class="fas fa-hand-holding-usd text-info"></i>
+                                <span class="ms-2">Khách trả nợ</span>
+                            </div>
+                            <strong class="text-info">
+                                {{ number_format($report['debt_payments_received']) }}đ
+                            </strong>
+                        </div>
+                        @endif
+                        
                         <div class="list-group-item d-flex justify-content-between align-items-center px-0 border-top">
                             <strong>Tổng thu</strong>
                             <h5 class="mb-0 text-success">
-                                {{ number_format($report['income']['gross_income']) }}đ
+                                {{ number_format($report['income']['gross_income'] + ($report['debt_payments_received'] ?? 0)) }}đ
                             </h5>
                         </div>
                     </div>
@@ -310,7 +321,7 @@
         </div>
     </div>
 
-    <!-- Statistics & Quick Actions -->
+    <!-- Statistics & Profit Breakdown -->
     <div class="row g-4">
         <!-- Order Statistics -->
         <div class="col-md-6">
@@ -343,12 +354,15 @@
                         <div class="d-flex justify-content-between mb-2">
                             <span class="text-muted">Tỷ suất lợi nhuận</span>
                             <strong>
-                                {{ $report['income']['gross_income'] > 0 ? number_format(($report['net_income'] / $report['income']['gross_income']) * 100, 1) : 0 }}%
+                                @php
+                                    $totalIncome = $report['income']['gross_income'] + ($report['debt_payments_received'] ?? 0);
+                                @endphp
+                                {{ $totalIncome > 0 ? number_format(($report['net_income'] / $totalIncome) * 100, 1) : 0 }}%
                             </strong>
                         </div>
                         <div class="progress" style="height: 10px;">
                             <div class="progress-bar bg-success" role="progressbar" 
-                                 style="width: {{ $report['income']['gross_income'] > 0 ? ($report['net_income'] / $report['income']['gross_income']) * 100 : 0 }}%">
+                                 style="width: {{ $totalIncome > 0 ? ($report['net_income'] / $totalIncome) * 100 : 0 }}%">
                             </div>
                         </div>
                     </div>
@@ -356,18 +370,40 @@
             </div>
         </div>
 
-        <!-- Quick Actions -->
+        <!-- ✅ NEW: Profit Breakdown -->
         <div class="col-md-6">
             <div class="card border-0 shadow-sm">
                 <div class="card-header bg-white border-0">
-                    <h5 class="mb-0">⚡ Thao tác nhanh</h5>
+                    <h5 class="mb-0">💰 Chi tiết lợi nhuận</h5>
                 </div>
                 <div class="card-body">
-                    <div class="d-grid gap-2">
-                        <a href="{{ route('hub.cod.index') }}" 
-                           class="btn btn-primary">
-                            <i class="fas fa-money-check-alt"></i> Quản lý COD
-                        </a>
+                    <div class="d-flex justify-content-between align-items-center mb-3 pb-3 border-bottom">
+                        <div>
+                            <i class="fas fa-box text-primary"></i>
+                            <span class="ms-2">Từ COD đơn hàng</span>
+                        </div>
+                        <strong class="text-primary">
+                            {{ number_format($report['hub_profit_from_cod']) }}đ
+                        </strong>
+                    </div>
+                    
+                    @if(($report['debt_payments_received'] ?? 0) > 0)
+                    <div class="d-flex justify-content-between align-items-center mb-3 pb-3 border-bottom">
+                        <div>
+                            <i class="fas fa-hand-holding-usd text-info"></i>
+                            <span class="ms-2">Từ khách trả nợ</span>
+                        </div>
+                        <strong class="text-info">
+                            {{ number_format($report['debt_payments_received']) }}đ
+                        </strong>
+                    </div>
+                    @endif
+                    
+                    <div class="d-flex justify-content-between align-items-center pt-3 border-top">
+                        <strong>Tổng lợi nhuận</strong>
+                        <h5 class="mb-0 text-success">
+                            {{ number_format($report['net_income']) }}đ
+                        </h5>
                     </div>
                 </div>
             </div>
@@ -379,6 +415,9 @@
 <style>
 .bg-gradient-success {
     background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+}
+.bg-gradient-info {
+    background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
 }
 .bg-gradient-primary {
     background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);

@@ -384,59 +384,124 @@ trait UserIncome
     /**
      * Báo cáo thu nhập Hub
      */
-    public function getHubIncomeReport($startDate = null, $endDate = null)
-    {
-        $receivedFromDriver = $this->getHubReceivedFromDriver($startDate, $endDate);
-        $hubProfit = $this->getHubProfit($startDate, $endDate);
-        $mustPaySender = $this->getHubMustPaySender($startDate, $endDate);
-        $paidToSender = $this->getHubPaidToSender($startDate, $endDate);
-        $mustPayDriver = $this->getHubMustPayDriver($startDate, $endDate);
-        $paidToDriver = $this->getHubPaidToDriver($startDate, $endDate);
-        $mustPaySystem = $this->getHubMustPaySystem($startDate, $endDate);
-        $paidToSystem = $this->getHubPaidToSystem($startDate, $endDate);
-        
-        // Thống kê đơn hàng qua hub
-        $hub = Hub::where('user_id', $this->id)->first();
+    /**
+ * ✅ THÊM VÀO User Model hoặc Trait HasIncomeReport
+ * Tính thu nhập Hub (bao gồm cả tiền trả nợ)
+ */
+    /**
+ * ✅ FIX: Báo cáo thu nhập Hub (LOGIC ĐÚNG)
+ * THAY THẾ method getHubIncomeReport() hiện tại trong UserIncome trait
+ */
+public function getHubIncomeReport($startDate = null, $endDate = null)
+{
+    if (!$this->isHub()) {
+        return null;
+    }
+
+    $startDate = $startDate ?? now()->startOfMonth();
+    $endDate = $endDate ?? now()->endOfMonth();
+
+    // ========== 1. THU NHẬP TỪ COD TRANSACTIONS ==========
+    $transactions = CodTransaction::where('hub_id', $this->id)
+        ->whereBetween('created_at', [$startDate, $endDate])
+        ->get();
+
+    $grossIncome = $transactions->where('shipper_payment_status', 'confirmed')->sum('total_collected');
+    $receivedFromDriver = $transactions->where('shipper_payment_status', 'confirmed')->sum('total_collected');
+
+    // Chi phí
+    $paidToSender = $transactions->where('sender_payment_status', 'completed')->sum('sender_receive_amount');
+    $mustPaySender = $transactions->where('sender_payment_status', 'pending')->sum('sender_receive_amount');
+
+    $paidToDriver = $transactions->where('driver_commission_status', 'paid')->sum('driver_commission');
+    $mustPayDriver = $transactions->where('driver_commission_status', 'pending')->sum('driver_commission');
+
+    $paidToSystem = $transactions->where('hub_system_status', 'confirmed')->sum('hub_system_amount');
+    $mustPaySystem = $transactions->where('hub_system_status', 'pending')->sum('hub_system_amount');
+
+    $totalExpenses = $paidToSender + $paidToDriver + $paidToSystem;
+
+    // Lợi nhuận từ COD (đã bao gồm cả tiền trừ nợ tự động)
+    $hubProfitFromCod = $transactions->sum('hub_profit');
+
+    // ========== 2. ✅ THU NHẬP TỪ TRẢ NỢ THẬT SỰ ==========
+    // QUAN TRỌNG: Đây là tiền customer CHUYỂN KHOẢN trực tiếp để trả nợ
+    // KHÔNG PHẢI tiền trừ tự động từ COD đơn mới
     
-    if (!$hub) {
-        $totalOrders = 0;
-    } else {
-        $totalOrders = Order::where('post_office_id', $hub->post_office_id)
-            ->when($startDate, fn($q) => $q->whereDate('created_at', '>=', $startDate))
-            ->when($endDate, fn($q) => $q->whereDate('created_at', '<=', $endDate))
-            ->count();
-    }
-        return [
-            'role' => 'hub',
-            'income' => [
-                'received_from_driver' => $receivedFromDriver,
-                'hub_profit' => $hubProfit,
-                'gross_income' => $receivedFromDriver,
-            ],
-            'expenses' => [
-                'must_pay_sender' => $mustPaySender,
-                'paid_to_sender' => $paidToSender,
-                'must_pay_driver' => $mustPayDriver,
-                'paid_to_driver' => $paidToDriver,
-                'must_pay_system' => $mustPaySystem,
-                'paid_to_system' => $paidToSystem,
-                'total_expenses' => $paidToSender + $paidToDriver + $paidToSystem,
-            ],
-            'pending_payments' => [
-                'to_sender' => $mustPaySender,
-                'to_driver' => $mustPayDriver,
-                'to_system' => $mustPaySystem,
-                'total_pending' => $mustPaySender + $mustPayDriver + $mustPaySystem,
-            ],
-            'net_income' => $hubProfit,
-            'statistics' => [
-                'total_orders' => $totalOrders,
-                'avg_profit_per_order' => $totalOrders > 0 
-                    ? $hubProfit / $totalOrders 
-                    : 0,
-            ],
-        ];
-    }
+    $debtPaymentsReceived = CodTransaction::where('hub_id', $this->id)
+        ->whereBetween('sender_debt_confirmed_at', [$startDate, $endDate]) // ✅ Dùng thời gian XÁC NHẬN
+        ->where('sender_debt_payment_status', 'completed') // ✅ Đã xác nhận
+        ->whereNotNull('sender_debt_payment_method') // ✅ Có phương thức thanh toán (bank_transfer/cash)
+        ->sum('sender_debt_deducted'); // Số tiền đã trả
+
+    // Tiền trả nợ đang chờ xác nhận
+    $debtPaymentsPending = CodTransaction::where('hub_id', $this->id)
+        ->where('sender_debt_payment_status', 'pending') // Chờ xác nhận
+        ->whereNotNull('sender_debt_payment_method')
+        ->sum('sender_debt_deducted');
+
+    // ========== 3. ✅ TỔNG HỢP LỢI NHUẬN ==========
+    // Lợi nhuận thực tế = Lợi nhuận từ COD + Tiền trả nợ đã xác nhận
+    $netIncome = $hubProfitFromCod + $debtPaymentsReceived;
+
+    // ========== 4. PENDING PAYMENTS ==========
+    $pendingFromDriver = $transactions->where('shipper_payment_status', 'transferred')->count();
+    $pendingToSender = $transactions->where('sender_payment_status', 'pending')->count();
+    $pendingCommission = $transactions->where('driver_commission_status', 'pending')
+        ->where('shipper_payment_status', 'confirmed')->count();
+
+    // ========== 5. STATISTICS ==========
+    $totalOrders = $transactions->count();
+    $avgProfitPerOrder = $totalOrders > 0 ? $netIncome / $totalOrders : 0;
+
+    return [
+        'period' => [
+            'start' => $startDate->format('Y-m-d'),
+            'end' => $endDate->format('Y-m-d'),
+        ],
+        
+        'income' => [
+            'gross_income' => $grossIncome,
+            'received_from_driver' => $receivedFromDriver,
+        ],
+        
+        'expenses' => [
+            'paid_to_sender' => $paidToSender,
+            'must_pay_sender' => $mustPaySender,
+            'paid_to_driver' => $paidToDriver,
+            'must_pay_driver' => $mustPayDriver,
+            'paid_to_system' => $paidToSystem,
+            'must_pay_system' => $mustPaySystem,
+            'total_expenses' => $totalExpenses,
+        ],
+        
+        // ✅ LỢI NHUẬN CHI TIẾT
+        'net_income' => $netIncome, // Tổng lợi nhuận
+        'hub_profit_from_cod' => $hubProfitFromCod, // Từ COD đơn hàng
+        'debt_payments_received' => $debtPaymentsReceived, // Tiền trả nợ đã xác nhận
+        'debt_payments_pending' => $debtPaymentsPending, // Tiền trả nợ chờ xác nhận
+        
+        'pending_payments' => [
+            'from_driver' => $pendingFromDriver,
+            'to_sender' => $pendingToSender,
+            'commission' => $pendingCommission,
+            'debt_confirmation' => CodTransaction::where('hub_id', $this->id)
+                ->where('sender_debt_payment_status', 'pending')
+                ->whereNotNull('sender_debt_payment_method')
+                ->count(), // ✅ Số đơn trả nợ chờ xác nhận
+            'total_pending' => $mustPaySender + $mustPayDriver + $mustPaySystem,
+        ],
+        
+        'statistics' => [
+            'total_orders' => $totalOrders,
+            'avg_profit_per_order' => round($avgProfitPerOrder),
+            'total_debt_paid_orders' => CodTransaction::where('hub_id', $this->id)
+                ->whereBetween('sender_debt_confirmed_at', [$startDate, $endDate])
+                ->where('sender_debt_payment_status', 'completed')
+                ->count(), // ✅ Số đơn đã trả nợ
+        ],
+    ];
+}
     
     /**
      * ==========================================

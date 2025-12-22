@@ -70,6 +70,44 @@ class IncomeController extends Controller
                 'pendingCommission'
             ));
         }
+        if ($user->isAdmin()) {
+            $hubStats = \App\Models\User::where('role', 'hub')
+                ->where('status', 'active')
+                ->get()
+                ->map(function ($hub) use ($startDate, $endDate) {
+                    $hubReport = $hub->getHubIncomeReport($startDate, $endDate);
+                    return [
+                        'hub_id' => $hub->id,
+                        'hub_name' => $hub->full_name,
+                        'profit' => $hubReport['net_income'],
+                        'orders' => $hubReport['statistics']['total_orders'],
+                    ];
+                })
+                ->sortByDesc('profit')
+                ->take(10);
+            $hubStatsAll = \App\Models\User::where('role', 'hub')
+                ->where('status', 'active')
+                ->get()
+                ->map(function ($hub) use ($startDate, $endDate) {
+                    $hubReport = $hub->getHubIncomeReport($startDate, $endDate);
+                    return [
+                        'hub_id' => $hub->id,
+                        'hub_name' => $hub->full_name,
+                        'profit' => $hubReport['net_income'],
+                        'orders' => $hubReport['statistics']['total_orders'],
+                    ];
+                })
+                ->sortByDesc('profit');
+
+            return view('admin.income.system-overview', compact(
+                'hubStatsAll',
+                'report',
+                'hubStats',
+                'startDate',
+                'endDate'
+            ));
+        }
+
     }
 
     /**
@@ -380,37 +418,37 @@ class IncomeController extends Controller
         // Lấy báo cáo chi tiết của hub
         $report = $hub->getHubIncomeReport($startDate, $endDate);
 
-         if (!isset($report['statistics'])) {
-        $report['statistics'] = [];
-    }
-// Đếm số đơn theo trạng thái
-    $orderStats = Order::whereIn('id', function($query) use ($hubId, $startDate, $endDate) {
-        $query->select('order_id')
-            ->from('cod_transactions')
-            ->where('hub_id', $hubId)
-            ->whereBetween('created_at', [$startDate, $endDate]);
-    })
-    ->selectRaw('
+        if (!isset($report['statistics'])) {
+            $report['statistics'] = [];
+        }
+        // Đếm số đơn theo trạng thái
+        $orderStats = Order::whereIn('id', function ($query) use ($hubId, $startDate, $endDate) {
+            $query->select('order_id')
+                ->from('cod_transactions')
+                ->where('hub_id', $hubId)
+                ->whereBetween('created_at', [$startDate, $endDate]);
+        })
+            ->selectRaw('
         COUNT(*) as total_orders,
         SUM(CASE WHEN status = "delivered" THEN 1 ELSE 0 END) as delivered_orders,
         SUM(CASE WHEN status = "failed" THEN 1 ELSE 0 END) as failed_orders,
         SUM(CASE WHEN status IN ("in_transit", "picked_up") THEN 1 ELSE 0 END) as in_transit_orders,
         SUM(CASE WHEN status IN ("pending", "pickup_scheduled") THEN 1 ELSE 0 END) as pending_orders
     ')
-    ->first();
-    $report['statistics']['total_orders'] = $orderStats->total_orders ?? 0;
-    $report['statistics']['delivered_orders'] = $orderStats->delivered_orders ?? 0;
-    $report['statistics']['failed_orders'] = $orderStats->failed_orders ?? 0;
-    $report['statistics']['in_transit_orders'] = $orderStats->in_transit_orders ?? 0;
-    $report['statistics']['pending_orders'] = $orderStats->pending_orders ?? 0;
-    $report['statistics']['other_orders'] = $orderStats->total_orders 
-        - $orderStats->delivered_orders 
-        - $orderStats->failed_orders 
-        - $orderStats->in_transit_orders 
-        - $orderStats->pending_orders;
+            ->first();
+        $report['statistics']['total_orders'] = $orderStats->total_orders ?? 0;
+        $report['statistics']['delivered_orders'] = $orderStats->delivered_orders ?? 0;
+        $report['statistics']['failed_orders'] = $orderStats->failed_orders ?? 0;
+        $report['statistics']['in_transit_orders'] = $orderStats->in_transit_orders ?? 0;
+        $report['statistics']['pending_orders'] = $orderStats->pending_orders ?? 0;
+        $report['statistics']['other_orders'] = $orderStats->total_orders
+            - $orderStats->delivered_orders
+            - $orderStats->failed_orders
+            - $orderStats->in_transit_orders
+            - $orderStats->pending_orders;
 
-    // Tính toán các chỉ số bổ sung
-    $report['total_revenue'] = $report['net_income'] * 2.5;
+        // Tính toán các chỉ số bổ sung
+        $report['total_revenue'] = $report['net_income'] * 2.5;
         $report['hub_profit'] = $report['net_income'];
         $report['platform_fee'] = $report['net_income'] * 0.67; // 40% of revenue = 67% of hub profit
 
@@ -455,10 +493,10 @@ class IncomeController extends Controller
         ];
 
         // Top drivers của hub này
-       $topDrivers = CodTransaction::where('cod_transactions.hub_id', $hubId)
-        ->whereBetween('cod_transactions.created_at', [$startDate, $endDate])
-        ->join('users', 'cod_transactions.driver_id', '=', 'users.id')
-        ->selectRaw('
+        $topDrivers = CodTransaction::where('cod_transactions.hub_id', $hubId)
+            ->whereBetween('cod_transactions.created_at', [$startDate, $endDate])
+            ->join('users', 'cod_transactions.driver_id', '=', 'users.id')
+            ->selectRaw('
             users.id,
             users.full_name as name,
             COUNT(cod_transactions.id) as total_orders,
@@ -466,11 +504,11 @@ class IncomeController extends Controller
                 SELECT id FROM orders WHERE status = "delivered"
             ) THEN 1 ELSE 0 END) as delivered_orders
         ')
-        ->groupBy('users.id', 'users.full_name')
-        ->orderByDesc('total_orders')
-        ->limit(10)
-        ->get()
-        ->toArray();
+            ->groupBy('users.id', 'users.full_name')
+            ->orderByDesc('total_orders')
+            ->limit(10)
+            ->get()
+            ->toArray();
 
 
         // Recent transactions
@@ -481,17 +519,17 @@ class IncomeController extends Controller
             ->paginate(20);
 
         // Chart data - Revenue over time
-       $revenueByDate = CodTransaction::where('hub_id', $hubId)
-        ->whereBetween('created_at', [$startDate, $endDate])
-        ->selectRaw('
+        $revenueByDate = CodTransaction::where('hub_id', $hubId)
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->selectRaw('
             DATE(created_at) as date,
             SUM(cod_amount) as revenue,
             SUM(hub_system_amount) as platform_fee,
             SUM(cod_amount - hub_system_amount - driver_commission) as hub_profit
         ')
-        ->groupBy('date')
-        ->orderBy('date')
-        ->get();
+            ->groupBy('date')
+            ->orderBy('date')
+            ->get();
 
 
         $chartData = [
