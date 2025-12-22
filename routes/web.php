@@ -408,7 +408,8 @@ Route::prefix('customer')
             // ✅ ROUTE ĐỘNG SAU (order by: tĩnh trước, động sau)
             Route::get('/{id}/qr', [CustomerCodController::class, 'getQrCode'])->name('qr');
             Route::get('/{id}/debt-qr', [CustomerCodController::class, 'getDebtQrCode'])->name('debt-qr');
-            Route::post('/{id}/pay-fee', [CustomerCodController::class, 'paySenderFee'])->name('pay-fee');
+            // Route::post('/{id}/pay-fee', [CustomerCodController::class, 'paySenderFee'])->name('pay-fee');
+            Route::post('/{id}/pay-debt', [CustomerCodController::class, 'payDebt'])->name('pay-debt');
             Route::post('/{id}/pay-debt', [CustomerCodController::class, 'payDebt'])->name('payDebt');
             Route::post('/{id}/request-priority', [CustomerCodController::class, 'requestPriority'])->name('request-priority');
             

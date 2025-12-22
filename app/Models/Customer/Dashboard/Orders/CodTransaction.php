@@ -209,174 +209,321 @@ class CodTransaction extends Model
      *    - hub_profit = remaining_profit * 60%
      *    - admin_profit = remaining_profit * 40%
      */
-   public static function createFromOrder(Order $order)
+    // public static function createFromOrder(Order $order)
+    // {
+    //     // ========== 1. XÁC ĐỊNH THÔNG TIN CƠ BẢN ==========
+    //     $senderId = $order->sender_id ?? $order->orderGroup?->user_id;
+    //     if (!$senderId) {
+    //         throw new \Exception("Order #{$order->id} thiếu sender_id");
+    //     }
+        
+    //     $hub = \App\Models\Hub\Hub::where('post_office_id', $order->post_office_id)->first();
+    //     $hubId = $hub?->user_id;
+    //     if (!$hubId) {
+    //         throw new \Exception("Không tìm thấy Hub cho post_office_id: {$order->post_office_id}");
+    //     }
+        
+    //     $codAmount = (float)($order->cod_amount ?? 0);
+    //     $shippingFee = (float)($order->shipping_fee ?? 0);
+    //     $codFee = (float)($order->cod_fee ?? 0);
+    //     $sender_total = (float)($order->sender_total ?? 0);
+    //     $platformFee = (float)config('delivery.platform_base_fee', 2000);
+    //     $payer = $order->payer ?? 'sender';
+        
+    //     // ========== 2. TÍNH TIỀN DRIVER THU TỪ NGƯỜI NHẬN ==========
+    //     if ($payer === 'recipient') {
+    //         // Người nhận trả: shipping + cod
+    //         $totalCollected = $codAmount + $shippingFee;
+    //     } else {
+    //         // Người gửi trả ship, người nhận chỉ trả COD
+    //         $totalCollected = $codAmount;
+    //     }
+        
+    //     // ========== 3. TÍNH DRIVER COMMISSION ==========
+    //     $driverCommissionRate = config('delivery.driver_commission_rate', 0.5);
+    //     $minCommission = config('delivery.min_driver_commission', 5000);
+    //     $maxCommission = config('delivery.max_driver_commission', 50000);
+        
+    //     $driverCommission = $shippingFee * $driverCommissionRate;
+    //     $driverCommission = max($minCommission, min($driverCommission, $maxCommission));
+        
+    //     // ========== 4. XỬ LÝ NỢ CỦA SENDER ==========
+    //     $senderDebt = 0;
+    //     if (config('delivery.debt.auto_deduct', true)) {
+    //         $senderDebt = self::getSenderDebtWithHub($senderId, $hubId);
+    //     }
+        
+    //     // ========== 5. TÍNH TIỀN SENDER NHẬN ==========
+    //     // Sender nhận = COD  - sender_total - nợ
+    //     $senderReceiveBeforeDebt = $codAmount - $sender_total;
+    //     $senderReceiveAmount = $senderReceiveBeforeDebt - $senderDebt;
+        
+    //     // Nếu âm → tạo nợ mới
+    //     if ($senderReceiveAmount < 0) {
+    //         $newDebt = abs($senderReceiveAmount);
+    //         self::createDebt($senderId, $hubId, $newDebt, $order->id, "Nợ từ đơn #{$order->id}");
+    //         $senderReceiveAmount = 0;
+    //         $senderDebt += $newDebt;
+    //     }
+        
+    //     // ========== 6. TÍNH CHIA LỢI NHUẬN HUB & ADMIN ==========
+    //     // Hub nhận tất cả tiền từ Driver
+    //     $hubReceivedTotal = $totalCollected;
+        
+    //     // Hub phải trả cho Sender + Driver
+    //     $hubMustPay = $senderReceiveAmount + $driverCommission;
+        
+    //     // Phần còn lại chia giữa Hub và Admin
+    //     $remainingProfit = $hubReceivedTotal - $hubMustPay;
+        
+    //     $hubProfitShare = config('delivery.hub_profit_share', 0.60);
+    //     $adminProfitShare = config('delivery.admin_profit_share', 0.40);
+        
+    //     $hubProfit = round($remainingProfit * $hubProfitShare);
+    //     $adminProfit = round($remainingProfit * $adminProfitShare);
+        
+    //     // ========== 7. KIỂM TRA CÂN BẰNG DÒNG TIỀN ==========
+    //     $totalDistributed = $senderReceiveAmount + $driverCommission + $hubProfit + $adminProfit;
+    //     $diff = abs($totalCollected - $totalDistributed);
+        
+    //     if ($diff > 0.01) {
+    //         Log::error("❌ Dòng tiền không cân bằng!", [
+    //             'order_id' => $order->id,
+    //             'thu_vao' => $totalCollected,
+    //             'chi_ra' => $totalDistributed,
+    //             'chenh_lech' => $totalCollected - $totalDistributed,
+    //             'breakdown' => [
+    //                 'cod_amount' => $codAmount,
+    //                 'shipping_fee' => $shippingFee,
+    //                 'cod_fee' => $codFee,
+    //                 'platform_fee' => $platformFee,
+    //                 'total_collected' => $totalCollected,
+    //                 'sender_receive' => $senderReceiveAmount,
+    //                 'sender_debt' => $senderDebt,
+    //                 'driver_commission' => $driverCommission,
+    //                 'hub_profit' => $hubProfit,
+    //                 'admin_profit' => $adminProfit,
+    //             ]
+    //         ]);
+    //         throw new \Exception("Dòng tiền không cân bằng! Thu: {$totalCollected} - Chi: {$totalDistributed}");
+    //     }
+        
+    //     // ========== 8. TẠO TRANSACTION ==========
+    //     $transaction = self::create([
+    //         'order_id' => $order->id,
+    //         'driver_id' => $order->driver_id,
+    //         'sender_id' => $senderId,
+    //         'hub_id' => $hubId,
+            
+    //         'cod_amount' => $codAmount,
+    //         'shipping_fee' => $shippingFee,
+    //         'platform_fee' => $platformFee,
+    //         'cod_fee' => $codFee,
+    //         'payer_shipping' => $payer,
+            
+    //         'total_collected' => $totalCollected,
+    //         'sender_receive_amount' => $senderReceiveAmount,
+    //         'sender_debt_deducted' => $senderDebt,
+    //         'driver_commission' => $driverCommission,
+    //         'hub_profit' => $hubProfit,
+    //         'admin_profit' => $adminProfit,
+    //         'hub_system_amount' => $adminProfit, // Admin profit = platform fee
+            
+    //         'driver_commission_status' => 'pending',
+    //         'shipper_payment_status' => 'pending',
+    //         'sender_payment_status' => $senderReceiveAmount > 0 ? 'not_ready' : 'not_applicable',
+    //         'hub_system_status' => 'not_ready',
+            
+    //         // 'sender_fee_paid' => $payer === 'sender' ? $shippingFee + $platformFee + $codFee : $platformFee + $codFee,
+    //         'sender_fee_paid' => $payer === 'sender' ? $shippingFee  + $codFee :  $codFee,
+    //         'recipient_fee_paid' => $payer === 'recipient' ? $shippingFee : 0,
+            
+    //         'created_by' => Auth::id() ?? $senderId,
+    //     ]);
+        
+    //     // ========== 9. GHI NHẬN NỢ ĐÃ TRỪ ==========
+    //     if ($senderDebt > 0) {
+    //         self::recordDebtDeduction($senderId, $hubId, $order->id, $senderDebt);
+    //     }
+        
+    //     Log::info("✅ Transaction created successfully", [
+    //         'order_id' => $order->id,
+    //         'transaction_id' => $transaction->id,
+    //         'summary' => [
+    //             'total_collected' => $totalCollected,
+    //             'sender_receive' => $senderReceiveAmount,
+    //             'driver_commission' => $driverCommission,
+    //             'hub_profit' => $hubProfit,
+    //             'admin_profit' => $adminProfit,
+    //             'debt_deducted' => $senderDebt,
+    //         ]
+    //     ]);
+        
+    //     return $transaction;
+    // }
+    // File: App\Models\Customer\Dashboard\Orders\CodTransaction.php
+// Thay thế method createFromOrder() HOÀN TOÀN
+
+public static function createFromOrder(Order $order)
 {
-    // ================== 1. BASIC ==================
+    // ========== 1. XÁC ĐỊNH THÔNG TIN CƠ BẢN ==========
     $senderId = $order->sender_id ?? $order->orderGroup?->user_id;
     if (!$senderId) {
         throw new \Exception("Order #{$order->id} thiếu sender_id");
     }
-
+    
     $hub = \App\Models\Hub\Hub::where('post_office_id', $order->post_office_id)->first();
-    if (!$hub) {
-        throw new \Exception("Không tìm thấy hub");
+    $hubId = $hub?->user_id;
+    if (!$hubId) {
+        throw new \Exception("Không tìm thấy Hub cho post_office_id: {$order->post_office_id}");
     }
-
-    $hubId = $hub->user_id;
-
-    $codAmount   = (float) ($order->cod_amount ?? 0);
-    $shippingFee = (float) ($order->shipping_fee ?? 0);
-    $codFee      = (float) ($order->cod_fee ?? 0);
-    $senderTotal = (float) ($order->sender_total ?? 0);
-    $payer       = $order->payer ?? 'sender';
-
-    // ================== 2. TOTAL COLLECTED (FROM RECIPIENT ONLY) ==================
+    
+    $codAmount = (float)($order->cod_amount ?? 0);
+    $shippingFee = (float)($order->shipping_fee ?? 0);
+    $codFee = (float)($order->cod_fee ?? 0);
+    $sender_total = (float)($order->sender_total ?? 0);
+    $platformFee = (float)config('delivery.platform_base_fee', 2000);
+    $payer = $order->payer ?? 'sender';
+    
+    // ========== 2. TÍNH TIỀN DRIVER THU TỪ NGƯỜI NHẬN ==========
     if ($payer === 'recipient') {
         $totalCollected = $codAmount + $shippingFee;
     } else {
         $totalCollected = $codAmount;
     }
-
-    if ($codAmount == 0) {
-        $totalCollected = 0;
+    
+    // ========== 3. TÍNH DRIVER COMMISSION ==========
+    $driverCommissionRate = config('delivery.driver_commission_rate', 0.5);
+    $minCommission = config('delivery.min_driver_commission', 5000);
+    $maxCommission = config('delivery.max_driver_commission', 50000);
+    
+    $driverCommission = $shippingFee * $driverCommissionRate;
+    $driverCommission = max($minCommission, min($driverCommission, $maxCommission));
+    
+    // ========== 4. XỬ LÝ NỢ CỦA SENDER ==========
+    $senderDebt = 0;
+    if (config('delivery.debt.auto_deduct', true)) {
+        $senderDebt = self::getSenderDebtWithHub($senderId, $hubId);
     }
-
-    // ================== 3. DRIVER COMMISSION FUNC ==================
-    $calcDriverCommission = function ($baseAmount) {
-        $rate = config('delivery.driver_commission_rate', 0.5);
-        $min  = config('delivery.min_driver_commission', 5000);
-        $max  = config('delivery.max_driver_commission', 50000);
-
-        return max($min, min($baseAmount * $rate, $max));
-    };
-
-    // ================== 4. OLD DEBT ==================
-    $senderOldDebt = config('delivery.debt.auto_deduct', true)
-        ? self::getSenderDebtWithHub($senderId, $hubId)
-        : 0;
-
-    // ================== 5. INIT ==================
-    $senderReceiveAmount = 0;
-    $driverCommission = 0;
-    $hubProfit = 0;
-    $adminProfit = 0;
-
-    $needCreateDebt = false;
-    $newDebt = 0;
-
-    // ================== 6. CASE HANDLING ==================
-
-    // 🟢 CASE 1 — ĐƠN CÓ COD
-    if ($codAmount > 0) {
-
-        $senderReceiveBeforeDebt = $codAmount - $senderTotal;
-        $senderReceiveAmount = max(0, $senderReceiveBeforeDebt - $senderOldDebt);
-
-        $driverCommission = $calcDriverCommission($shippingFee);
-
-        $hubMustPay = $senderReceiveAmount + $driverCommission;
-        $remaining = $totalCollected - $hubMustPay;
-
-        $hubProfit = round($remaining * config('delivery.hub_profit_share', 0.6));
-        $adminProfit = round($remaining * config('delivery.admin_profit_share', 0.4));
-
-    }
-
-    // 🟢 CASE 2 — KHÔNG COD, SENDER TRẢ PHÍ SHIP
-    elseif ($codAmount == 0 && $payer === 'sender' && $senderTotal > 0) {
-
-        // tạo nợ để sender trả
-        $needCreateDebt = true;
-        $newDebt = $senderTotal;
-
-        // coi sender_total là DOANH THU VẬN HÀNH
-        $virtualRevenue = $senderTotal;
-
-        $driverCommission = $calcDriverCommission($virtualRevenue);
-        $hubProfit = $virtualRevenue - $driverCommission;
-        $adminProfit = 0;
-
+    
+    // ========== 5. TÍNH TIỀN SENDER NHẬN ==========
+    $senderReceiveBeforeDebt = $codAmount - $sender_total;
+    $senderReceiveAmount = $senderReceiveBeforeDebt - $senderDebt;
+    
+    // Nếu âm → tạo nợ mới
+    if ($senderReceiveAmount < 0) {
+        $newDebt = abs($senderReceiveAmount);
+        self::createDebt($senderId, $hubId, $newDebt, $order->id, "Nợ từ đơn #{$order->id}");
         $senderReceiveAmount = 0;
+        $senderDebt += $newDebt;
     }
-
-    // 🔴 CASE 3 — PHÍ HOÀN / PHẠT
-    else {
-
-        if ($senderTotal > 0) {
-            $needCreateDebt = true;
-            $newDebt = $senderTotal;
-        }
-
-        $driverCommission = 0;
-        $hubProfit = $newDebt;
-        $adminProfit = 0;
+    
+    // ========== 6. TÍNH CHIA LỢI NHUẬN HUB & ADMIN ==========
+    $hubReceivedTotal = $totalCollected;
+    $hubMustPay = $senderReceiveAmount + $driverCommission;
+    $remainingProfit = $hubReceivedTotal - $hubMustPay;
+    
+    $hubProfitShare = config('delivery.hub_profit_share', 0.60);
+    $adminProfitShare = config('delivery.admin_profit_share', 0.40);
+    
+    $hubProfit = round($remainingProfit * $hubProfitShare);
+    $adminProfit = round($remainingProfit * $adminProfitShare);
+    
+    // ========== 7. KIỂM TRA CÂN BẰNG DÒNG TIỀN ==========
+    $totalDistributed = $senderReceiveAmount + $driverCommission + $hubProfit + $adminProfit;
+    $diff = abs($totalCollected - $totalDistributed);
+    
+    if ($diff > 0.01) {
+        Log::error("❌ Dòng tiền không cân bằng!", [
+            'order_id' => $order->id,
+            'thu_vao' => $totalCollected,
+            'chi_ra' => $totalDistributed,
+            'chenh_lech' => $totalCollected - $totalDistributed,
+        ]);
+        throw new \Exception("Dòng tiền không cân bằng! Thu: {$totalCollected} - Chi: {$totalDistributed}");
     }
-
-    // ================== 7. CASH FLOW CHECK (ONLY WHEN COLLECTED) ==================
-    if ($totalCollected > 0) {
-        $distributed =
-            $senderReceiveAmount +
-            $driverCommission +
-            $hubProfit +
-            $adminProfit;
-
-        if (abs($totalCollected - $distributed) > 0.01) {
-            throw new \Exception("❌ Lệch dòng tiền đơn #{$order->id}");
-        }
+    
+    // ========== 8. ✅ XỬ LÝ PHÍ SENDER PHẢI TRẢ ==========
+    $senderFeePaid = $payer === 'sender' ? $shippingFee + $codFee : $codFee;
+    
+    // ✅ LOGIC MỚI: Nếu KHÔNG CÓ COD → Phí thành nợ ngay
+    if ($codAmount == 0 && $senderFeePaid > 0) {
+        // Tạo nợ ngay cho phí này
+        \App\Models\SenderDebt::create([
+            'sender_id' => $senderId,
+            'hub_id' => $hubId,
+            'order_id' => $order->id,
+            'type' => 'debt',
+            'amount' => $senderFeePaid,
+            'status' => 'unpaid',
+            'note' => "Phí dịch vụ đơn #{$order->id} (không có COD)",
+        ]);
+        
+        Log::info("✅ Created debt for order without COD", [
+            'order_id' => $order->id,
+            'sender_id' => $senderId,
+            'hub_id' => $hubId,
+            'debt_amount' => $senderFeePaid,
+        ]);
     }
-
-    // ================== 8. CREATE TRANSACTION ==================
+    
+    // ========== 9. TẠO TRANSACTION ==========
     $transaction = self::create([
         'order_id' => $order->id,
         'driver_id' => $order->driver_id,
         'sender_id' => $senderId,
         'hub_id' => $hubId,
-
+        
         'cod_amount' => $codAmount,
         'shipping_fee' => $shippingFee,
+        'platform_fee' => $platformFee,
         'cod_fee' => $codFee,
         'payer_shipping' => $payer,
-
+        
         'total_collected' => $totalCollected,
         'sender_receive_amount' => $senderReceiveAmount,
-        'sender_debt_deducted' => $senderOldDebt,
+        'sender_debt_deducted' => $senderDebt,
         'driver_commission' => $driverCommission,
         'hub_profit' => $hubProfit,
         'admin_profit' => $adminProfit,
         'hub_system_amount' => $adminProfit,
-
-        'driver_commission_status' => $driverCommission > 0 ? 'pending' : 'not_applicable',
-        'shipper_payment_status' => $totalCollected > 0 ? 'pending' : 'not_applicable',
+        
+        'driver_commission_status' => 'pending',
+        'shipper_payment_status' => 'pending',
         'sender_payment_status' => $senderReceiveAmount > 0 ? 'not_ready' : 'not_applicable',
         'hub_system_status' => 'not_ready',
-
-        'sender_fee_paid' => $payer === 'sender' ? $senderTotal : 0,
+        
+        'sender_fee_paid' => $senderFeePaid,
         'recipient_fee_paid' => $payer === 'recipient' ? $shippingFee : 0,
-
+        
+        // ✅ QUAN TRỌNG: Nếu không có COD → sender_fee_status = null (sẽ dùng debt)
+        'sender_fee_status' => $codAmount > 0 ? 'pending' : 'not_applicable',
+        
         'created_by' => Auth::id() ?? $senderId,
     ]);
-
-    // ================== 9. CREATE DEBT ==================
-    if ($needCreateDebt && $newDebt > 0) {
-        self::createDebt(
-            $senderId,
-            $hubId,
-            $newDebt,
-            $order->id,
-            $codAmount == 0
-                ? "Phí đơn không COD #{$order->id}"
-                : "Nợ đơn #{$order->id}"
-        );
+    
+    // ========== 10. GHI NHẬN NỢ ĐÃ TRỪ ==========
+    if ($senderDebt > 0) {
+        self::recordDebtDeduction($senderId, $hubId, $order->id, $senderDebt);
     }
-
-    if ($senderOldDebt > 0 && !$needCreateDebt) {
-        self::recordDebtDeduction($senderId, $hubId, $order->id, $senderOldDebt);
-    }
-
+    
+    Log::info("✅ Transaction created successfully", [
+        'order_id' => $order->id,
+        'transaction_id' => $transaction->id,
+        'summary' => [
+            'total_collected' => $totalCollected,
+            'sender_receive' => $senderReceiveAmount,
+            'driver_commission' => $driverCommission,
+            'hub_profit' => $hubProfit,
+            'admin_profit' => $adminProfit,
+            'debt_deducted' => $senderDebt,
+            'sender_fee_paid' => $senderFeePaid,
+            'created_debt' => $codAmount == 0 && $senderFeePaid > 0,
+        ]
+    ]);
+    
     return $transaction;
-    }
-
-
+}
 
     // ============ HELPER METHODS ============
     

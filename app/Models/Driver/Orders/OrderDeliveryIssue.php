@@ -243,20 +243,28 @@ class OrderDeliveryIssue extends Model
                 }
             } else {
                 // ✅ ĐƠN NGOẠI THÀNH (qua hub): 3 lần thất bại mới hoàn về
-                if ($attemptCount >= 3) {
+               if ($attemptCount >= 3) {
                     $orderReturn = OrderReturn::createFromOrder(
                         $order,
                         OrderReturn::REASON_AUTO_FAILED,
                         "Đơn ngoại thành giao thất bại {$attemptCount} lần - Tự động hoàn về",
                         $resolvedBy
                     );
-                    
+
+                    // ✅ FIX QUAN TRỌNG: NGOẠI THÀNH → KHÔNG GÁN DRIVER
+                    $orderReturn->update([
+                        'driver_id'   => null,
+                        'status'      => OrderReturn::STATUS_PENDING,
+                        'assigned_at' => null,
+                    ]);
+
                     $this->update([
                         'resolution_action' => self::ACTION_RETURN,
                         'order_return_id' => $orderReturn->id,
-                        'resolution_note' => ($note ? $note . ' | ' : '') . "Đơn ngoại thành - Tự động hoàn về sau {$attemptCount} lần thất bại"
+                        'resolution_note' => ($note ? $note . ' | ' : '') . 
+                            "Đơn ngoại thành - Tự động hoàn về sau {$attemptCount} lần thất bại"
                     ]);
-                    
+
                     return [
                         'success' => true,
                         'auto_converted_to_return' => true,

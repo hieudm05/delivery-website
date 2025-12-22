@@ -1,3 +1,4 @@
+{{-- C:\laragon\www\delivery-website\resources\views\customer\dashboard\cod\partials\pay-fee-modal.blade.php --}}
 <!-- ==================== MODAL: THANH TOÁN PHÍ ==================== -->
 <div class="modal fade" id="payFeeModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog modal-dialog-centered modal-lg">
